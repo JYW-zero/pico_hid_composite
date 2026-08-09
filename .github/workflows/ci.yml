@@ -159,26 +159,33 @@ jobs:
           nuget-
 
     # --------------------------------------------------------
-    # 3. 还原依赖
+    # 3. 调试：列出目录结构
+    # --------------------------------------------------------
+    - name: List directory structure
+      run: |
+        Get-ChildItem -Path pc_tool -Recurse -Depth 2 | Select-Object FullName
+
+    # --------------------------------------------------------
+    # 4. 还原依赖
     # --------------------------------------------------------
     - name: Restore dependencies
-      run: dotnet restore pc_tool/src/HidConfigTool.App/HidConfigTool.App.csproj
+      run: dotnet restore pc_tool/HidConfigTool.slnx
 
     # --------------------------------------------------------
-    # 4. 构建
+    # 5. 构建
     # --------------------------------------------------------
     - name: Build
-      run: dotnet build pc_tool/src/HidConfigTool.App/HidConfigTool.App.csproj --configuration Release --no-restore
+      run: dotnet build pc_tool/HidConfigTool.slnx --configuration Release --no-restore
 
     # --------------------------------------------------------
-    # 5. 运行单元测试
+    # 6. 运行单元测试
     # --------------------------------------------------------
     - name: Run unit tests
       run: dotnet test pc_tool/src/HidConfigTool.Tests/HidConfigTool.Tests.csproj --configuration Release --verbosity normal
       continue-on-error: true
 
     # --------------------------------------------------------
-    # 6. 发布上位机（依赖框架）
+    # 7. 发布上位机（依赖框架）
     # --------------------------------------------------------
     - name: Publish PC Tool (framework-dependent)
       run: |
@@ -188,7 +195,7 @@ jobs:
           --output publish-framework-dependent
 
     # --------------------------------------------------------
-    # 7. 发布上位机（自包含单文件）
+    # 8. 发布上位机（自包含单文件）
     # --------------------------------------------------------
     - name: Publish PC Tool (self-contained single-file)
       run: |
