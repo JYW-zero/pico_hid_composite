@@ -1,0 +1,248 @@
+<UserControl x:Class="HidConfigTool.App.Views.ErrorLogPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:vm="clr-namespace:HidConfigTool.App.ViewModels"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="800">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Themes/DarkTheme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- 顶部：统计卡片 + 刷新按钮 -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!-- 统计卡片 -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                <!-- 总日志数 -->
+                <Border Background="{StaticResource CardBackgroundBrush}"
+                        CornerRadius="12"
+                        Padding="20,16"
+                        Width="160"
+                        Margin="0,0,16,0">
+                    <StackPanel>
+                        <TextBlock Text="总日志数"
+                                   FontSize="13"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Margin="0,0,0,8" />
+                        <TextBlock Text="{Binding TotalLogCount}"
+                                   FontSize="28"
+                                   FontWeight="Bold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 总故障数 -->
+                <Border Background="{StaticResource CardBackgroundBrush}"
+                        CornerRadius="12"
+                        Padding="20,16"
+                        Width="160">
+                    <StackPanel>
+                        <TextBlock Text="总故障数"
+                                   FontSize="13"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Margin="0,0,0,8" />
+                        <TextBlock Text="{Binding TotalFaultCount}"
+                                   FontSize="28"
+                                   FontWeight="Bold"
+                                   Foreground="#EF5350" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- 操作按钮 -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="筛选:"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0" />
+                <ComboBox SelectedIndex="{Binding CurrentFilter}"
+                          Width="100"
+                          Background="#1A1B26"
+                          Foreground="{StaticResource TextPrimaryBrush}"
+                          BorderBrush="{StaticResource BorderBrush}"
+                          BorderThickness="1"
+                          Padding="8,6"
+                          VerticalAlignment="Center"
+                          Margin="0,0,16,0">
+                    <ComboBoxItem Content="全部" />
+                    <ComboBoxItem Content="INFO" />
+                    <ComboBoxItem Content="WARN" />
+                    <ComboBoxItem Content="ERROR" />
+                    <ComboBoxItem Content="FATAL" />
+                </ComboBox>
+                <Button Content="刷新"
+                        Command="{Binding RefreshCommand}"
+                        IsEnabled="{Binding IsDeviceConnected}"
+                        Padding="20,10"
+                        Margin="0,0,12,0">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
+                            <Setter Property="IsEnabled" Value="True" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsLoading}" Value="True">
+                                    <Setter Property="IsEnabled" Value="False" />
+                                    <Setter Property="Content" Value="加载中..." />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+                <Button Content="清除"
+                        Command="{Binding ClearCommand}"
+                        IsEnabled="{Binding IsDeviceConnected}"
+                        Padding="20,10">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                            <Setter Property="IsEnabled" Value="True" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsLoading}" Value="True">
+                                    <Setter Property="IsEnabled" Value="False" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- 日志列表 -->
+        <Border Grid.Row="2"
+                Background="{StaticResource CardBackgroundBrush}"
+                CornerRadius="12"
+                Padding="16">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="12" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- 标题 -->
+                <TextBlock Grid.Row="0"
+                           Text="错误日志"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}" />
+
+                <!-- 列表 -->
+                <ScrollViewer Grid.Row="2"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding Logs}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="12,10"
+                                        Margin="0,0,0,8"
+                                        Background="#1E2233"
+                                        CornerRadius="8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- 级别标签 -->
+                                        <Border Grid.Column="0"
+                                                Padding="8,4"
+                                                CornerRadius="4"
+                                                Background="{Binding LevelColor}"
+                                                Opacity="0.2">
+                                            <TextBlock Text="{Binding LevelName}"
+                                                       FontSize="11"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{Binding LevelColor}" />
+                                        </Border>
+
+                                        <!-- 时间 -->
+                                        <TextBlock Grid.Column="2"
+                                                   Text="{Binding TimeFormatted}"
+                                                   FontSize="12"
+                                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                                   VerticalAlignment="Center"
+                                                   FontFamily="Consolas" />
+
+                                        <!-- 模块 -->
+                                        <TextBlock Grid.Column="4"
+                                                   Text="{Binding Module}"
+                                                   FontSize="12"
+                                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                                   VerticalAlignment="Center"
+                                                   Width="80"
+                                                   TextTrimming="CharacterEllipsis" />
+
+                                        <!-- 消息 -->
+                                        <TextBlock Grid.Column="6"
+                                                   Text="{Binding Message}"
+                                                   FontSize="13"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+
+                        <!-- 空状态 -->
+                        <ItemsControl.Style>
+                            <Style TargetType="ItemsControl">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ItemsControl">
+                                            <ItemsPresenter />
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Logs.Count}" Value="0">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ItemsControl">
+                                                    <Grid Height="200">
+                                                        <StackPanel VerticalAlignment="Center"
+                                                                    HorizontalAlignment="Center">
+                                                            <TextBlock Text="暂无错误日志"
+                                                                       FontSize="14"
+                                                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                                                       HorizontalAlignment="Center"
+                                                                       Margin="0,0,0,8" />
+                                                            <TextBlock Text="设备运行正常，没有记录到错误"
+                                                                       FontSize="12"
+                                                                       Foreground="{StaticResource TextTertiaryBrush}"
+                                                                       HorizontalAlignment="Center" />
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ItemsControl.Style>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

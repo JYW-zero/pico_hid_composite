@@ -1,0 +1,156 @@
+<UserControl x:Class="HidConfigTool.App.Views.DevicePage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:vm="clr-namespace:HidConfigTool.App.ViewModels"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="800">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Themes/DarkTheme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly">
+        <StackPanel>
+            <TextBlock Text="设备管理"
+                   FontSize="24"
+                   FontWeight="Bold"
+                   Foreground="{StaticResource TextPrimaryBrush}"
+                   Margin="0,0,0,24" />
+
+        <!-- 设备列表卡片 -->
+        <Border Background="{StaticResource CardBackgroundBrush}"
+                CornerRadius="12"
+                Padding="20"
+                Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="已发现的设备"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           Margin="0,0,0,16" />
+
+                <ListBox ItemsSource="{Binding Devices}"
+                         SelectedItem="{Binding SelectedDevice}"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         Height="200">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border Padding="12"
+                                    Background="{StaticResource CardBackgroundBrush}"
+                                    CornerRadius="8"
+                                    Margin="0,4">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding ProductName}"
+                                               FontSize="14"
+                                               FontWeight="Medium"
+                                               Foreground="{StaticResource TextPrimaryBrush}" />
+                                    <TextBlock Text="{Binding DevicePath}"
+                                               FontSize="11"
+                                               Foreground="{StaticResource TextSecondaryBrush}"
+                                               Margin="0,4,0,0"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <TextBlock Text="{Binding StatusMessage}"
+                           FontSize="12"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="0,12,0,0" />
+
+            </StackPanel>
+        </Border>
+
+        <!-- 设备信息卡片 -->
+        <Border Background="{StaticResource CardBackgroundBrush}"
+                CornerRadius="12"
+                Padding="20">
+            <StackPanel>
+                <TextBlock Text="设备信息"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           Margin="0,0,0,16" />
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="150" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="产品名称" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,8" />
+                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding DeviceName}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,8" />
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="固件版本" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,8" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding FirmwareVersion}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,8" />
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="硬件版本" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,8" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text="v1.0" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,8" />
+
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="状态" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,8" />
+                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding StatusMessage}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,8" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- 设备操作卡片 -->
+        <Border Background="{StaticResource CardBackgroundBrush}"
+                CornerRadius="12"
+                Padding="20"
+                Margin="0,16,0,0">
+            <StackPanel>
+                <TextBlock Text="设备操作"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           Margin="0,0,0,16" />
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Button Grid.Column="0"
+                            Content="重启设备"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Command="{Binding RebootCommand}"
+                            IsEnabled="{Binding IsConnected}"
+                            Margin="0,0,8,0"
+                            Padding="16,10"
+                            FontSize="14" />
+
+                    <Button Grid.Column="1"
+                            Content="进入烧录模式"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Command="{Binding EnterBootselCommand}"
+                            IsEnabled="{Binding IsConnected}"
+                            Margin="8,0,0,0"
+                            Padding="16,10"
+                            FontSize="14" />
+                </Grid>
+
+                <TextBlock Text="提示：进入烧录模式后，设备会重启为 USB 大容量存储设备，可直接拖拽固件烧录"
+                           FontSize="11"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="0,12,0,0"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+    </StackPanel>
+    </ScrollViewer>
+</UserControl>

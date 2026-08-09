@@ -1,0 +1,82 @@
+﻿<Window x:Class="HidConfigTool.App.Views.OsdWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        Width="280"
+        Height="100"
+        ResizeMode="NoResize">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Themes/DarkTheme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- 淡入动画 -->
+            <Storyboard x:Key="FadeInStoryboard">
+                <DoubleAnimation Storyboard.TargetName="OsdBorder"
+                                 Storyboard.TargetProperty="Opacity"
+                                 From="0" To="1" Duration="0:0:0.2" />
+            </Storyboard>
+
+            <!-- 淡出动画 -->
+            <Storyboard x:Key="FadeOutStoryboard">
+                <DoubleAnimation Storyboard.TargetName="OsdBorder"
+                                 Storyboard.TargetProperty="Opacity"
+                                 From="1" To="0" Duration="0:0:0.3" />
+            </Storyboard>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Border x:Name="OsdBorder"
+            Background="#24283B"
+            CornerRadius="12"
+            BorderBrush="#2E3347"
+            BorderThickness="1"
+            Opacity="0">
+        <Border.Effect>
+            <DropShadowEffect Color="Black"
+                              Direction="270"
+                              ShadowDepth="0"
+                              BlurRadius="20"
+                              Opacity="0.5" />
+        </Border.Effect>
+
+        <Grid Margin="20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- 图标 -->
+            <Border Grid.Column="0"
+                    Width="48"
+                    Height="48"
+                    CornerRadius="24"
+                    Background="{StaticResource PrimaryColorBrush}"
+                    VerticalAlignment="Center"
+                    Margin="0,0,16,0">
+                <TextBlock Text="{Binding Icon}"
+                           FontSize="24"
+                           Foreground="White"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center" />
+            </Border>
+
+            <!-- 文字 -->
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock Text="{Binding Title}"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           Margin="0,0,0,4" />
+                <TextBlock Text="{Binding Message}"
+                           FontSize="13"
+                           Foreground="{StaticResource TextSecondaryBrush}" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

@@ -1,0 +1,40 @@
+{
+    // Pico 扩展配置（打开 firmware 目录时生效，根目录下主要用于参考）
+    "raspberry-pi-pico.useCmakeTools": false,
+    "raspberry-pi-pico.cmakeAutoConfigure": true,
+    
+    // CMake Tools 配置（打开 firmware 目录时使用 firmware/.vscode 下的配置）
+    "cmake.configureOnOpen": false,
+    
+    // ============================================================
+    // 代码格式化配置
+    // ============================================================
+    "editor.formatOnSave": true,
+    "editor.formatOnType": false,
+    "editor.formatOnPaste": true,
+    
+    // C/C++ 格式化器：使用 clang-format
+    "[c]": {
+        "editor.defaultFormatter": "ms-vscode.cpptools",
+        "editor.formatOnSave": true
+    },
+    "[cpp]": {
+        "editor.defaultFormatter": "ms-vscode.cpptools",
+        "editor.formatOnSave": true
+    },
+    "C_Cpp.clang_format_style": "file",  // 使用项目根目录的 .clang-format 文件
+    "C_Cpp.clang_format_fallbackStyle": "LLVM",
+    
+    // C# 格式化（上位机）
+    "[csharp]": {
+        "editor.defaultFormatter": "ms-dotnettools.csharp",
+        "editor.formatOnSave": true
+    },
+    
+    // 文件排除
+    "files.exclude": {
+        "**/build": true,
+        "**/.git": true,
+        "temp": true
+    }
+}

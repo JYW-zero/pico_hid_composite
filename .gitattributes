@@ -1,0 +1,46 @@
+# ============================================================
+# .gitattributes - Git 属性配置
+# 强制统一换行符，避免 Windows/Linux 跨平台编译问题
+# ============================================================
+
+# 文本文件强制 LF 换行（防止 CMake、Shell 脚本在 Windows 下出诡异问题）
+* text=auto eol=lf
+
+# 明确指定文本文件类型
+*.c      text eol=lf
+*.h      text eol=lf
+*.cpp    text eol=lf
+*.hpp    text eol=lf
+*.cmake  text eol=lf
+CMakeLists.txt text eol=lf
+*.ps1    text eol=lf
+*.sh     text eol=lf
+*.py     text eol=lf
+*.json   text eol=lf
+*.md     text eol=lf
+*.yml    text eol=lf
+*.yaml   text eol=lf
+*.xml    text eol=lf
+*.xaml   text eol=lf
+*.cs     text eol=lf
+*.csproj text eol=lf
+*.slnx   text eol=lf
+*.sln    text eol=lf
+
+# 二进制文件不做换行转换
+*.uf2    binary
+*.elf    binary
+*.bin    binary
+*.hex    binary
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.zip    binary
+*.7z     binary
+*.tar.gz binary
+
+# 批处理文件保持 CRLF（Windows 批处理需要 CRLF 才能正常运行）
+*.bat    text eol=crlf
+*.cmd    text eol=crlf

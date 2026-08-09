@@ -1,0 +1,342 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+    tags:
+      - 'v*'  # 推送 v 开头的 tag 时触发（用于发布）
+  pull_request:
+    branches: [ main, master, develop ]
+  release:
+    types: [ published ]  # 发布 Release 时触发
+  workflow_dispatch:  # 支持手动触发，方便调试
+
+# ============================================================
+# 全局环境变量
+# ============================================================
+env:
+  PICO_BOARD: pico2
+  DOTNET_VERSION: '10.0.x'
+
+jobs:
+  # ============================================================
+  # 固件构建（Ubuntu + ARM GCC + Pico SDK 智能拉取）
+  # ============================================================
+  firmware:
+    name: Firmware (RP2350)
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # --------------------------------------------------------
+    # 1. 安装系统依赖
+    # --------------------------------------------------------
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          cmake \
+          ninja-build \
+          cppcheck \
+          clang-format \
+          gcc-arm-none-eabi \
+          libnewlib-arm-none-eabi \
+          git
+
+    # --------------------------------------------------------
+    # 2. 代码格式检查（clang-format）
+    # --------------------------------------------------------
+    - name: Check code format (clang-format)
+      run: |
+        echo "=== 检查 C/C++ 代码格式 ==="
+        cd firmware
+        
+        # 找出所有格式不正确的文件
+        find src include -name "*.c" -o -name "*.h" | sort > /tmp/files.txt
+        echo "检查 $(wc -l < /tmp/files.txt) 个文件..."
+        
+        # 运行 clang-format 检查
+        clang-format --dry-run --Werror --style=file \
+          $(cat /tmp/files.txt) 2>&1 | tee /tmp/format-result.txt
+        
+        if [ $? -ne 0 ]; then
+          echo ""
+          echo "❌ 代码格式检查失败！"
+          echo "请运行 clang-format -i 修复格式问题"
+          echo ""
+          echo "有问题的文件："
+          grep -E "^(.*\.c|.*\.h):" /tmp/format-result.txt | head -20 | cut -d: -f1 | sort -u
+          exit 1
+        fi
+        
+        echo "✅ 所有文件格式正确"
+      working-directory: ${{ github.workspace }}
+
+    # --------------------------------------------------------
+    # 3. 缓存 Pico SDK（按版本号缓存，版本不变就不用重新下载）
+    # --------------------------------------------------------
+    - name: Cache Pico SDK
+      id: cache-pico-sdk
+      uses: actions/cache@v4
+      with:
+        path: firmware/lib/pico-sdk
+        key: pico-sdk-${{ hashFiles('firmware/lib/.sdk_version') }}-${{ runner.os }}
+        restore-keys: |
+          pico-sdk-${{ hashFiles('firmware/lib/.sdk_version') }}-
+
+    # --------------------------------------------------------
+    # 4. 静态代码分析（Cppcheck）
+    # --------------------------------------------------------
+    - name: Run Cppcheck (static analysis)
+      run: |
+        cppcheck --enable=warning,style,performance,portability \
+                 --error-exitcode=0 \
+                 --suppress=missingIncludeSystem \
+                 --suppress=unusedFunction \
+                 --suppress=unmatchedSuppression \
+                 -I firmware/include \
+                 -I firmware/include/board \
+                 -I firmware/include/device \
+                 -I firmware/include/middleware \
+                 -I firmware/include/protocol \
+                 -I firmware/include/app \
+                 firmware/src/ \
+                 --inline-suppr \
+                 --xml 2> cppcheck-report.xml
+      continue-on-error: true
+
+    - name: Upload Cppcheck report
+      uses: actions/upload-artifact@v4
+      with:
+        name: cppcheck-report
+        path: cppcheck-report.xml
+      continue-on-error: true
+
+    # --------------------------------------------------------
+    # 5. 构建固件（使用 build.ps1 智能构建脚本）
+    # --------------------------------------------------------
+    - name: Build firmware
+      shell: pwsh
+      run: |
+        ./build.ps1 -Target Firmware -Config Release
+
+    # --------------------------------------------------------
+    # 6. 验证固件大小（可选，防止固件意外膨胀）
+    # --------------------------------------------------------
+    - name: Check firmware size
+      shell: pwsh
+      run: |
+        $uf2 = Get-Item "build/pico_hid_composite.uf2"
+        $sizeKB = [math]::Round($uf2.Length / 1KB, 1)
+        Write-Host "Firmware size: $sizeKB KB"
+        # Flash 是 2MB，固件超过 1.5MB 时警告
+        if ($uf2.Length -gt 1.5MB) {
+          Write-Warning "Firmware size exceeds 1.5MB!"
+        }
+
+    # --------------------------------------------------------
+    # 7. 上传固件产物（Artifacts）
+    # --------------------------------------------------------
+    - name: Upload firmware artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: firmware-rp2350
+        path: |
+          build/pico_hid_composite.uf2
+          build/pico_hid_composite.elf
+          build/pico_hid_composite.bin
+          build/pico_hid_composite.hex
+          build/pico_hid_composite.map
+
+    # --------------------------------------------------------
+    # 7.5 上传到 GitHub Releases（仅在打 Tag 或发布 Release 时）
+    # --------------------------------------------------------
+    - name: Upload firmware to Release
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
+      with:
+        files: |
+          build/pico_hid_composite.uf2
+          build/pico_hid_composite.elf
+          build/pico_hid_composite.bin
+        fail_on_unmatched_files: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    # --------------------------------------------------------
+    # 8. 单元测试（Unity 框架，宿主机 GCC）
+    # --------------------------------------------------------
+    - name: Build and run unit tests
+      run: |
+        if [ -d "firmware/tests" ] && [ -f "firmware/tests/Makefile" ]; then
+          cd firmware/tests
+          make -j$(nproc)
+          if [ -f "./run_tests" ]; then
+            ./run_tests
+          elif [ -f "./run_all_tests" ]; then
+            ./run_all_tests
+          fi
+        else
+          echo "Unit tests not configured yet, skipping..."
+        fi
+      continue-on-error: true
+
+  # ============================================================
+  # 上位机构建（Windows + .NET 10 + WPF）
+  # ============================================================
+  pc-tool:
+    name: PC Tool (Windows / .NET 10)
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # --------------------------------------------------------
+    # 1. 设置 .NET SDK
+    # --------------------------------------------------------
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    # --------------------------------------------------------
+    # 2. 缓存 NuGet 包
+    # --------------------------------------------------------
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: nuget-${{ hashFiles('pc_tool/**/*.csproj', 'pc_tool/**/*.slnx') }}
+        restore-keys: |
+          nuget-
+
+    # --------------------------------------------------------
+    # 3. 还原依赖
+    # --------------------------------------------------------
+    - name: Restore dependencies
+      run: dotnet restore pc_tool/HidConfigTool.slnx
+
+    # --------------------------------------------------------
+    # 4. 构建解决方案
+    # --------------------------------------------------------
+    - name: Build solution
+      run: dotnet build pc_tool/HidConfigTool.slnx --configuration Release --no-restore
+
+    # --------------------------------------------------------
+    # 5. 运行单元测试
+    # --------------------------------------------------------
+    - name: Run unit tests
+      run: dotnet test pc_tool/HidConfigTool.slnx --configuration Release --no-build --verbosity normal
+      continue-on-error: true
+
+    # --------------------------------------------------------
+    # 6. 发布上位机（依赖框架的部署）
+    # --------------------------------------------------------
+    - name: Publish PC Tool (framework-dependent)
+      run: |
+        dotnet publish pc_tool/src/HidConfigTool.App/HidConfigTool.App.csproj `
+          --configuration Release `
+          --self-contained false `
+          --output publish-framework-dependent
+      shell: pwsh
+
+    # --------------------------------------------------------
+    # 7. 发布上位机（自包含单文件，用户无需装 .NET）
+    # --------------------------------------------------------
+    - name: Publish PC Tool (self-contained single-file)
+      run: |
+        dotnet publish pc_tool/src/HidConfigTool.App/HidConfigTool.App.csproj `
+          --configuration Release `
+          --self-contained true `
+          --runtime win-x64 `
+          -p:PublishSingleFile=true `
+          -p:IncludeNativeLibrariesForSelfExtract=true `
+          -p:EnableCompressionInSingleFile=true `
+          --output publish-self-contained
+      shell: pwsh
+      continue-on-error: true  # 自包含构建可能比较慢或失败，不阻塞主流程
+
+    # --------------------------------------------------------
+    # 8. 上传产物
+    # --------------------------------------------------------
+    - name: Upload PC Tool (framework-dependent)
+      uses: actions/upload-artifact@v4
+      with:
+        name: pc-tool-windows-framework-dependent
+        path: publish-framework-dependent/
+
+    - name: Upload PC Tool (self-contained)
+      uses: actions/upload-artifact@v4
+      with:
+        name: pc-tool-windows-self-contained
+        path: publish-self-contained/
+      continue-on-error: true
+
+    # --------------------------------------------------------
+    # 8.5 打包并上传到 GitHub Releases（仅在打 Tag 或发布 Release 时）
+    # --------------------------------------------------------
+    - name: Package PC Tool for Release
+      if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
+      shell: pwsh
+      run: |
+        # 创建发布包目录
+        $releaseDir = "release-packages"
+        New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
+
+        # 打包依赖框架版本
+        if (Test-Path "publish-framework-dependent") {
+          $zipName = "pc-tool-windows-framework-dependent.zip"
+          Compress-Archive -Path "publish-framework-dependent\*" -DestinationPath "$releaseDir\$zipName" -Force
+          Write-Host "✅ 已打包: $zipName"
+        }
+
+        # 打包自包含版本
+        if (Test-Path "publish-self-contained") {
+          $zipName = "pc-tool-windows-self-contained.zip"
+          Compress-Archive -Path "publish-self-contained\*" -DestinationPath "$releaseDir\$zipName" -Force
+          Write-Host "✅ 已打包: $zipName"
+        }
+
+        # 列出打包结果
+        Write-Host ""
+        Write-Host "=== 发布包列表 ==="
+        Get-ChildItem $releaseDir | ForEach-Object {
+          $sizeMB = [math]::Round($_.Length / 1MB, 2)
+          Write-Host "📦 $($_.Name) ($sizeMB MB)"
+        }
+
+    - name: Upload PC Tool to Release
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
+      with:
+        files: |
+          release-packages/*.zip
+        fail_on_unmatched_files: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================================
+  # 文档检查（可选，检查 Markdown 格式等）
+  # ============================================================
+  docs:
+    name: Docs Check
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Check Markdown files exist
+      run: |
+        echo "Checking documentation files..."
+        for f in README.md CHANGELOG.md docs/*.md; do
+          if [ -f "$f" ]; then
+            echo "✅ $f"
+          else
+            echo "⚠️  $f not found"
+          fi
+        done

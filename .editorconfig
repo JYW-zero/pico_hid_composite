@@ -1,0 +1,214 @@
+# ============================================================
+# Pico HID Composite - 编辑器配置
+# 
+# 固件 (C)：遵循 Raspberry Pi Pico SDK 官方风格
+# 上位机 (C#)：遵循微软官方 .NET 编码约定
+# ============================================================
+
+root = true
+
+# ============================================================
+# 通用设置（所有文件）
+# ============================================================
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+max_line_length = 100
+
+# ============================================================
+# C/C++ 代码（固件）- Pico SDK 官方风格
+# ============================================================
+[*.{c,h,cpp,hpp}]
+indent_style = space
+indent_size = 4
+tab_width = 4
+
+# 大括号风格：K&R（左大括号不换行）
+# 具体格式化由 firmware/.clang-format 控制
+# 参考：Raspberry Pi Pico SDK 代码风格
+
+# 命名规范（人工遵守，工具无法强制）：
+# - 函数、变量：snake_case（如 gpio_put）
+# - 宏、常量：UPPER_SNAKE_CASE
+# - 指针 * 靠近变量名：int *ptr
+
+# ============================================================
+# C# 代码（上位机）- 微软官方 .NET 编码约定
+# ============================================================
+[*.cs]
+indent_style = space
+indent_size = 4
+tab_width = 4
+
+# 大括号风格：Allman（左大括号换行）
+csharp_new_line_before_open_brace = all
+csharp_new_line_before_else = true
+csharp_new_line_before_catch = true
+csharp_new_line_before_finally = true
+csharp_new_line_before_members_in_object_initializers = true
+csharp_new_line_before_members_in_anonymous_types = true
+
+# 命名规范（遵循 .NET 设计准则）
+dotnet_naming_rule.interface_should_be_begins_with_i.severity = suggestion
+dotnet_naming_rule.interface_should_be_begins_with_i.symbols = interface
+dotnet_naming_rule.interface_should_be_begins_with_i.style = begins_with_i
+
+dotnet_naming_symbols.interface.applicable_kinds = interface
+dotnet_naming_symbols.interface.applicable_accessibilities = public, internal, private, protected, protected_internal, private_protected
+dotnet_naming_symbols.interface.required_modifiers = 
+
+dotnet_naming_style.begins_with_i.capitalization = pascal_case
+dotnet_naming_style.begins_with_i.required_prefix = I
+dotnet_naming_style.begins_with_i.required_suffix = 
+dotnet_naming_style.begins_with_i.word_separator = 
+
+# PascalCase：类型、方法、属性、事件、公共字段
+dotnet_naming_rule.types_should_be_pascal_case.severity = suggestion
+dotnet_naming_rule.types_should_be_pascal_case.symbols = types
+dotnet_naming_rule.types_should_be_pascal_case.style = pascal_case
+
+dotnet_naming_symbols.types.applicable_kinds = class, struct, interface, enum, delegate
+dotnet_naming_symbols.types.applicable_accessibilities = public, internal, private, protected, protected_internal, private_protected
+dotnet_naming_symbols.types.required_modifiers = 
+
+dotnet_naming_style.pascal_case.capitalization = pascal_case
+dotnet_naming_style.pascal_case.required_prefix = 
+dotnet_naming_style.pascal_case.required_suffix = 
+dotnet_naming_style.pascal_case.word_separator = 
+
+# camelCase：局部变量、方法参数
+dotnet_naming_rule.parameters_should_be_camel_case.severity = suggestion
+dotnet_naming_rule.parameters_should_be_camel_case.symbols = parameters
+dotnet_naming_rule.parameters_should_be_camel_case.style = camel_case
+
+dotnet_naming_symbols.parameters.applicable_kinds = parameter
+dotnet_naming_symbols.parameters.applicable_accessibilities = *
+dotnet_naming_symbols.parameters.required_modifiers = 
+
+dotnet_naming_style.camel_case.capitalization = camel_case
+dotnet_naming_style.camel_case.required_prefix = 
+dotnet_naming_style.camel_case.required_suffix = 
+dotnet_naming_style.camel_case.word_separator = 
+
+# _camelCase：私有实例字段
+dotnet_naming_rule.private_fields_should_be_camel_case_with_underscore.severity = suggestion
+dotnet_naming_rule.private_fields_should_be_camel_case_with_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_should_be_camel_case_with_underscore.style = underscore_camel_case
+
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_symbols.private_fields.required_modifiers = 
+
+dotnet_naming_style.underscore_camel_case.capitalization = camel_case
+dotnet_naming_style.underscore_camel_case.required_prefix = _
+dotnet_naming_style.underscore_camel_case.required_suffix = 
+dotnet_naming_style.underscore_camel_case.word_separator = 
+
+# 代码风格偏好
+dotnet_style_coalesce_expression = true:suggestion
+dotnet_style_null_propagation = true:suggestion
+dotnet_style_object_initializer = true:suggestion
+dotnet_style_collection_initializer = true:suggestion
+dotnet_style_prefer_auto_properties = true:suggestion
+dotnet_style_prefer_is_null_check_over_reference_equality_method = true:suggestion
+
+# 表达式主体成员
+csharp_style_expression_bodied_methods = when_on_single_line:suggestion
+csharp_style_expression_bodied_properties = when_on_single_line:suggestion
+csharp_style_expression_bodied_accessors = when_on_single_line:suggestion
+
+# 模式匹配
+csharp_style_pattern_matching_over_is_with_cast_check = true:suggestion
+csharp_style_pattern_matching_over_as_with_null_check = true:suggestion
+
+# 空值检查
+csharp_style_throw_expression = true:suggestion
+csharp_style_conditional_delegate_call = true:suggestion
+
+# using 排序
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+
+# this. 限定符
+dotnet_style_qualification_for_field = false:suggestion
+dotnet_style_qualification_for_property = false:suggestion
+dotnet_style_qualification_for_method = false:suggestion
+dotnet_style_qualification_for_event = false:suggestion
+
+# 语言关键字 vs 框架类型
+dotnet_style_predefined_type_for_locals_parameters_members = true:suggestion
+dotnet_style_predefined_type_for_member_access = true:suggestion
+
+# ============================================================
+# C# 项目文件
+# ============================================================
+[*.{csproj,slnx,sln,props,targets}]
+indent_style = space
+indent_size = 2
+
+# ============================================================
+# Markdown 文档
+# ============================================================
+[*.md]
+indent_style = space
+indent_size = 2
+max_line_length = off
+trim_trailing_whitespace = false  # Markdown 中两行空格是换行
+
+# ============================================================
+# YAML / YML（CI 配置等）
+# ============================================================
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# ============================================================
+# JSON 配置文件
+# ============================================================
+[*.json]
+indent_style = space
+indent_size = 2
+
+# ============================================================
+# CMake 文件
+# ============================================================
+[CMakeLists.txt]
+indent_style = space
+indent_size = 4
+
+[*.cmake]
+indent_style = space
+indent_size = 4
+
+# ============================================================
+# PowerShell 脚本
+# ============================================================
+[*.ps1]
+indent_style = space
+indent_size = 4
+
+# ============================================================
+# Python 脚本
+# ============================================================
+[*.py]
+indent_style = space
+indent_size = 4
+
+# ============================================================
+# 批处理文件（保持 CRLF）
+# ============================================================
+[*.{bat,cmd}]
+end_of_line = crlf
+indent_style = space
+indent_size = 2
+
+# ============================================================
+# 二进制文件（不处理）
+# ============================================================
+[*.{png,jpg,jpeg,gif,ico,uf2,elf,bin,hex,map,zip}]
+end_of_line = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset

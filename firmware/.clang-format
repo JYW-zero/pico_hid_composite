@@ -1,0 +1,117 @@
+# ============================================================
+# Pico HID Composite - C/C++ 代码格式化配置
+# 遵循 Raspberry Pi Pico SDK 官方代码风格
+# ============================================================
+
+# 基础风格：LLVM（Pico SDK 基于此风格调整）
+BasedOnStyle: LLVM
+
+# 语言：C
+Language: Cpp
+
+# ============================================================
+# 缩进设置（Pico SDK：4 空格，禁止 Tab）
+# ============================================================
+IndentWidth: 4                    # 缩进宽度 4 空格
+TabWidth: 4                       # Tab 宽度 4
+UseTab: Never                     # 禁止使用 Tab，全部用空格
+ContinuationIndentWidth: 4        # 续行缩进宽度
+IndentCaseLabels: false           # case 标签不缩进（与 switch 对齐）
+IndentGotoLabels: false           # goto 标签不缩进
+IndentPPDirectives: None          # 预处理指令不缩进
+
+# ============================================================
+# 大括号风格（Pico SDK：K&R 风格，左大括号不换行）
+# ============================================================
+BreakBeforeBraces: Linux          # Linux/K&R 风格：左大括号不换行
+BraceWrapping:
+  AfterCaseLabel: false           # case 标签后不换行
+  AfterClass: false               # 类大括号不换行
+  AfterControlStatement: false    # 控制语句大括号不换行（if/while/for）
+  AfterEnum: false                # 枚举大括号不换行
+  AfterFunction: true             # 函数大括号换行（Linux 风格特点）
+  AfterNamespace: false           # 命名空间大括号不换行
+  AfterStruct: false              # 结构体大括号不换行
+  AfterUnion: false               # 联合体大括号不换行
+  BeforeCatch: false              # catch 前不换行
+  BeforeElse: false               # else 前不换行
+  BeforeWhile: false              # do-while 的 while 不换行
+
+# ============================================================
+# 空格设置（Pico SDK 风格）
+# ============================================================
+SpaceBeforeParens: ControlStatements  # 控制语句后加空格（if/while/for）
+SpaceBeforeParensOptions:
+  AfterControlStatements: true
+  AfterFunctionDefinitionName: false  # 函数名和括号之间不加空格
+  AfterFunctionDeclarationName: false
+  AfterIfMacros: false
+  BeforeNonEmptyParentheses: false
+
+SpacesInParentheses: false        # 括号内不加空格
+SpacesInSquareBrackets: false     # 方括号内不加空格
+SpacesInAngles: false             # 尖括号内不加空格
+SpaceInEmptyParentheses: false    # 空括号内不加空格
+SpacesInCStyleCastParentheses: false  # C 风格类型转换括号内不加空格
+
+SpaceBeforeAssignmentOperators: true  # 赋值运算符前加空格
+SpaceBeforeRangeBasedForLoopColon: true
+
+# ============================================================
+# 指针与引用对齐（Pico SDK：* 靠近变量名）
+# ============================================================
+PointerAlignment: Right           # 指针 * 靠右（靠近变量名）：int *ptr
+ReferenceAlignment: Right         # 引用 & 靠右
+
+# ============================================================
+# 对齐设置
+# ============================================================
+AlignConsecutiveAssignments:
+  Enabled: false                  # 不对齐连续赋值（保持 Pico SDK 简洁风格）
+
+AlignConsecutiveDeclarations:
+  Enabled: false                  # 不对齐连续声明
+
+AlignConsecutiveMacros:
+  Enabled: true                   # 对齐连续的宏定义
+  AcrossEmptyLines: false
+  AcrossComments: false
+
+AlignEscapedNewlines: Right       # 反斜杠换行右对齐
+AlignTrailingComments: true       # 对齐尾随注释
+AllowShortBlocksOnASingleLine: Empty  # 允许空块在单行
+AllowShortIfStatementsOnASingleLine: Never  # 禁止单行 if
+AllowShortLoopsOnASingleLine: false  # 禁止单行循环
+
+# ============================================================
+# 换行设置
+# ============================================================
+ColumnLimit: 100                  # 每行最大字符数（Pico SDK 约 80-100）
+UseCRLF: false                    # 使用 LF 换行（配合 .gitattributes）
+
+# 函数参数换行
+AllowAllParametersOfDeclarationOnNextLine: true
+BinPackParameters: true
+BinPackArguments: true
+
+# ============================================================
+# 其他设置
+# ============================================================
+SortIncludes: false               # 不自动排序 include（保持手动顺序）
+IncludeBlocks: Preserve           # 保持 include 块结构
+
+MaxEmptyLinesToKeep: 2            # 最多保留 2 行空行
+KeepEmptyLinesAtTheStartOfBlocks: false  # 块开头不留空行
+
+# 注释格式化
+ReflowComments: false             # 不重新换行注释
+SpacesBeforeTrailingComments: 2   # 行尾注释前留 2 个空格
+
+# ============================================================
+# 禁用格式化的标记
+# ============================================================
+# 在代码中使用：
+# // clang-format off
+# ... 不格式化的代码 ...
+# // clang-format on
+DisableFormat: false

@@ -1,0 +1,106 @@
+﻿<Window x:Class="HidConfigTool.App.Views.ProgressOsdWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        Width="320"
+        Height="120"
+        ResizeMode="NoResize">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Themes/DarkTheme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <Storyboard x:Key="FadeInStoryboard">
+                <DoubleAnimation Storyboard.TargetName="OsdBorder"
+                                 Storyboard.TargetProperty="Opacity"
+                                 From="0" To="1" Duration="0:0:0.2" />
+            </Storyboard>
+
+            <Storyboard x:Key="FadeOutStoryboard">
+                <DoubleAnimation Storyboard.TargetName="OsdBorder"
+                                 Storyboard.TargetProperty="Opacity"
+                                 From="1" To="0" Duration="0:0:0.3" />
+            </Storyboard>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Border x:Name="OsdBorder"
+            Background="#24283B"
+            CornerRadius="12"
+            BorderBrush="#2E3347"
+            BorderThickness="1"
+            Opacity="0">
+        <Border.Effect>
+            <DropShadowEffect Color="Black"
+                              Direction="270"
+                              ShadowDepth="0"
+                              BlurRadius="20"
+                              Opacity="0.5" />
+        </Border.Effect>
+
+        <Grid Margin="24">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- 图标和标题 -->
+            <Grid Grid.Row="0" Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0"
+                           Text="{Binding Icon}"
+                           FontSize="20"
+                           VerticalAlignment="Center"
+                           Margin="0,0,12,0" />
+
+                <TextBlock Grid.Column="1"
+                           Text="{Binding Title}"
+                           FontSize="14"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           VerticalAlignment="Center" />
+
+                <TextBlock Grid.Column="2"
+                           Text="{Binding PercentageText}"
+                           FontSize="14"
+                           FontWeight="Bold"
+                           Foreground="{StaticResource PrimaryColorBrush}"
+                           VerticalAlignment="Center" />
+            </Grid>
+
+            <!-- 进度条背景 -->
+            <Grid Grid.Row="1">
+                <Border Background="#1A1B26"
+                        CornerRadius="6"
+                        Height="12" />
+
+                <Border x:Name="ProgressBar"
+                        Background="{StaticResource PrimaryColorBrush}"
+                        CornerRadius="6"
+                        Height="12"
+                        HorizontalAlignment="Left"
+                        Width="0">
+                </Border>
+            </Grid>
+
+            <!-- 底部提示 -->
+            <TextBlock Grid.Row="2"
+                       Text="{Binding Message}"
+                       FontSize="11"
+                       Foreground="{StaticResource TextSecondaryBrush}"
+                       Margin="0,8,0,0"
+                       HorizontalAlignment="Center" />
+        </Grid>
+    </Border>
+</Window>

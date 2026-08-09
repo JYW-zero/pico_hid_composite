@@ -1,0 +1,368 @@
+/*
+ * src/app/core1_scanner.c
+ * Core1 硬件扫描模块实现
+ * 负责所有硬件外设的周期性扫描，结果写入共享数据
+ */
+#include "app/core1_scanner.h"
+#include "middleware/shared_hw_data.h"
+#include "middleware/scheduler.h"
+#include "middleware/debounce.h"
+#include "middleware/watchdog.h"
+#include "middleware/ipc.h"
+#include "pico/multicore.h"
+#include "hardware/sync.h"
+#include "device/keypad_spi.h"
+#include "device/paw3395.h"
+#include "device/encoder.h"
+#include "device/joystick.h"
+#include "board/board.h"
+#include "board/config.h"
+#include "pico/time.h"
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
+
+/* ==================== 私有变量 ==================== */
+
+/* 硬件配置句柄（只读，全局共享） */
+static const keypad_spi_cfg_t *s_keypad_cfg = NULL;
+static const paw3395_cfg_t *s_paw3395_cfg = NULL;
+static const encoder_cfg_t *s_encoder_cfg = NULL;
+static const joystick_cfg_t *s_joystick_cfg = NULL;
+
+/* 状态变量（Core1 私有） */
+static debounce_64key_t s_keypad_debounce;
+static encoder_state_t s_encoder_state;
+
+/* 实时配置（不存 Flash，通过 FIFO 命令设置）
+ * -1 / 0xFFFF 表示使用 Flash 配置值
+ */
+static int32_t s_encoder_reverse_rt = -1;
+static uint32_t s_joystick_deadzone_rt = 0xFFFFFFFFUL;
+
+/* 调度器任务列表 */
+#define CORE1_TASK_COUNT 4
+static sched_task_t s_core1_tasks[CORE1_TASK_COUNT];
+
+/* ==================== 任务函数 ==================== */
+
+/* 键盘扫描任务：5ms */
+static void core1_keypad_task(void)
+{
+    uint64_t raw_keys = 0;
+    if (keypad_spi_read_u64(s_keypad_cfg, &raw_keys) == 0)
+    {
+        uint64_t stable_keys = debounce_64key_update(&s_keypad_debounce, raw_keys);
+        shared_hw_set_keys(stable_keys);
+        shared_hw_inc_keypad_scan();
+    }
+    else
+    {
+        shared_hw_inc_error();
+    }
+}
+
+/* PAW3395 传感器读取任务：2ms */
+static void core1_paw3395_task(void)
+{
+    paw3395_motion_t motion;
+    if (paw3395_read_motion(s_paw3395_cfg, &motion) == 0)
+    {
+        shared_hw_inc_paw3395_read();
+
+        if (motion.has_motion)
+        {
+            int32_t dx = motion.dx;
+            int32_t dy = motion.dy;
+
+#if MOUSE_ACCEL_ENABLE
+            /* 鼠标指针加速：阈值+线性加速 */
+            float speed = sqrtf((float)(dx*dx + dy*dy));
+            if (speed > MOUSE_ACCEL_THRESHOLD)
+            {
+                float coeff = 1.0f + (speed - MOUSE_ACCEL_THRESHOLD) * MOUSE_ACCEL_GAIN;
+                if (coeff > MOUSE_ACCEL_MAX)
+                {
+                    coeff = MOUSE_ACCEL_MAX;
+                }
+                dx = (int32_t)((float)dx * coeff);
+                dy = (int32_t)((float)dy * coeff);
+            }
+#endif
+
+            shared_hw_add_motion(dx, dy);
+        }
+    }
+    else
+    {
+        shared_hw_inc_error();
+    }
+    
+    /* 喂 DEVICE 层看门狗 */
+    watchdog_feed_layer(WDG_LAYER_DEVICE);
+    
+    /* 递增心跳计数器，供 Core0 监控 */
+    shared_hw_increment_heartbeat();
+}
+
+/* 编码器扫描任务：1ms */
+static void core1_encoder_task(void)
+{
+    shared_hw_inc_encoder_scan();
+    encoder_dir_e dir = encoder_update(s_encoder_cfg, &s_encoder_state);
+    
+    /* 根据配置反转方向（优先用实时设置） */
+    bool reverse;
+    if (s_encoder_reverse_rt >= 0)
+    {
+        reverse = (s_encoder_reverse_rt != 0);
+    }
+    else
+    {
+        reverse = (config_get()->encoder_reverse != 0);
+    }
+    int32_t delta = 0;
+    
+    if (dir == ENCODER_DIR_CW)
+    {
+        delta = reverse ? -1 : 1;
+    }
+    else if (dir == ENCODER_DIR_CCW)
+    {
+        delta = reverse ? 1 : -1;
+    }
+    
+    if (delta != 0)
+    {
+        shared_hw_add_wheel(delta);
+    }
+    
+    /* 中键状态（简单处理，以后可以加消抖） */
+    bool sw = encoder_read_switch(s_encoder_cfg);
+    uint8_t buttons = sw ? 0x04 : 0x00;  /* 中键是 bit2 */
+    shared_hw_set_mouse_buttons(buttons);
+}
+
+/* 摇杆读取任务：10ms */
+static void core1_joystick_task(void)
+{
+    joystick_data_t data;
+    if (joystick_read(s_joystick_cfg, &data) != 0)
+    {
+        shared_hw_inc_error();
+        return;
+    }
+    shared_hw_inc_joystick_read();
+
+    /* ADC 值 0~4095 转换为 -2048~2047（中心值2048） */
+    int32_t x = (int32_t)data.x - 2048;
+    int32_t y = (int32_t)data.y - 2048;
+
+    /* 读取死区（优先用实时设置） */
+    uint16_t deadzone;
+    if (s_joystick_deadzone_rt != 0xFFFFFFFFUL)
+    {
+        deadzone = (uint16_t)s_joystick_deadzone_rt;
+    }
+    else
+    {
+        deadzone = config_get()->joystick_deadzone;
+    }
+    int32_t range = 2048 - (int32_t)deadzone;
+    if (range < 100)
+    {
+        range = 100;
+    }
+
+    /* 死区处理 */
+    if (x > -(int32_t)deadzone && x < (int32_t)deadzone)
+    {
+        x = 0;
+    }
+    if (y > -(int32_t)deadzone && y < (int32_t)deadzone)
+    {
+        y = 0;
+    }
+
+    /* 缩放至 -127~127 */
+    x = (x * 127) / range;
+    y = (y * 127) / range;
+
+    /* 限制范围 */
+    if (x > 127) x = 127;
+    if (x < -127) x = -127;
+    if (y > 127) y = 127;
+    if (y < -127) y = -127;
+
+    int16_t joy_x = (int16_t)x;
+    int16_t joy_y = (int16_t)(-y);  /* Y轴反转 */
+    
+    shared_hw_set_joystick(joy_x, joy_y, data.btn_pressed);
+
+    /* 调试打印：每秒一次 */
+    static uint32_t print_counter = 0;
+    print_counter++;
+    if (print_counter >= 100)  /* 10ms * 100 = 1秒 */
+    {
+        print_counter = 0;
+        printf("[摇杆] 原始: x=%d, y=%d | 死区: %d | 输出: x=%d, y=%d | 按键: %d\n",
+               (int32_t)data.x - 2048, (int32_t)data.y - 2048,
+               deadzone,
+               (int)joy_x, (int)joy_y,
+               data.btn_pressed ? 1 : 0);
+    }
+}
+
+/* ==================== 主入口 ==================== */
+
+void core1_scanner_main(void)
+{
+    /* 获取硬件配置句柄（只读） */
+    s_keypad_cfg = board_get_keypad_spi_cfg();
+    s_paw3395_cfg = board_get_paw3395_cfg();
+    s_encoder_cfg = board_get_encoder_cfg();
+    s_joystick_cfg = board_get_joystick_cfg();
+    
+    /* 初始化消抖 */
+    debounce_64key_init(&s_keypad_debounce, 5);
+    
+    /* 初始化编码器状态 */
+    encoder_state_init(&s_encoder_state);
+    
+    /* 初始化调度器 */
+    sched_init();
+    
+    /* 配置任务列表 */
+    int idx = 0;
+    
+    /* 编码器扫描：1ms，高优先级 */
+    s_core1_tasks[idx].interval_us = 1000;
+    s_core1_tasks[idx].last_run_us = 0;
+    s_core1_tasks[idx].priority = 64;
+    s_core1_tasks[idx].task_func = core1_encoder_task;
+    idx++;
+    
+    /* PAW3395 传感器读取：2ms，高优先级 */
+    s_core1_tasks[idx].interval_us = 2000;
+    s_core1_tasks[idx].last_run_us = 0;
+    s_core1_tasks[idx].priority = 64;
+    s_core1_tasks[idx].task_func = core1_paw3395_task;
+    idx++;
+    
+    /* 键盘扫描：5ms，普通优先级 */
+    s_core1_tasks[idx].interval_us = 5000;
+    s_core1_tasks[idx].last_run_us = 0;
+    s_core1_tasks[idx].priority = 128;
+    s_core1_tasks[idx].task_func = core1_keypad_task;
+    idx++;
+    
+    /* 摇杆读取：10ms，普通优先级 */
+    s_core1_tasks[idx].interval_us = 10000;
+    s_core1_tasks[idx].last_run_us = 0;
+    s_core1_tasks[idx].priority = 128;
+    s_core1_tasks[idx].task_func = core1_joystick_task;
+    idx++;
+    
+    /* 主循环 */
+    while (1)
+    {
+        /* 处理 FIFO 命令（核间通信） */
+        while (multicore_fifo_rvalid())
+        {
+            uint32_t cmd = multicore_fifo_pop_blocking();
+            uint8_t type = IPC_GET_TYPE(cmd);
+            uint32_t param = IPC_GET_PARAM(cmd);
+
+            switch (type)
+            {
+                case IPC_CMD_NOP:
+                    /* 空操作，回ACK */
+                    multicore_fifo_push_blocking(IPC_ACK_OK);
+                    break;
+
+                case IPC_CMD_SET_DPI:
+                    /* 设置 DPI */
+                    paw3395_set_dpi(s_paw3395_cfg, (paw3395_dpi_e)param);
+                    multicore_fifo_push_blocking(IPC_ACK_OK);
+                    break;
+
+                case IPC_CMD_SLEEP:
+                    /* 进入休眠命令：先回ACK，然后进入WFE等待事件唤醒 */
+                    multicore_fifo_push_blocking(IPC_ACK_OK);
+                    __dmb();  /* 数据同步屏障 */
+                    /* 清除事件标志，确保真正进入休眠 */
+                    __sev();
+                    __wfe();
+                    __wfe();
+                    break;
+
+                case IPC_CMD_PAUSE:
+                    /* 暂停扫描：回ACK，然后进入等待循环，直到收到RESUME */
+                    multicore_fifo_push_blocking(IPC_ACK_OK);
+                    while (1)
+                    {
+                        /* 等待 FIFO 数据 */
+                        while (!multicore_fifo_rvalid())
+                        {
+                            __wfe();  /* 没事做就进入低功耗等待 */
+                        }
+                        uint32_t pause_cmd = multicore_fifo_pop_blocking();
+                        uint8_t pause_type = IPC_GET_TYPE(pause_cmd);
+                        
+                        if (pause_type == IPC_CMD_RESUME)
+                        {
+                            multicore_fifo_push_blocking(IPC_ACK_OK);
+                            break;  /* 退出暂停循环 */
+                        }
+                        else if (pause_type == IPC_CMD_NOP)
+                        {
+                            multicore_fifo_push_blocking(IPC_ACK_OK);
+                        }
+                        /* 其他命令在暂停状态下忽略 */
+                    }
+                    break;
+
+                case IPC_CMD_RESUME:
+                    /* 正常状态下收到RESUME，直接回ACK */
+                    multicore_fifo_push_blocking(IPC_ACK_OK);
+                    break;
+
+                case IPC_CMD_SET_ENCODER_REV:
+                    /* 设置编码器方向（实时，不存Flash） */
+                    s_encoder_reverse_rt = (int32_t)param;
+                    multicore_fifo_push_blocking(IPC_ACK_OK);
+                    break;
+
+                case IPC_CMD_SET_JOYSTICK_DZ:
+                    /* 设置摇杆死区（实时，不存Flash） */
+                    s_joystick_deadzone_rt = param;
+                    multicore_fifo_push_blocking(IPC_ACK_OK);
+                    break;
+
+                case IPC_CMD_PING:
+                    /* 测试命令，回ACK */
+                    multicore_fifo_push_blocking(IPC_ACK_OK);
+                    break;
+
+                default:
+                    /* 未知命令，回错误 */
+                    multicore_fifo_push_blocking(IPC_ACK_ERR);
+                    break;
+            }
+        }
+
+        /* 运行调度器 */
+        sched_run(s_core1_tasks, CORE1_TASK_COUNT);
+    }
+}
+
+
+
+
+
+
+
+
+
+

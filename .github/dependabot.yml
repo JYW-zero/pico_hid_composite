@@ -1,0 +1,91 @@
+version: 2
+
+updates:
+  # ============================================================
+  # 1. GitHub Actions 依赖更新
+  # ============================================================
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      day: "monday"
+      time: "09:00"
+    commit-message:
+      prefix: "ci"
+      prefix-development: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "ci"
+    open-pull-requests-limit: 5
+
+  # ============================================================
+  # 2. 上位机 NuGet 依赖更新
+  # ============================================================
+  - package-ecosystem: "nuget"
+    directory: "/pc_tool/src/HidConfigTool.App/"
+    schedule:
+      interval: "monthly"
+      day: "monday"
+      time: "09:00"
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "pc-tool"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "nuget"
+    directory: "/pc_tool/src/HidConfigTool.Core/"
+    schedule:
+      interval: "monthly"
+      day: "monday"
+      time: "09:00"
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "pc-tool"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "nuget"
+    directory: "/pc_tool/src/HidConfigTool.Drivers/"
+    schedule:
+      interval: "monthly"
+      day: "monday"
+      time: "09:00"
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "pc-tool"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "nuget"
+    directory: "/pc_tool/src/HidConfigTool.Tests/"
+    schedule:
+      interval: "monthly"
+      day: "monday"
+      time: "09:00"
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "pc-tool"
+      - "testing"
+    open-pull-requests-limit: 5
+
+  # ============================================================
+  # ⚠️ 注意：不追踪 Pico SDK 版本
+  # ============================================================
+  # Pico SDK 更新涉及硬件底层变动，应由开发者手动控制版本号
+  # 通过 firmware/lib/.sdk_version 文件手动管理 SDK 版本
+  # 而非由自动化机器人自动更新，避免意外破坏固件稳定性

@@ -1,0 +1,541 @@
+<UserControl x:Class="HidConfigTool.App.Views.KeyPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             d:DesignHeight="800" d:DesignWidth="1000">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Themes/DarkTheme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- 手按钮样式 -->
+            <Style x:Key="HandButtonStyle" TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                <Setter Property="Padding" Value="40,20" />
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="MinWidth" Value="150" />
+            </Style>
+
+            <!-- 功能键样式 -->
+            <Style x:Key="FunctionKeyStyle" TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                <Setter Property="Padding" Value="12,8" />
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="MinWidth" Value="80" />
+                <Setter Property="Margin" Value="0,4" />
+            </Style>
+
+            <!-- 手指详情容器样式 -->
+            <Style x:Key="FingerDetailContainerStyle" TargetType="Border">
+                <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="Padding" Value="16" />
+                <Setter Property="Margin" Value="8" />
+            </Style>
+
+            <!-- 方向键小按钮样式 -->
+            <Style x:Key="SmallDirectionKeyStyle" TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                <Setter Property="Padding" Value="12,10" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="MinWidth" Value="90" />
+                <Setter Property="MinHeight" Value="70" />
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  PanningMode="VerticalOnly"
+                  Background="Transparent">
+        <StackPanel>
+            <TextBlock Text="按键设置"
+                       FontSize="24"
+                       FontWeight="Bold"
+                       Foreground="{StaticResource TextPrimaryBrush}"
+                       Margin="0,0,0,24" />
+
+            <!-- 层切换 -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    CornerRadius="12"
+                    Padding="20"
+                    Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="按键层"
+                               FontSize="16"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               Margin="0,0,0,16" />
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="普通层"
+                                Command="{Binding SwitchLayerCommand}"
+                                CommandParameter="0"
+                                Padding="20,8"
+                                Margin="0,0,8,0">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding CurrentLayer}" Value="0">
+                                            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+                                            <Setter Property="Foreground" Value="White" />
+                                            <Setter Property="BorderThickness" Value="0" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <Button Content="Fn 层"
+                                Command="{Binding SwitchLayerCommand}"
+                                CommandParameter="1"
+                                Padding="20,8">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding CurrentLayer}" Value="1">
+                                            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+                                            <Setter Property="Foreground" Value="White" />
+                                            <Setter Property="BorderThickness" Value="0" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- 双手布局 -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    CornerRadius="12"
+                    Padding="20"
+                    Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="按键布局（双手对称）"
+                               FontSize="16"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               Margin="0,0,0,16" />
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- 左手按钮 -->
+                        <Button Grid.Column="0"
+                                Content="左手"
+                                Command="{Binding SelectHandCommand}"
+                                CommandParameter="Left"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource HandButtonStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedHand}" Value="Left">
+                                            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+                                            <Setter Property="Foreground" Value="White" />
+                                            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+
+                        <!-- 中间功能键 -->
+                        <StackPanel Grid.Column="1" 
+                                    Orientation="Vertical" 
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Margin="20,0">
+                            <TextBlock Text="功能键"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,0,0,8" />
+                            <ItemsControl ItemsSource="{Binding FunctionKeys}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Content="{Binding KeyName}"
+                                                Style="{StaticResource FunctionKeyStyle}"
+                                                Command="{Binding DataContext.EditKeyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <!-- 右手按钮 -->
+                        <Button Grid.Column="2"
+                                Content="右手"
+                                Command="{Binding SelectHandCommand}"
+                                CommandParameter="Right"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource HandButtonStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedHand}" Value="Right">
+                                            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+                                            <Setter Property="Foreground" Value="White" />
+                                            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- 左手六向按键详情 -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    CornerRadius="12"
+                    Padding="20"
+                    Margin="0,0,0,16">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedHand}" Value="Right">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel>
+                    <TextBlock Text="左手 - 六向按键详情"
+                               FontSize="16"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               Margin="0,0,0,16" />
+
+                    <!-- 5个手指：上面3个，下面2个 -->
+                    <ItemsControl ItemsSource="{Binding LeftHandFingers}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Rows="2" Columns="3" HorizontalAlignment="Center" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource FingerDetailContainerStyle}">
+                                    <StackPanel>
+                                        <!-- 手指名称 -->
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontSize="12"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource AccentBrush}"
+                                                   HorizontalAlignment="Center"
+                                                   Margin="0,0,0,10" />
+
+                                        <!-- 六向按键（小立方体展开图） -->
+                                        <Grid HorizontalAlignment="Center">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- 上 (+Y) -->
+                                            <Button Grid.Row="0" Grid.Column="1"
+                                                    Style="{StaticResource SmallDirectionKeyStyle}"
+                                                    Command="{Binding DataContext.EditKeyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding Up}">
+                                                <StackPanel>
+                                                    <TextBlock Text="↑上" FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" HorizontalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Up.KeyName}" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                                                </StackPanel>
+                                            </Button>
+
+                                            <!-- 左 (-X) -->
+                                            <Button Grid.Row="1" Grid.Column="0"
+                                                    Style="{StaticResource SmallDirectionKeyStyle}"
+                                                    Command="{Binding DataContext.EditKeyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding Left}"
+                                                    Margin="0,0,4,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="←左" FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" HorizontalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Left.KeyName}" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                                                </StackPanel>
+                                            </Button>
+
+                                            <!-- 前 (-Z) - 中心 -->
+                                            <Button Grid.Row="1" Grid.Column="1"
+                                                    Background="{StaticResource AccentBrush}"
+                                                    Foreground="White"
+                                                    BorderBrush="{StaticResource AccentBrush}"
+                                                    BorderThickness="1"
+                                                    Padding="12,10"
+                                                    FontSize="14"
+                                                    MinWidth="90"
+                                                    MinHeight="70"
+                                                    Cursor="Hand"
+                                                    Command="{Binding DataContext.EditKeyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding Front}">
+                                                <StackPanel>
+                                                    <TextBlock Text="●前" FontSize="12" Opacity="0.8" HorizontalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Front.KeyName}" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                                                </StackPanel>
+                                            </Button>
+
+                                            <!-- 右 (+X) -->
+                                            <Button Grid.Row="1" Grid.Column="2"
+                                                    Style="{StaticResource SmallDirectionKeyStyle}"
+                                                    Command="{Binding DataContext.EditKeyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding Right}"
+                                                    Margin="4,0,0,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="右→" FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" HorizontalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Right.KeyName}" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                                                </StackPanel>
+                                            </Button>
+
+                                            <!-- 下 (-Y) -->
+                                            <Button Grid.Row="2" Grid.Column="1"
+                                                    Style="{StaticResource SmallDirectionKeyStyle}"
+                                                    Command="{Binding DataContext.EditKeyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding Down}"
+                                                    Margin="0,4,0,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="↓下" FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" HorizontalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Down.KeyName}" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                                                </StackPanel>
+                                            </Button>
+
+                                            <!-- 后 (+Z) -->
+                                            <Button Grid.Row="3" Grid.Column="1"
+                                                    Style="{StaticResource SmallDirectionKeyStyle}"
+                                                    Command="{Binding DataContext.EditKeyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding Back}"
+                                                    Margin="0,4,0,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="○后" FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" HorizontalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Back.KeyName}" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                                                </StackPanel>
+                                            </Button>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- 坐标系说明 -->
+                    <TextBlock Text="坐标系：X轴=左右，Y轴=上下，Z轴=前后"
+                               FontSize="10"
+                               Foreground="{StaticResource TextTertiaryBrush}"
+                               HorizontalAlignment="Center"
+                               Margin="0,16,0,0" />
+                </StackPanel>
+            </Border>
+
+            <!-- 右手六向按键详情 -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    CornerRadius="12"
+                    Padding="20"
+                    Margin="0,0,0,16">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedHand}" Value="Right">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel>
+                    <TextBlock Text="右手 - 六向按键详情"
+                               FontSize="16"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               Margin="0,0,0,16" />
+
+                    <!-- 5个手指：上面3个，下面2个 -->
+                    <ItemsControl ItemsSource="{Binding RightHandFingers}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Rows="2" Columns="3" HorizontalAlignment="Center" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource FingerDetailContainerStyle}">
+                                    <StackPanel>
+                                        <!-- 手指名称 -->
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontSize="12"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource AccentBrush}"
+                                                   HorizontalAlignment="Center"
+                                                   Margin="0,0,0,10" />
+
+                                        <!-- 六向按键（小立方体展开图） -->
+                                        <Grid HorizontalAlignment="Center">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- 上 (+Y) -->
+                                            <Button Grid.Row="0" Grid.Column="1"
+                                                    Style="{StaticResource SmallDirectionKeyStyle}"
+                                                    Command="{Binding DataContext.EditKeyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding Up}">
+                                                <StackPanel>
+                                                    <TextBlock Text="↑上" FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" HorizontalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Up.KeyName}" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                                                </StackPanel>
+                                            </Button>
+
+                                            <!-- 左 (-X) -->
+                                            <Button Grid.Row="1" Grid.Column="0"
+                                                    Style="{StaticResource SmallDirectionKeyStyle}"
+                                                    Command="{Binding DataContext.EditKeyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding Left}"
+                                                    Margin="0,0,4,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="←左" FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" HorizontalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Left.KeyName}" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                                                </StackPanel>
+                                            </Button>
+
+                                            <!-- 前 (-Z) - 中心 -->
+                                            <Button Grid.Row="1" Grid.Column="1"
+                                                    Background="{StaticResource AccentBrush}"
+                                                    Foreground="White"
+                                                    BorderBrush="{StaticResource AccentBrush}"
+                                                    BorderThickness="1"
+                                                    Padding="12,10"
+                                                    FontSize="14"
+                                                    MinWidth="90"
+                                                    MinHeight="70"
+                                                    Cursor="Hand"
+                                                    Command="{Binding DataContext.EditKeyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding Front}">
+                                                <StackPanel>
+                                                    <TextBlock Text="●前" FontSize="12" Opacity="0.8" HorizontalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Front.KeyName}" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                                                </StackPanel>
+                                            </Button>
+
+                                            <!-- 右 (+X) -->
+                                            <Button Grid.Row="1" Grid.Column="2"
+                                                    Style="{StaticResource SmallDirectionKeyStyle}"
+                                                    Command="{Binding DataContext.EditKeyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding Right}"
+                                                    Margin="4,0,0,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="右→" FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" HorizontalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Right.KeyName}" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                                                </StackPanel>
+                                            </Button>
+
+                                            <!-- 下 (-Y) -->
+                                            <Button Grid.Row="2" Grid.Column="1"
+                                                    Style="{StaticResource SmallDirectionKeyStyle}"
+                                                    Command="{Binding DataContext.EditKeyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding Down}"
+                                                    Margin="0,4,0,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="↓下" FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" HorizontalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Down.KeyName}" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                                                </StackPanel>
+                                            </Button>
+
+                                            <!-- 后 (+Z) -->
+                                            <Button Grid.Row="3" Grid.Column="1"
+                                                    Style="{StaticResource SmallDirectionKeyStyle}"
+                                                    Command="{Binding DataContext.EditKeyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding Back}"
+                                                    Margin="0,4,0,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="○后" FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" HorizontalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Back.KeyName}" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                                                </StackPanel>
+                                            </Button>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- 坐标系说明 -->
+                    <TextBlock Text="坐标系：X轴=左右，Y轴=上下，Z轴=前后"
+                               FontSize="10"
+                               Foreground="{StaticResource TextTertiaryBrush}"
+                               HorizontalAlignment="Center"
+                               Margin="0,16,0,0" />
+                </StackPanel>
+            </Border>
+
+            <!-- 选中的键信息 -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    CornerRadius="12"
+                    Padding="20"
+                    Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="选中的键"
+                               FontSize="16"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               Margin="0,0,0,16" />
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="索引" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,8" />
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedKey.Index}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,8" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="键码" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,8" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedKey.KeyCode, StringFormat=0x{0:X2}}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,8" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="键名" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,8" />
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedKey.KeyName}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,8" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- 操作按钮 -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="恢复默认"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Command="{Binding ResetDefaultCommand}"
+                        Padding="20,10"
+                        Margin="0,0,12,0" />
+                <Button Content="保存到设备"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Command="{Binding SaveToDeviceCommand}"
+                        Padding="20,10" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

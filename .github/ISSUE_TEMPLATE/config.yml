@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: 📖 项目文档
+    url: https://github.com/your-username/pico_hid_composite/tree/main/docs
+    about: 请先阅读文档，大部分问题已有答案
+
+  - name: 💬 讨论区 (GitHub Discussions)
+    url: https://github.com/your-username/pico_hid_composite/discussions
+    about: 如果模板不合适，欢迎在讨论区自由提问
+
+  - name: ❓ 常见问题
+    url: https://github.com/your-username/pico_hid_composite#-快速开始
+    about: 快速开始和常见问题解答

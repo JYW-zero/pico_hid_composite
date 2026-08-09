@@ -1,0 +1,45 @@
+{
+  "folders": [
+    {
+      "name": "firmware (RP2350 C)",
+      "path": "firmware"
+    },
+    {
+      "name": "pc_tool (C# WPF)",
+      "path": "pc_tool"
+    },
+    {
+      "name": "docs",
+      "path": "docs"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/bin": true,
+      "**/obj": true,
+      "**/build": true,
+      "**/.vs": true,
+      "**/node_modules": true
+    },
+    "search.exclude": {
+      "**/bin": true,
+      "**/obj": true,
+      "**/build": true,
+      "**/.vs": true
+    },
+    "editor.formatOnSave": true,
+    "files.encoding": "utf8bom"
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-vscode.cpptools",
+      "ms-vscode.cmake-tools",
+      "marus25.cortex-debug",
+      "raspberry-pi.raspberry-pi-pico",
+      "ms-dotnettools.csharp",
+      "ms-dotnettools.csdevkit",
+      "ms-dotnettools.vscode-dotnet-runtime",
+      "ms-azuretools.vscode-docker"
+    ]
+  }
+}
