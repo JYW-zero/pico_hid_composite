@@ -1,4 +1,4 @@
-﻿/*
+/*
  * src/middleware/scheduler.c
  * 无OS协作式时间片调度器实现
  * 采用int32_t差值处理time_us_32溢出，杜绝长时间运行任务风暴
@@ -13,7 +13,7 @@ void sched_init(void)
     /* 空初始化，首次运行自动填充时间戳 */
 }
 
-void sched_run(const sched_task_t *task_list, uint8_t task_count)
+void sched_run(sched_task_t *task_list, uint8_t task_count)
 {
     const uint32_t now = time_us_32();
     uint8_t ready_indices[16];  /* 最多支持16个任务 */

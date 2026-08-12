@@ -33,6 +33,6 @@ typedef struct
 void sched_init(void);
 
 /* 主循环调度入口，每轮遍历全部任务 */
-void sched_run(const sched_task_t *task_list, uint8_t task_count);
+void sched_run(sched_task_t *task_list, uint8_t task_count);
 
 #endif /* MIDDLEWARE_SCHEDULER_H */

@@ -72,9 +72,14 @@ static void write_record_to_flash(uint32_t index, const key_stats_record_t* reco
         return;
     }
 
+    /* 使用静态缓冲区，先清零再复制结构体，避免越界读取栈数据 */
+    static uint8_t write_buf[KEY_STATS_RECORD_SIZE];
+    memset(write_buf, 0, sizeof(write_buf));
+    memcpy(write_buf, record, sizeof(key_stats_record_t));
+
     uint32_t offset = KEY_STATS_FLASH_OFFSET + index * KEY_STATS_RECORD_SIZE;
     uint32_t saved = save_and_disable_interrupts();
-    flash_range_program(offset, (const uint8_t*)record, KEY_STATS_RECORD_SIZE);
+    flash_range_program(offset, write_buf, KEY_STATS_RECORD_SIZE);
     restore_interrupts(saved);
 }
 

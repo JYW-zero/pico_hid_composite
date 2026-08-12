@@ -23,6 +23,17 @@
 #include <stddef.h>
 #include <stdio.h>
 
+/* ==================== 鼠标加速配置（默认禁用） ==================== */
+#ifndef MOUSE_ACCEL_ENABLE
+#define MOUSE_ACCEL_ENABLE 0     /* 0=禁用, 1=启用鼠标指针加速 */
+#endif
+#ifndef MOUSE_ACCEL_THRESHOLD
+#define MOUSE_ACCEL_THRESHOLD 10.0f  /* 加速阈值（移动速度） */
+#endif
+#ifndef MOUSE_ACCEL_GAIN
+#define MOUSE_ACCEL_GAIN 0.01f       /* 加速增益系数 */
+#endif
+
 /* ==================== 私有变量 ==================== */
 
 /* 硬件配置句柄（只读，全局共享） */
