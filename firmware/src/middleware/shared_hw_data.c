@@ -33,6 +33,13 @@ static struct
     
     /* 心跳计数器：Core1 递增，Core0 读取，用于监控 Core1 是否正常运行 */
     uint32_t heartbeat;
+
+    /* 状态统计计数器：Core1 递增，Core0 读取 */
+    uint32_t keypad_scan_count;
+    uint32_t paw3395_read_count;
+    uint32_t encoder_scan_count;
+    uint32_t joystick_read_count;
+    uint32_t error_count;
 } s_data;
 
 /* ==================== 初始化 ==================== */

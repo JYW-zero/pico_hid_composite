@@ -24,6 +24,7 @@ public partial class MainViewModel : ObservableObject
         Macro,
         ErrorLog,
         PerfMonitor,
+        Stats,
         Settings
     }
 
@@ -133,6 +134,12 @@ public partial class MainViewModel : ObservableObject
     private void NavigateToPerfMonitor()
     {
         CurrentPage = PageType.PerfMonitor;
+    }
+
+    [RelayCommand]
+    private void NavigateToStats()
+    {
+        CurrentPage = PageType.Stats;
     }
 
     [RelayCommand]

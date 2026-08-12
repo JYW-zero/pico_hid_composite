@@ -44,9 +44,14 @@ public class DeviceService : IDeviceService
     private const byte CMD_RESET_STATS = 0x06;          // 清零按键统计
     private const byte CMD_CLEAR_FAULT = 0x07;          // 清除错误日志
     private const byte CMD_RESET_PERF = 0x08;           // 重置性能统计
+    private const byte CMD_MACRO_PLAY = 0x09;           // 播放宏（参数：宏ID）
+    private const byte CMD_MACRO_STOP = 0x0A;           // 停止宏（参数：宏ID，0xFF=停止所有）
 
     // 配置魔数
     private const uint CONFIG_MAGIC = 0x5A5A5A5A;
+
+    // HID 操作超时（毫秒）
+    private const int HID_TIMEOUT_MS = 5000;
 
     // 配置结构体大小
     private const int CONFIG_SIZE = 146;
@@ -91,6 +96,11 @@ public class DeviceService : IDeviceService
     /// 连接操作锁，防止并发重连
     /// </summary>
     private readonly SemaphoreSlim _connectLock = new(1, 1);
+
+    /// <summary>
+    /// 状态锁，保护 _currentDevice / _currentConfig / _lastWriteTime 等共享状态的多线程访问
+    /// </summary>
+    private readonly object _stateLock = new();
 
     /// <summary>
     /// 心跳检测取消令牌
@@ -258,7 +268,19 @@ public class DeviceService : IDeviceService
             if (!opened)
                 return false;
 
-            _currentDevice = deviceInfo;
+            // 读取配置
+            var config = await ReadConfigFromDeviceAsync();
+            if (config == null)
+            {
+                config = new DeviceConfig();
+            }
+
+            // 原子更新状态（在锁内设置设备和配置，避免多线程竞态）
+            lock (_stateLock)
+            {
+                _currentDevice = deviceInfo;
+                _currentConfig = config;
+            }
 
             // 读取设备信息
             try
@@ -281,13 +303,6 @@ public class DeviceService : IDeviceService
                 FirmwareVersion = "v1.0.0";
             }
 
-            // 读取配置
-            _currentConfig = await ReadConfigFromDeviceAsync();
-            if (_currentConfig == null)
-            {
-                _currentConfig = new DeviceConfig();
-            }
-
             // 触发连接状态变化事件
             DeviceConnectionChanged?.Invoke(this, true);
 
@@ -295,7 +310,11 @@ public class DeviceService : IDeviceService
         }
         catch
         {
-            _currentDevice = null;
+            lock (_stateLock)
+            {
+                _currentDevice = null;
+                _currentConfig = null;
+            }
             return false;
         }
     }
@@ -305,15 +324,24 @@ public class DeviceService : IDeviceService
     /// </summary>
     public void Disconnect()
     {
-        if (_currentDevice != null)
+        bool hadDevice;
+        lock (_stateLock)
+        {
+            hadDevice = _currentDevice != null;
+            if (hadDevice)
+            {
+                _currentDevice = null;
+                _currentConfig = null;
+            }
+        }
+
+        if (hadDevice)
         {
             try
             {
                 _hidDriver.Close();
             }
             catch { }
-            _currentDevice = null;
-            _currentConfig = null;
             FirmwareVersion = null;
 
             // 触发连接状态变化事件
@@ -581,8 +609,11 @@ public class DeviceService : IDeviceService
 
                     if (applied)
                     {
-                        _currentConfig = config;
-                        _lastWriteTime = DateTime.Now;
+                        lock (_stateLock)
+                        {
+                            _currentConfig = config;
+                            _lastWriteTime = DateTime.Now;
+                        }
                         Log("INFO", "配置写入成功，正在保存到Flash...");
 
                         // 【关键】写Flash会导致CPU挂起，USB句柄可能失效
@@ -758,12 +789,55 @@ public class DeviceService : IDeviceService
         try
         {
             byte[] data = new byte[1] { command };
-            return await _hidDriver.SendFeatureReportAsync(REPORT_ID_CONTROL, data);
+            return await SendFeatureReportWithTimeoutAsync(REPORT_ID_CONTROL, data);
         }
         catch
         {
             return false;
         }
+    }
+
+    private async Task<bool> SendControlCommandAsync(byte command, byte param)
+    {
+        try
+        {
+            byte[] data = new byte[2] { command, param };
+            return await SendFeatureReportWithTimeoutAsync(REPORT_ID_CONTROL, data);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 带超时的 Feature 报告发送
+    /// </summary>
+    private async Task<bool> SendFeatureReportWithTimeoutAsync(byte reportId, byte[] data)
+    {
+        var task = _hidDriver.SendFeatureReportAsync(reportId, data);
+        var completed = await Task.WhenAny(task, Task.Delay(HID_TIMEOUT_MS));
+        if (completed == task)
+        {
+            return await task;
+        }
+        Log("ERROR", $"发送 Feature 报告超时: Report ID=0x{reportId:X2}");
+        return false;
+    }
+
+    /// <summary>
+    /// 带超时的 Feature 报告读取
+    /// </summary>
+    private async Task<byte[]?> GetFeatureReportWithTimeoutAsync(byte reportId)
+    {
+        var task = _hidDriver.GetFeatureReportAsync(reportId);
+        var completed = await Task.WhenAny(task, Task.Delay(HID_TIMEOUT_MS));
+        if (completed == task)
+        {
+            return await task;
+        }
+        Log("ERROR", $"读取 Feature 报告超时: Report ID=0x{reportId:X2}");
+        return null;
     }
 
     /// <summary>
@@ -947,6 +1021,66 @@ public class DeviceService : IDeviceService
         catch (Exception ex)
         {
             Log("ERROR", $"写入宏 {macroId} 异常: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 播放指定宏
+    /// </summary>
+    /// <param name="macroId">宏ID (0-7)</param>
+    /// <returns>是否成功发送命令</returns>
+    public async Task<bool> PlayMacroAsync(byte macroId)
+    {
+        if (!IsConnected || macroId >= 8)
+            return false;
+
+        try
+        {
+            bool result = await SendControlCommandAsync(CMD_MACRO_PLAY, macroId);
+            if (result)
+            {
+                Log("INFO", $"播放宏 {macroId}");
+            }
+            else
+            {
+                Log("ERROR", $"播放宏 {macroId} 失败");
+            }
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Log("ERROR", $"播放宏 {macroId} 异常: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 停止指定宏
+    /// </summary>
+    /// <param name="macroId">宏ID (0-7)，0xFF 表示停止所有宏</param>
+    /// <returns>是否成功发送命令</returns>
+    public async Task<bool> StopMacroAsync(byte macroId)
+    {
+        if (!IsConnected)
+            return false;
+
+        try
+        {
+            bool result = await SendControlCommandAsync(CMD_MACRO_STOP, macroId);
+            if (result)
+            {
+                Log("INFO", macroId == 0xFF ? "停止所有宏" : $"停止宏 {macroId}");
+            }
+            else
+            {
+                Log("ERROR", $"停止宏 {macroId} 失败");
+            }
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Log("ERROR", $"停止宏 {macroId} 异常: {ex.Message}");
             return false;
         }
     }

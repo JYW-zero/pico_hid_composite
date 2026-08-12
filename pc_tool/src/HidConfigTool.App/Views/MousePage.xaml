@@ -1,9 +1,9 @@
 <UserControl x:Class="HidConfigTool.App.Views.MousePage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             mc:Ignorable="d" 
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
     <UserControl.Resources>
         <ResourceDictionary>
@@ -13,128 +13,175 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
         <StackPanel>
-            <TextBlock Text="鼠标设置"
-                   FontSize="24"
-                   FontWeight="Bold"
-                   Foreground="{StaticResource TextPrimaryBrush}"
-                   Margin="0,0,0,24" />
+            <!-- 页面标题 -->
+            <TextBlock Text="鼠标设置" Style="{StaticResource PageTitleStyle}" />
+            <TextBlock Text="配置 DPI 档位和指针加速参数" Style="{StaticResource PageSubtitleStyle}" />
 
-        <!-- DPI 设置卡片 -->
-        <Border Background="{StaticResource CardBackgroundBrush}"
-                CornerRadius="12"
-                Padding="20"
-                Margin="0,0,0,16">
-            <StackPanel>
-                <TextBlock Text="DPI 档位"
-                           FontSize="16"
-                           FontWeight="SemiBold"
-                           Foreground="{StaticResource TextPrimaryBrush}"
-                           Margin="0,0,0,16" />
+            <!-- DPI 设置卡片 -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Text="DPI 档位" Style="{StaticResource CardTitleStyle}" />
 
-                <TextBlock Text="{Binding CurrentDpiText}"
-                           FontSize="28"
-                           FontWeight="Bold"
-                           Foreground="{StaticResource AccentBrush}"
-                           Margin="0,0,0,16" />
+                    <!-- 大号 DPI 显示 -->
+                    <Grid Margin="0,0,0,20">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
 
-                <StackPanel Orientation="Horizontal">
-                    <Button Content="400" Command="{Binding SetDpiCommand}" CommandParameter="0" Margin="0,0,8,0">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource DpiButtonStyle}">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding CurrentDpiIndex}" Value="0">
-                                        <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-                                        <Setter Property="Foreground" Value="White" />
-                                        <Setter Property="BorderThickness" Value="0" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-                    <Button Content="800" Command="{Binding SetDpiCommand}" CommandParameter="1" Margin="0,0,8,0">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource DpiButtonStyle}">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding CurrentDpiIndex}" Value="1">
-                                        <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-                                        <Setter Property="Foreground" Value="White" />
-                                        <Setter Property="BorderThickness" Value="0" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-                    <Button Content="1600" Command="{Binding SetDpiCommand}" CommandParameter="2" Margin="0,0,8,0">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource DpiButtonStyle}">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding CurrentDpiIndex}" Value="2">
-                                        <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-                                        <Setter Property="Foreground" Value="White" />
-                                        <Setter Property="BorderThickness" Value="0" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-                    <Button Content="3200" Command="{Binding SetDpiCommand}" CommandParameter="3">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource DpiButtonStyle}">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding CurrentDpiIndex}" Value="3">
-                                        <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-                                        <Setter Property="Foreground" Value="White" />
-                                        <Setter Property="BorderThickness" Value="0" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding CurrentDpiText}"
+                                       FontSize="36"
+                                       FontWeight="Bold"
+                                       Foreground="{StaticResource AccentBrush}" />
+                            <TextBlock Text="当前 DPI"
+                                       FontSize="12"
+                                       Foreground="{StaticResource TextTertiaryBrush}"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,4,0,0" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    HorizontalAlignment="Right"
+                                    Orientation="Horizontal">
+                            <Border Background="{StaticResource AccentTransparentBrush}"
+                                    CornerRadius="6"
+                                    Padding="10,6"
+                                    Margin="0,0,8,0">
+                                <TextBlock Text="4 档可调"
+                                           FontSize="11"
+                                           Foreground="{StaticResource AccentBrush}"
+                                           FontWeight="Medium" />
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- DPI 档位按钮 -->
+                    <UniformGrid Columns="4">
+                        <Button Content="400" Command="{Binding SetDpiCommand}" CommandParameter="0" Margin="0,0,8,0">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource DpiButtonStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding CurrentDpiIndex}" Value="0">
+                                            <Setter Property="Tag" Value="Active" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <Button Content="800" Command="{Binding SetDpiCommand}" CommandParameter="1" Margin="0,0,8,0">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource DpiButtonStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding CurrentDpiIndex}" Value="1">
+                                            <Setter Property="Tag" Value="Active" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <Button Content="1600" Command="{Binding SetDpiCommand}" CommandParameter="2" Margin="0,0,8,0">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource DpiButtonStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding CurrentDpiIndex}" Value="2">
+                                            <Setter Property="Tag" Value="Active" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <Button Content="3200" Command="{Binding SetDpiCommand}" CommandParameter="3">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource DpiButtonStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding CurrentDpiIndex}" Value="3">
+                                            <Setter Property="Tag" Value="Active" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                    </UniformGrid>
                 </StackPanel>
-            </StackPanel>
-        </Border>
+            </Border>
 
-        <!-- 指针加速卡片 -->
-        <Border Background="{StaticResource CardBackgroundBrush}"
-                CornerRadius="12"
-                Padding="20">
-            <StackPanel>
-                <TextBlock Text="指针加速"
-                           FontSize="16"
-                           FontWeight="SemiBold"
-                           Foreground="{StaticResource TextPrimaryBrush}"
-                           Margin="0,0,0,16" />
+            <!-- 指针加速卡片 -->
+            <Border Style="{StaticResource CardStyle}" Margin="0">
+                <StackPanel>
+                    <TextBlock Text="指针加速" Style="{StaticResource CardTitleStyle}" />
 
-                <CheckBox Content="启用指针加速"
-                          IsChecked="{Binding AccelerationEnabled}"
-                          Foreground="{StaticResource TextPrimaryBrush}"
-                          Margin="0,0,0,16" />
+                    <!-- 启用开关 -->
+                    <CheckBox Content="启用指针加速"
+                              IsChecked="{Binding AccelerationEnabled}"
+                              Style="{StaticResource ToggleSwitchStyle}"
+                              Margin="0,0,0,20" />
 
-                <TextBlock Text="加速阈值"
-                           FontSize="13"
-                           Foreground="{StaticResource TextSecondaryBrush}"
-                           Margin="0,0,0,8" />
-                <Slider Value="{Binding AccelerationThreshold}"
-                        Minimum="0"
-                        Maximum="50"
-                        IsEnabled="{Binding AccelerationEnabled}"
-                        Margin="0,0,0,16" />
+                    <!-- 加速阈值 -->
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   Text="加速阈值"
+                                   FontSize="13"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   VerticalAlignment="Center" />
+                        <Border Grid.Column="1"
+                                Background="{StaticResource InputBackgroundBrush}"
+                                CornerRadius="4"
+                                Padding="8,4">
+                            <TextBlock Text="{Binding AccelerationThreshold, StringFormat={}{0:F1}}"
+                                       FontSize="12"
+                                       Foreground="{StaticResource AccentBrush}"
+                                       FontFamily="Consolas"
+                                       FontWeight="SemiBold" />
+                        </Border>
+                    </Grid>
+                    <Slider Value="{Binding AccelerationThreshold}"
+                            Minimum="0"
+                            Maximum="50"
+                            IsEnabled="{Binding AccelerationEnabled}"
+                            Margin="0,0,0,20" />
 
-                <TextBlock Text="加速比"
-                           FontSize="13"
-                           Foreground="{StaticResource TextSecondaryBrush}"
-                           Margin="0,0,0,8" />
-                <Slider Value="{Binding AccelerationRatio}"
-                        Minimum="1"
-                        Maximum="3"
-                        TickFrequency="0.1"
-                        IsEnabled="{Binding AccelerationEnabled}" />
-            </StackPanel>
-        </Border>
-    </StackPanel>
+                    <!-- 加速比 -->
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   Text="加速比"
+                                   FontSize="13"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   VerticalAlignment="Center" />
+                        <Border Grid.Column="1"
+                                Background="{StaticResource InputBackgroundBrush}"
+                                CornerRadius="4"
+                                Padding="8,4">
+                            <TextBlock Text="{Binding AccelerationRatio, StringFormat={}{0:F1}x}"
+                                       FontSize="12"
+                                       Foreground="{StaticResource AccentBrush}"
+                                       FontFamily="Consolas"
+                                       FontWeight="SemiBold" />
+                        </Border>
+                    </Grid>
+                    <Slider Value="{Binding AccelerationRatio}"
+                            Minimum="1"
+                            Maximum="3"
+                            TickFrequency="0.1"
+                            IsEnabled="{Binding AccelerationEnabled}" />
+
+                    <!-- 提示 -->
+                    <TextBlock Text="提示：指针加速会在鼠标移动速度超过阈值时，按比例放大指针移动距离，适合需要快速定位的场景。"
+                               Style="{StaticResource HintStyle}"
+                               Margin="0,16,0,0" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
     </ScrollViewer>
 </UserControl>
-
-

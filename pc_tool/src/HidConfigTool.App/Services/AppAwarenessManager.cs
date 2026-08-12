@@ -1,6 +1,7 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Threading;
+using HidConfigTool.Core.Interfaces;
 
 namespace HidConfigTool.App.Services;
 
@@ -43,6 +44,7 @@ public class AppAwarenessManager
     private string _lastProcessName = string.Empty;
     private readonly ConfigProfileManager _profileManager;
     private readonly OsdManager _osdManager;
+    private readonly IDeviceService _deviceService;
 
     /// <summary>
     /// 是否启用应用感知
@@ -64,10 +66,11 @@ public class AppAwarenessManager
     /// </summary>
     public string CurrentProfileName { get; private set; } = string.Empty;
 
-    public AppAwarenessManager(ConfigProfileManager profileManager, OsdManager osdManager)
+    public AppAwarenessManager(ConfigProfileManager profileManager, OsdManager osdManager, IDeviceService deviceService)
     {
         _profileManager = profileManager;
         _osdManager = osdManager;
+        _deviceService = deviceService;
 
         _timer = new DispatcherTimer
         {
@@ -209,7 +212,7 @@ public class AppAwarenessManager
         }
     }
 
-    private void SwitchProfile(string profileName)
+    private async void SwitchProfile(string profileName)
     {
         if (profileName == CurrentProfileName)
             return;
@@ -217,7 +220,19 @@ public class AppAwarenessManager
         CurrentProfileName = profileName;
         _osdManager.ShowProfileChange(profileName);
 
-        // 实际项目中这里会加载配置并应用到设备
+        // 加载配置并应用到设备
+        try
+        {
+            var config = _profileManager.LoadProfile(profileName);
+            if (config != null)
+            {
+                await _deviceService.SaveConfigAsync(config);
+            }
+        }
+        catch
+        {
+            // 配置应用失败时静默处理，OSD已显示
+        }
     }
 
     /// <summary>

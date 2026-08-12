@@ -145,7 +145,7 @@ public partial class PerfMonitorPageViewModel : ObservableObject
     {
         if (!IsLoading && IsDeviceConnected)
         {
-            await RefreshAsync();
+            await RefreshCoreAsync(isAutoRefresh: true);
         }
     }
 
@@ -158,7 +158,18 @@ public partial class PerfMonitorPageViewModel : ObservableObject
         if (!IsDeviceConnected || IsLoading)
             return;
 
-        IsLoading = true;
+        await RefreshCoreAsync(isAutoRefresh: false);
+    }
+
+    /// <summary>
+    /// 核心刷新逻辑
+    /// </summary>
+    private async Task RefreshCoreAsync(bool isAutoRefresh)
+    {
+        if (!isAutoRefresh)
+        {
+            IsLoading = true;
+        }
         try
         {
             // 加载系统状态
@@ -192,7 +203,10 @@ public partial class PerfMonitorPageViewModel : ObservableObject
         }
         finally
         {
-            IsLoading = false;
+            if (!isAutoRefresh)
+            {
+                IsLoading = false;
+            }
         }
     }
 
@@ -216,8 +230,18 @@ public partial class PerfMonitorPageViewModel : ObservableObject
             bool success = await _deviceService.ResetPerfStatsAsync();
             if (success)
             {
-                // 重置后刷新一下
-                await RefreshAsync();
+                // 清空历史数据
+                CpuHistory.Clear();
+                UpdateCpuChart();
+                TaskStats.Clear();
+                SystemStat = null;
+                OnPropertyChanged(nameof(CpuUsageText));
+                OnPropertyChanged(nameof(LoopFreqText));
+                OnPropertyChanged(nameof(UptimeText));
+                OnPropertyChanged(nameof(TaskCountText));
+                OnPropertyChanged(nameof(CpuAvg10sText));
+                OnPropertyChanged(nameof(CpuAvg30sText));
+                OnPropertyChanged(nameof(LoopFreqAvg10sText));
             }
         }
         catch (Exception ex)

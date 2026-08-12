@@ -26,7 +26,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     # --------------------------------------------------------
     # 1. 安装系统依赖
@@ -103,7 +103,7 @@ jobs:
     # 6. 上传固件产物
     # --------------------------------------------------------
     - name: Upload firmware artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: firmware-rp2350
         path: |
@@ -137,13 +137,13 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     # --------------------------------------------------------
     # 1. 设置 .NET SDK
     # --------------------------------------------------------
     - name: Setup .NET SDK
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
@@ -151,7 +151,7 @@ jobs:
     # 2. 缓存 NuGet 包
     # --------------------------------------------------------
     - name: Cache NuGet packages
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ~/.nuget/packages
         key: nuget-${{ hashFiles('pc_tool/**/*.csproj') }}
@@ -159,33 +159,26 @@ jobs:
           nuget-
 
     # --------------------------------------------------------
-    # 3. 调试：列出目录结构
-    # --------------------------------------------------------
-    - name: List directory structure
-      run: |
-        Get-ChildItem -Path pc_tool -Recurse -Depth 2 | Select-Object FullName
-
-    # --------------------------------------------------------
-    # 4. 还原依赖
+    # 3. 还原依赖
     # --------------------------------------------------------
     - name: Restore dependencies
       run: dotnet restore pc_tool/HidConfigTool.slnx
 
     # --------------------------------------------------------
-    # 5. 构建
+    # 4. 构建
     # --------------------------------------------------------
     - name: Build
       run: dotnet build pc_tool/HidConfigTool.slnx --configuration Release --no-restore
 
     # --------------------------------------------------------
-    # 6. 运行单元测试
+    # 5. 运行单元测试
     # --------------------------------------------------------
     - name: Run unit tests
       run: dotnet test pc_tool/src/HidConfigTool.Tests/HidConfigTool.Tests.csproj --configuration Release --verbosity normal
       continue-on-error: true
 
     # --------------------------------------------------------
-    # 7. 发布上位机（依赖框架）
+    # 6. 发布上位机（依赖框架）
     # --------------------------------------------------------
     - name: Publish PC Tool (framework-dependent)
       run: |
@@ -195,7 +188,7 @@ jobs:
           --output publish-framework-dependent
 
     # --------------------------------------------------------
-    # 8. 发布上位机（自包含单文件）
+    # 7. 发布上位机（自包含单文件）
     # --------------------------------------------------------
     - name: Publish PC Tool (self-contained single-file)
       run: |
@@ -213,13 +206,13 @@ jobs:
     # 8. 上传产物
     # --------------------------------------------------------
     - name: Upload PC Tool (framework-dependent)
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: pc-tool-windows-framework-dependent
         path: publish-framework-dependent/
 
     - name: Upload PC Tool (self-contained)
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: pc-tool-windows-self-contained
         path: publish-self-contained/
@@ -265,7 +258,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Check documentation files
       run: |

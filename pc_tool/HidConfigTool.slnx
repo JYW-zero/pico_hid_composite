@@ -1,6 +1,5 @@
 <Solution>
   <Project Path="src/HidConfigTool.App/HidConfigTool.App.csproj" />
   <Project Path="src/HidConfigTool.Core/HidConfigTool.Core.csproj" />
-  <Project Path="src/HidConfigTool.Drivers/HidConfigTool.Drivers.csproj" />
   <Project Path="src/HidConfigTool.Tests/HidConfigTool.Tests.csproj" />
 </Solution>

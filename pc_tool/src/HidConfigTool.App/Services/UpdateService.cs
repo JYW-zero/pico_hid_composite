@@ -1,8 +1,9 @@
-﻿using HidConfigTool.Core.Interfaces;
+using HidConfigTool.Core.Interfaces;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace HidConfigTool.App.Services;
@@ -10,10 +11,12 @@ namespace HidConfigTool.App.Services;
 /// <summary>
 /// 自动更新服务实现
 /// </summary>
-public class UpdateService : IUpdateService
+public class UpdateService : IUpdateService, IDisposable
 {
     private readonly HttpClient _httpClient;
+    private bool _disposed;
     private string _updateUrl = "https://example.com/updates/version.json"; // 替换为实际的更新服务器地址
+    private string? _lastDownloadPath;
 
     public Version CurrentVersion { get; }
     public Version? LatestVersion { get; private set; }
@@ -132,11 +135,20 @@ public class UpdateService : IUpdateService
 
             stopwatch.Stop();
 
-            // 验证 SHA256（可选）
+            // 验证 SHA256
             if (!string.IsNullOrEmpty(UpdateInfo.Sha256))
             {
-                // TODO: 验证文件哈希
+                string actualHash = await ComputeSha256Async(downloadPath);
+                if (!string.Equals(actualHash, UpdateInfo.Sha256, StringComparison.OrdinalIgnoreCase))
+                {
+                    // 哈希不匹配，删除下载的文件
+                    File.Delete(downloadPath);
+                    return false;
+                }
             }
+
+            // 保存下载路径供安装使用
+            _lastDownloadPath = downloadPath;
 
             return true;
         }
@@ -153,19 +165,81 @@ public class UpdateService : IUpdateService
     {
         try
         {
-            // TODO: 实现更新安装逻辑
-            // 1. 关闭当前程序
-            // 2. 解压更新包
-            // 3. 替换文件
-            // 4. 重启程序
+            if (string.IsNullOrEmpty(_lastDownloadPath) || !File.Exists(_lastDownloadPath))
+                return false;
 
-            await Task.Delay(100); // 模拟
-            return true;
+            string extension = Path.GetExtension(_lastDownloadPath).ToLowerInvariant();
+
+            // .exe 安装包：直接运行
+            if (extension == ".exe")
+            {
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = _lastDownloadPath,
+                    UseShellExecute = true,
+                    Verb = "runas" // 请求管理员权限
+                };
+                Process.Start(startInfo);
+                // 安装程序会自动关闭当前程序，这里直接返回
+                return true;
+            }
+
+            // .zip 压缩包：解压并替换文件（需要更新器程序协助）
+            if (extension == ".zip")
+            {
+                // 创建批处理更新脚本
+                string batchPath = Path.Combine(Path.GetTempPath(), "HIDConfigToolUpdate.bat");
+                string appDir = AppContext.BaseDirectory;
+                string tempExtractDir = Path.Combine(Path.GetTempPath(), "HIDConfigToolUpdateExtract");
+
+                // 生成批处理脚本：等待程序退出 -> 解压 -> 复制文件 -> 重启程序
+                string batchContent = $@"
+@echo off
+echo 正在更新 HID Config Tool...
+timeout /t 2 /nobreak >nul
+if exist ""{tempExtractDir}"" rmdir /s /q ""{tempExtractDir}""
+powershell -Command ""Expand-Archive -Path '{_lastDownloadPath}' -DestinationPath '{tempExtractDir}' -Force""
+xcopy /e /y /q ""{tempExtractDir}\*"" ""{appDir}""
+rmdir /s /q ""{tempExtractDir}""
+del ""{_lastDownloadPath}""
+del ""%~f0""
+start """" ""{Path.Combine(appDir, "HidConfigTool.App.exe")}""
+";
+                File.WriteAllText(batchPath, batchContent);
+
+                // 启动批处理脚本（隐藏窗口）
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "cmd.exe",
+                    Arguments = $"/c \"{batchPath}\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+                Process.Start(startInfo);
+
+                // 退出当前程序
+                Environment.Exit(0);
+                return true; // 不会执行到这里
+            }
+
+            // 其他格式：不支持
+            return false;
         }
         catch
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// 计算文件的 SHA256 哈希
+    /// </summary>
+    private static async Task<string> ComputeSha256Async(string filePath)
+    {
+        using var sha256 = SHA256.Create();
+        using var stream = File.OpenRead(filePath);
+        byte[] hash = await sha256.ComputeHashAsync(stream);
+        return Convert.ToHexString(hash);
     }
 
     private void OnUpdateCheckCompleted(bool hasUpdate, UpdateInfo? updateInfo, string? errorMessage)
@@ -193,5 +267,14 @@ public class UpdateService : IUpdateService
         public long FileSize { get; set; }
         public string Sha256 { get; set; } = string.Empty;
         public bool IsMandatory { get; set; }
+    }
+
+    public void Dispose()
+    {
+        if (!_disposed)
+        {
+            _httpClient.Dispose();
+            _disposed = true;
+        }
     }
 }

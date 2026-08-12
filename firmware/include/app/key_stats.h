@@ -28,7 +28,7 @@ extern "C" {
  * 注意：必须是Flash页大小（256字节）的整数倍，
  * 因为flash_range_program要求页对齐写入
  */
-#define KEY_STATS_RECORD_SIZE   FLASH_PAGE_SIZE  /* 256 bytes */
+#define KEY_STATS_RECORD_SIZE   (2 * FLASH_PAGE_SIZE)  /* 512 bytes */
 
 /* 最大记录数：4KB / 256字节 = 16条
  * 顺序写入，写满16次才擦除一次，大大延长Flash寿命

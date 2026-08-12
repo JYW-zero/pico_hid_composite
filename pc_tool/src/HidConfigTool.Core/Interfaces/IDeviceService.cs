@@ -140,6 +140,20 @@ public interface IDeviceService : IDisposable
     Task<bool> SetMacroAsync(byte macroId, byte[] data);
 
     /// <summary>
+    /// 播放指定宏
+    /// </summary>
+    /// <param name="macroId">宏ID (0-7)</param>
+    /// <returns>是否成功发送命令</returns>
+    Task<bool> PlayMacroAsync(byte macroId);
+
+    /// <summary>
+    /// 停止指定宏
+    /// </summary>
+    /// <param name="macroId">宏ID (0-7)，0xFF 表示停止所有宏</param>
+    /// <returns>是否成功发送命令</returns>
+    Task<bool> StopMacroAsync(byte macroId);
+
+    /// <summary>
     /// 获取错误日志信息
     /// </summary>
     /// <param name="cancellationToken">取消令牌</param>

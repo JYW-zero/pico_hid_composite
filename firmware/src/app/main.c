@@ -423,83 +423,14 @@ static void send_hid_report(uint8_t report_id, uint32_t btn)
   {
     case REPORT_ID_KEYBOARD:
     {
-      // use to avoid send multiple consecutive zero report for keyboard
-      static uint64_t last_report_keys = 0xFFFFFFFFFFFFFFFFULL;
-
-      // 检查是否有变化：物理按键变化 或者 宏按键变化
-      bool phy_changed = (g_stable_keys != last_report_keys);
-      bool macro_changed = macro_kb_has_changed();
-
-      if (!phy_changed && !macro_changed) return;
-
-      if (phy_changed)
-      {
-        last_report_keys = g_stable_keys;
-      }
-
-      uint8_t keycode[6] = { 0 };
-      uint8_t key_count = 0;
-      uint8_t modifier = 0;
-
-      // 1. 收集物理按键
-      for (int i = 0; i < 64; i++)
-      {
-        if (((g_stable_keys >> i) & 1ULL) == 0ULL) // bit=0表示按下
-        {
-          // 修饰键
-          if (i == 26) modifier |= KEYBOARD_MODIFIER_LEFTCTRL;
-          else if (i == 27) modifier |= KEYBOARD_MODIFIER_LEFTSHIFT;
-          else if (i == 28) modifier |= KEYBOARD_MODIFIER_LEFTALT;
-          else if (i == 29) modifier |= KEYBOARD_MODIFIER_LEFTGUI;
-          // 普通按键
-          else if (i < 26 && key_count < 6)
-          {
-            keycode[key_count++] = (uint8_t)(HID_KEY_A + i);
-          }
-        }
-      }
-
-      // 2. 合并宏的按键状态
-      uint8_t macro_mod = 0;
-      uint8_t macro_keys[6] = {0};
-      macro_get_keyboard_state(&macro_mod, macro_keys);
-
-      // 合并修饰键
-      modifier |= macro_mod;
-
-      // 合并普通按键（去重）
-      for (int i = 0; i < 6; i++)
-      {
-        if (macro_keys[i] == 0) continue;
-
-        // 检查是否已经存在
-        bool exists = false;
-        for (int j = 0; j < key_count; j++)
-        {
-          if (keycode[j] == macro_keys[i])
-          {
-            exists = true;
-            break;
-          }
-        }
-
-        // 不存在且还有槽位，就添加
-        if (!exists && key_count < 6)
-        {
-          keycode[key_count++] = macro_keys[i];
-        }
-      }
-
-      tud_hid_keyboard_report(REPORT_ID_KEYBOARD, modifier, keycode);
+      /* 键盘报告由 keypad_task() 统一发送（使用 keymap 正确映射 + 宏合并）
+       * 此处跳过，避免重复发送硬编码索引映射的错误报告 */
     }
     break;
 
     case REPORT_ID_MOUSE:
     {
-      int8_t const delta = 5;
-
-      // no button, right + down, no scroll, no pan
-      tud_hid_mouse_report(REPORT_ID_MOUSE, 0x00, delta, delta, 0, 0);
+      /* 鼠标报告由 mouse_hid_task() 统一发送，此处跳过 */
     }
     break;
 
@@ -1641,6 +1572,27 @@ static void keypad_task(void)
 
             default:
               break;
+          }
+        }
+      }
+
+      // 合并宏的按键状态（与 send_hid_report 原逻辑一致）
+      {
+        uint8_t macro_mod = 0;
+        uint8_t macro_keys[6] = {0};
+        macro_get_keyboard_state(&macro_mod, macro_keys);
+        modifier |= macro_mod;
+        for (int mi = 0; mi < 6; mi++)
+        {
+          if (macro_keys[mi] == 0) continue;
+          bool exists = false;
+          for (int mj = 0; mj < key_count; mj++)
+          {
+            if (keycode[mj] == macro_keys[mi]) { exists = true; break; }
+          }
+          if (!exists && key_count < 6)
+          {
+            keycode[key_count++] = macro_keys[mi];
           }
         }
       }

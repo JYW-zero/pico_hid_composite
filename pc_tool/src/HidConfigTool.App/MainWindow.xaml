@@ -5,13 +5,25 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:HidConfigTool.App.ViewModels"
         xmlns:views="clr-namespace:HidConfigTool.App.Views"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         mc:Ignorable="d"
         Title="{Binding WindowTitle}"
-        Height="700"
-        Width="1100"
-        MinHeight="600"
-        MinWidth="900"
-        WindowStartupLocation="CenterScreen">
+        Height="720"
+        Width="1140"
+        MinHeight="620"
+        MinWidth="960"
+        WindowStartupLocation="CenterScreen"
+        Background="Transparent"
+        BorderBrush="{StaticResource BorderBrush}"
+        BorderThickness="1">
+
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="36"
+                            CornerRadius="0"
+                            GlassFrameThickness="0"
+                            ResizeBorderThickness="6"
+                            UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
 
     <Window.Resources>
         <ResourceDictionary>
@@ -24,205 +36,493 @@
     <Border Background="{StaticResource BackgroundBrush}">
         <Grid>
             <Grid.RowDefinitions>
+                <!-- 自定义标题栏 -->
+                <RowDefinition Height="36" />
+                <!-- 主体内容 -->
                 <RowDefinition Height="*" />
+                <!-- 底部状态栏 -->
                 <RowDefinition Height="28" />
             </Grid.RowDefinitions>
 
-            <!-- 主体内容 -->
-            <Grid Grid.Row="0">
+            <!-- ==================== 自定义标题栏 ==================== -->
+            <Border Grid.Row="0"
+                    Background="{StaticResource TitleBarBrush}"
+                    BorderThickness="0,0,0,1"
+                    BorderBrush="{StaticResource BorderBrush}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- 左侧：Logo + 标题 -->
+                    <StackPanel Grid.Column="0"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center"
+                                Margin="12,0,0,0">
+                        <!-- Logo -->
+                        <Border Width="22"
+                                Height="22"
+                                Background="{StaticResource AccentBrush}"
+                                CornerRadius="5"
+                                VerticalAlignment="Center"
+                                Margin="0,0,8,0">
+                            <TextBlock Text="H"
+                                       Foreground="White"
+                                       FontSize="13"
+                                       FontWeight="Bold"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Text="{Binding WindowTitle}"
+                                   FontSize="12"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   VerticalAlignment="Center"
+                                   FontWeight="Medium" />
+                    </StackPanel>
+
+                    <!-- 右侧：窗口控制按钮 -->
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Stretch">
+                        <Button Style="{StaticResource TitleBarButtonStyle}"
+                                Click="MinimizeButton_Click"
+                                shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                                ToolTip="最小化">
+                            <Rectangle Width="12"
+                                       Height="1.5"
+                                       Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                        </Button>
+                        <Button Style="{StaticResource TitleBarButtonStyle}"
+                                Click="MaximizeButton_Click"
+                                shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                                ToolTip="最大化">
+                            <Rectangle Width="11"
+                                       Height="11"
+                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                       StrokeThickness="1.2" />
+                        </Button>
+                        <Button Style="{StaticResource TitleBarCloseButtonStyle}"
+                                Click="CloseButton_Click"
+                                shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                                ToolTip="关闭">
+                            <Path Data="M6 6L12 12M12 6L6 12"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.2"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
+                                  Width="12"
+                                  Height="12" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ==================== 主体内容 ==================== -->
+            <Grid Grid.Row="1">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="200" />
+                    <ColumnDefinition Width="220" />
                     <ColumnDefinition Width="1" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
                 <!-- 左侧导航栏 -->
                 <Border Grid.Column="0" Background="{StaticResource SidebarBrush}">
-                    <StackPanel Margin="0,16,0,16">
-                        <!-- 设备状态 -->
-                        <Border Margin="16,0,16,16"
-                                Padding="12"
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <!-- 设备状态卡片 -->
+                        <Border Grid.Row="0"
+                                Margin="12,12,12,8"
+                                Padding="14"
                                 Background="{StaticResource CardBackgroundBrush}"
-                                CornerRadius="8">
+                                CornerRadius="10">
                             <StackPanel>
                                 <TextBlock Text="设备状态"
-                                           FontSize="12"
-                                           Foreground="{StaticResource TextSecondaryBrush}"
-                                           Margin="0,0,0,8" />
-                                <StackPanel Orientation="Horizontal">
-                                    <Ellipse Width="8"
-                                             Height="8"
-                                             VerticalAlignment="Center"
-                                             Margin="0,0,8,0">
-                                        <Ellipse.Style>
-                                            <Style TargetType="Ellipse">
-                                                <Setter Property="Fill" Value="#FFF7768E" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsDeviceConnected}" Value="True">
-                                                        <Setter Property="Fill" Value="#FF9ECE6A" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Ellipse.Style>
-                                    </Ellipse>
-                                    <TextBlock FontSize="13"
-                                               Foreground="{StaticResource TextPrimaryBrush}"
-                                               VerticalAlignment="Center">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Text" Value="未连接" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsDeviceConnected}" Value="True">
-                                                        <Setter Property="Text" Value="已连接" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                </StackPanel>
+                                           FontSize="11"
+                                           Foreground="{StaticResource TextTertiaryBrush}"
+                                           Margin="0,0,0,8"
+                                           FontWeight="Medium" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- 状态指示灯 -->
+                                    <Grid Grid.Column="0"
+                                          Width="10"
+                                          Height="10"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,10,0">
+                                        <Ellipse x:Name="statusDot"
+                                                 Fill="#FFF7768E">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse">
+                                                    <Setter Property="Fill" Value="#FFF7768E" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsDeviceConnected}" Value="True">
+                                                            <Setter Property="Fill" Value="#FF9ECE6A" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+                                        <!-- 呼吸光晕 -->
+                                        <Ellipse Opacity="0.4">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse">
+                                                    <Setter Property="Fill" Value="#FFF7768E" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsDeviceConnected}" Value="True">
+                                                            <Setter Property="Fill" Value="#FF9ECE6A" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                            <Ellipse.RenderTransform>
+                                                <ScaleTransform CenterX="5" CenterY="5" ScaleX="1.6" ScaleY="1.6" />
+                                            </Ellipse.RenderTransform>
+                                        </Ellipse>
+                                    </Grid>
+
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock FontSize="13"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource TextPrimaryBrush}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="未连接" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsDeviceConnected}" Value="True">
+                                                            <Setter Property="Text" Value="已连接" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Text="{Binding StatusMessage}"
+                                                   FontSize="10"
+                                                   Foreground="{StaticResource TextTertiaryBrush}"
+                                                   Margin="0,2,0,0"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </Grid>
                             </StackPanel>
                         </Border>
 
-                        <!-- 导航按钮 -->
-                        <Button Content="💻  设备"
-                                Command="{Binding NavigateToDeviceCommand}">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding CurrentPage}" Value="Device">
-                                            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-                                            <Setter Property="Foreground" Value="White" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                        <Button Content="⌨️  按键设置"
-                                Command="{Binding NavigateToKeysCommand}">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding CurrentPage}" Value="Keys">
-                                            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-                                            <Setter Property="Foreground" Value="White" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                        <Button Content="🖱️  鼠标设置"
-                                Command="{Binding NavigateToMouseCommand}">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding CurrentPage}" Value="Mouse">
-                                            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-                                            <Setter Property="Foreground" Value="White" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                        <Button Content="🎮  摇杆设置"
-                                Command="{Binding NavigateToJoystickCommand}">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding CurrentPage}" Value="Joystick">
-                                            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-                                            <Setter Property="Foreground" Value="White" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                        <Button Content="🔄  编码器设置"
-                                Command="{Binding NavigateToEncoderCommand}">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding CurrentPage}" Value="Encoder">
-                                            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-                                            <Setter Property="Foreground" Value="White" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                        <Button Content="⚡  宏编辑器"
-                                Command="{Binding NavigateToMacroCommand}">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding CurrentPage}" Value="Macro">
-                                            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-                                            <Setter Property="Foreground" Value="White" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                        <Button Content="📋  错误日志"
-                                Command="{Binding NavigateToErrorLogCommand}">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding CurrentPage}" Value="ErrorLog">
-                                            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-                                            <Setter Property="Foreground" Value="White" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                        <Button Content="📊  性能监控"
-                                Command="{Binding NavigateToPerfMonitorCommand}">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding CurrentPage}" Value="PerfMonitor">
-                                            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-                                            <Setter Property="Foreground" Value="White" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
+                        <!-- 导航菜单 -->
+                        <ScrollViewer Grid.Row="1"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      Margin="0,4">
+                            <StackPanel Margin="4,0">
+                                <!-- 分组标题 -->
+                                <TextBlock Text="配置"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextTertiaryBrush}"
+                                           Margin="16,8,0,6" />
 
-                        <Separator Margin="16,16,16,16"
-                                   Background="{StaticResource BorderBrush}"
-                                   Height="1" />
+                                <!-- 设备 -->
+                                <Button Command="{Binding NavigateToDeviceCommand}"
+                                        Padding="12,9"
+                                        Margin="4,1">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CurrentPage}" Value="Device">
+                                                    <Setter Property="Tag" Value="Active" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm0 2v10h16V6H4zm4 14h8v2H8v-2z"
+                                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              Width="16"
+                                              Height="16"
+                                              Margin="0,0,10,0" />
+                                        <TextBlock Text="设备" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
 
-                        <Button Content="⚙️  设置"
-                                Command="{Binding NavigateToSettingsCommand}">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding CurrentPage}" Value="Settings">
-                                            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-                                            <Setter Property="Foreground" Value="White" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                    </StackPanel>
+                                <!-- 按键设置 -->
+                                <Button Command="{Binding NavigateToKeysCommand}"
+                                        Padding="12,9"
+                                        Margin="4,1">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CurrentPage}" Value="Keys">
+                                                    <Setter Property="Tag" Value="Active" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="M3 6h18a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zm0 2v8h18V8H3zm2 2h2v2H5v-2zm4 0h2v2H9v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2zM5 14h14v2H5v-2z"
+                                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              Width="16"
+                                              Height="16"
+                                              Margin="0,0,10,0" />
+                                        <TextBlock Text="按键设置" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- 鼠标设置 -->
+                                <Button Command="{Binding NavigateToMouseCommand}"
+                                        Padding="12,9"
+                                        Margin="4,1">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CurrentPage}" Value="Mouse">
+                                                    <Setter Property="Tag" Value="Active" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="M12 2a7 7 0 0 1 7 7v6a7 7 0 0 1-14 0V9a7 7 0 0 1 7-7zm0 2a5 5 0 0 0-5 5v3h5V4zm0 0v7h5V9a5 5 0 0 0-5-5z"
+                                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              Width="16"
+                                              Height="16"
+                                              Margin="0,0,10,0" />
+                                        <TextBlock Text="鼠标设置" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- 摇杆设置 -->
+                                <Button Command="{Binding NavigateToJoystickCommand}"
+                                        Padding="12,9"
+                                        Margin="4,1">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CurrentPage}" Value="Joystick">
+                                                    <Setter Property="Tag" Value="Active" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="M12 2a5 5 0 0 1 5 5c0 1.5-.6 2.8-1.5 3.7L17 16h2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2h2l1.5-5.3A5 5 0 0 1 7 7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3c0 .9.4 1.7 1 2.3V11h4V9.3c.6-.6 1-1.4 1-2.3a3 3 0 0 0-3-3z"
+                                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              Width="16"
+                                              Height="16"
+                                              Margin="0,0,10,0" />
+                                        <TextBlock Text="摇杆设置" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- 编码器设置 -->
+                                <Button Command="{Binding NavigateToEncoderCommand}"
+                                        Padding="12,9"
+                                        Margin="4,1">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CurrentPage}" Value="Encoder">
+                                                    <Setter Property="Tag" Value="Active" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm0 3a1 1 0 0 1 1 1v4.586l2.707 2.707a1 1 0 0 1-1.414 1.414l-3-3A1 1 0 0 1 11 13V8a1 1 0 0 1 1-1z"
+                                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              Width="16"
+                                              Height="16"
+                                              Margin="0,0,10,0" />
+                                        <TextBlock Text="编码器设置" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- 宏编辑器 -->
+                                <Button Command="{Binding NavigateToMacroCommand}"
+                                        Padding="12,9"
+                                        Margin="4,1">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CurrentPage}" Value="Macro">
+                                                    <Setter Property="Tag" Value="Active" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="M13 2L4 14h6l-1 8 9-12h-6l1-8z"
+                                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              Width="16"
+                                              Height="16"
+                                              Margin="0,0,10,0" />
+                                        <TextBlock Text="宏编辑器" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- 分组标题 -->
+                                <TextBlock Text="工具"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextTertiaryBrush}"
+                                           Margin="16,14,0,6" />
+
+                                <!-- 错误日志 -->
+                                <Button Command="{Binding NavigateToErrorLogCommand}"
+                                        Padding="12,9"
+                                        Margin="4,1">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CurrentPage}" Value="ErrorLog">
+                                                    <Setter Property="Tag" Value="Active" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm0 2v14h14V7h-4V5H5zm7 4v6h2V9h-2zm0 8v2h2v-2h-2z"
+                                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              Width="16"
+                                              Height="16"
+                                              Margin="0,0,10,0" />
+                                        <TextBlock Text="错误日志" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- 性能监控 -->
+                                <Button Command="{Binding NavigateToPerfMonitorCommand}"
+                                        Padding="12,9"
+                                        Margin="4,1">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CurrentPage}" Value="PerfMonitor">
+                                                    <Setter Property="Tag" Value="Active" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="M3 3h2v18H3V3zm4 8h2v10H7V11zm4-6h2v16h-2V5zm4 10h2v6h-2v-6zm4-4h2v10h-2V7z"
+                                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              Width="16"
+                                              Height="16"
+                                              Margin="0,0,10,0" />
+                                        <TextBlock Text="性能监控" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- 按键统计 -->
+                                <Button Command="{Binding NavigateToStatsCommand}"
+                                        Padding="12,9"
+                                        Margin="4,1">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CurrentPage}" Value="Stats">
+                                                    <Setter Property="Tag" Value="Active" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="M3 3v18h18M7 14l4-4 4 4 5-5"
+                                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              Width="16"
+                                              Height="16"
+                                              Margin="0,0,10,0" />
+                                        <TextBlock Text="按键统计" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- 分组标题 -->
+                                <TextBlock Text="系统"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextTertiaryBrush}"
+                                           Margin="16,14,0,6" />
+
+                                <!-- 设置 -->
+                                <Button Command="{Binding NavigateToSettingsCommand}"
+                                        Padding="12,9"
+                                        Margin="4,1">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CurrentPage}" Value="Settings">
+                                                    <Setter Property="Tag" Value="Active" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm8.5 1l2-1.5-2-3.5-2.4.8a8 8 0 0 0-1.7-1L16 3h-4l-.4 2.3a8 8 0 0 0-1.7 1L7.5 5.5l-2 3.5L7.5 11a8 8 0 0 0 0 2l-2 1.5 2 3.5 2.4-.8c.5.4 1.1.8 1.7 1L12 21h4l.4-2.3c.6-.2 1.2-.6 1.7-1l2.4.8 2-3.5-2-1.5c.2-.7.2-1.3 0-2z"
+                                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              Width="16"
+                                              Height="16"
+                                              Margin="0,0,10,0" />
+                                        <TextBlock Text="设置" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- 底部：版本信息 -->
+                        <Border Grid.Row="2"
+                                Margin="12,8,12,12"
+                                Padding="10,8"
+                                Background="{StaticResource CardBackgroundBrush}"
+                                CornerRadius="8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Ellipse Grid.Column="0"
+                                         Width="8"
+                                         Height="8"
+                                         Fill="{StaticResource AccentBrush}"
+                                         VerticalAlignment="Center"
+                                         Margin="0,0,8,0" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="HID 配置工具"
+                                               FontSize="11"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               FontWeight="Medium" />
+                                    <TextBlock Text="v0.1.0"
+                                               FontSize="10"
+                                               Foreground="{StaticResource TextTertiaryBrush}" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
                 </Border>
 
                 <!-- 分隔线 -->
                 <GridSplitter Grid.Column="1"
                               Width="1"
                               Background="{StaticResource BorderBrush}"
-                              HorizontalAlignment="Stretch" />
+                              HorizontalAlignment="Stretch"
+                              IsEnabled="False" />
 
                 <!-- 右侧内容区 -->
                 <Border Grid.Column="2" Background="{StaticResource ContentBackgroundBrush}">
-                    <ContentControl x:Name="ContentFrame" Margin="24" />
+                    <ContentControl x:Name="ContentFrame" Margin="28,24" />
                 </Border>
             </Grid>
 
-            <!-- 底部状态栏 -->
-            <Border Grid.Row="1" Background="{StaticResource TitleBarBrush}" BorderThickness="0,1,0,0" BorderBrush="{StaticResource BorderBrush}">
+            <!-- ==================== 底部状态栏 ==================== -->
+            <Border Grid.Row="2"
+                    Background="{StaticResource TitleBarBrush}"
+                    BorderThickness="0,1,0,0"
+                    BorderBrush="{StaticResource BorderBrush}">
                 <Grid Margin="12,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -230,22 +530,42 @@
                     </Grid.ColumnDefinitions>
 
                     <!-- 状态消息 -->
-                    <TextBlock Grid.Column="0"
-                               Text="{Binding StatusMessage}"
-                               FontSize="11"
-                               Foreground="{StaticResource TextSecondaryBrush}"
-                               VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="0"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                        <Ellipse Width="6"
+                                 Height="6"
+                                 VerticalAlignment="Center"
+                                 Margin="0,0,8,0">
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Setter Property="Fill" Value="{StaticResource TextTertiaryBrush}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsDeviceConnected}" Value="True">
+                                            <Setter Property="Fill" Value="{StaticResource SuccessBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+                        <TextBlock Text="{Binding StatusMessage}"
+                                   FontSize="11"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
 
-                    <!-- 版本号 -->
-                    <TextBlock Grid.Column="1"
-                               Text="v0.1"
-                               FontSize="11"
-                               Foreground="{StaticResource TextSecondaryBrush}"
-                               VerticalAlignment="Center" />
+                    <!-- 右侧信息 -->
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="就绪"
+                                   FontSize="11"
+                                   Foreground="{StaticResource TextTertiaryBrush}"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,12,0" />
+                    </StackPanel>
                 </Grid>
             </Border>
         </Grid>
     </Border>
 </Window>
-
-

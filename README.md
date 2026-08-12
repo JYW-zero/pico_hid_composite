@@ -310,6 +310,15 @@ dotnet run --project src/HidConfigTool.App
 
 ---
 
+## 📧 联系作者
+
+- **作者**：JYW
+- **邮箱**：[J.YW@outlook.com](mailto:J.YW@outlook.com)
+
+欢迎反馈问题、建议或交流技术！
+
+---
+
 <div align="center">
 
 **如果这个项目对你有帮助，别忘了给个 ⭐ Star！**

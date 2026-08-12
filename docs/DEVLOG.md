@@ -44,6 +44,58 @@
 
 ## 📅 开发日志
 
+### 2026-08-13 - 全面代码审计与修复
+
+**审计范围**：全部固件源码（21 .c + 23 .h）+ 上位机全部 C#/XAML 文件
+
+**完成的修复**：
+
+#### 严重 Bug 修复（第一阶段）
+- F1: key_stats 结构体 268B > 记录槽 256B → 记录槽改为 512B
+- F2: shared_hw_data.c 缺失 11 个函数 → 完整实现 24 个函数
+- F3: HID 描述符缺失 Report ID 10-13 → 添加 4 个 Feature 报告
+- F4: Core1 从未启动 → 完整迁移硬件扫描到 Core1，激活双核架构
+- F5: 鼠标报告硬编码 delta=5 → 删除 send_hid_report
+- F6: 键盘报告重复发送 → 删除 tud_hid_report_complete_cb 链式发送
+- F7: FATAL 错误不触发复位 → watchdog_reboot
+- P1: MacroRecorder 录制 VK 码 → HidKeyConverter 转换为 HID Usage
+- P2: MacroPageViewModel KeyCode=65 → 改为 0x04
+- P3: HidConfigTool.Drivers 死代码 → 删除整个项目
+
+#### 高优先级修复（第二阶段）
+- 固件：F9-F13（config_pending、栈溢出、multicore 链接、const 正确性、宏未定义）
+- 上位机：P4-P9（InputBox 替换、应用感知、配置管理、线程安全、键码统一、Stats 导航）
+
+#### 资源泄漏与死代码清理（第三/四阶段）
+- P11: UpdateService HttpClient 未 Dispose
+- P12: TrayIconManager GDI 句柄泄漏
+- P13: MainWindow HwndSource 钩子未移除
+- 删除固件 encoder_task/paw3395_task（约 90 行）
+- 删除上位机 Class1.cs 空文件
+
+#### 新增功能
+- 宏播放/停止：固件 CMD_MACRO_PLAY(0x09)/CMD_MACRO_STOP(0x0A) + 上位机完整控制
+- HID 超时机制：5 秒超时，防止设备无响应时程序卡住
+- Joystick/Encoder 扩展属性：Sensitivity/InvertX/InvertY/StepsPerTick/ScrollSpeed
+- 上位机自更新：SHA256 验证 + InstallUpdateAsync（exe/zip）
+- HidKeyConverter 统一键码转换类
+- 单元测试：HidKeyConverterTests（75 个测试全部通过）
+
+**编译状态**：固件和上位机均 0 错误 0 警告
+**测试状态**：75 个单元测试全部通过
+
+**架构变更**：
+- 固件：双核架构激活，Core1 硬件扫描，Core0 业务处理
+- 上位机：解决方案从 4 个项目减为 3 个（移除 Drivers）
+
+**剩余待处理**：
+- 工厂测试 LED/入口检测（需硬件引脚信息）
+- 固件配置结构扩展（Joystick/Encoder 属性持久化）
+- 设备固件 DFU 更新流程
+- 固件单元测试
+
+---
+
 ### 2026-08-07
 - 项目启动，从MicroPython原型版迁移到C语言
 - 搭建五层架构基础框架
@@ -123,6 +175,86 @@
 - 架构从五层调整为六层：Hardware → Board → Device → Middleware → **Protocol** → App
 - Protocol 层专门负责 USB HID 协议相关代码
 - 依赖库采用"版本锁定 + 自动拉取"方案，不使用 Git Submodule
+
+---
+
+### 2026-08-12 - 上位机 UI 全面完善
+
+**主题**：上位机配置工具 UI 设计升级，达到成熟商业软件水准
+
+#### 完成的工作
+
+1. **主题系统重构**
+   - 重写 DarkTheme.xaml（Tokyo Night 深色配色方案）
+   - 新建 Icons.xaml（35个矢量图标，随控件文字颜色自动变化）
+   - 新建 ProgressConverters.cs（多值转换器：进度条、滑块填充、滑块位置）
+   - 自定义控件样式：ToggleSwitch、Slider、ProgressBar、ComboBox、Expander、ScrollViewer 等
+
+2. **主窗口重构**
+   - 使用 WindowChrome 实现自定义标题栏（支持拖动/缩放/系统按钮）
+   - 左侧导航栏（设备状态卡片 + 分组导航菜单 + 版本信息）
+   - 右侧内容区（带淡入动画的页面切换）
+   - 底部状态栏（连接状态 + 就绪指示）
+
+3. **所有页面 UI 优化**
+   - DevicePage：设备列表 + 设备信息 + 设备操作卡片
+   - KeyPage：层切换 + 手部分配 + 手指按键映射（六向按键网格）
+   - MousePage：DPI 档位 + 指针加速（ToggleSwitch + Slider）
+   - JoystickPage / EncoderPage：统一卡片式布局
+   - MacroPage：左右分栏宏编辑器（重点优化，见下文）
+   - SettingsPage：Expander 折叠面板分组
+   - ErrorLogPage / PerfMonitorPage：统一按钮样式 + 表格优化
+
+4. **宏编辑器重点优化**
+   - 固定8个宏槽位（固件限制），空槽位灰色显示"未配置"
+   - 清空宏功能（清空动作 + 重置名称，带确认弹窗）
+   - 动作序号显示（Index 属性，从1开始）
+   - 录制时动作列表自动滚动到最新项
+   - 循环设置联动逻辑（循环次数与"按住重复松开停止"互斥联动）
+   - 右侧编辑区支持滚轮滚动
+   - 按键下拉框按名称匹配（SelectedValuePath=Name）
+
+5. **模型类完善**
+   - Macro 类实现 INotifyPropertyChanged（Name/RepeatCount/RepeatUntilReleased）
+   - KeyDefinition 类实现 IEquatable<KeyDefinition>（按 KeyCode 比较）
+   - 宏动作 KeyCode 类型从 int 改为 byte
+   - 录制按键 KeyCode 自动转换为 HID 用法码
+
+#### 遇到的关键问题与解决方案
+
+1. **ComboBox 选中项文字不显示**
+   - 原因：自定义模板中 ContentPresenter 缺少 `Content="{TemplateBinding SelectionBoxItem}"` 绑定
+   - 解决：补充 SelectionBoxItem / SelectionBoxItemTemplate / SelectionBoxItemStringFormat 绑定
+
+2. **按键下拉框无法匹配选中项**
+   - 原因：录制时 KeyCode 是 Win32 虚拟键码（如 G=71），CommonKeys 中是 HID 用法码（如 G=10），数值不同
+   - 解决：改用 `SelectedValuePath="Name"` + `SelectedValue="{Binding KeyName}"` 按按键名称匹配
+
+3. **录制按钮 Command 切换失效**
+   - 原因：Button 元素上直接设置的 Command 是本地值，WPF 本地值优先级高于 Style Trigger
+   - 解决：把默认 Command 从 Button 元素移到 Style 的 Setter 中
+
+4. **DPI 按钮选中态引发运行时异常**
+   - 原因：在 Style Trigger 中设置 `Property="Style"` 会引发异常
+   - 解决：改用 `Tag="Active"` 触发选中态
+
+5. **ToggleSwitch 滑块位移失效**
+   - 原因：嵌套 TranslateTransform 无法被 Trigger 按名称找到
+   - 解决：改用 Margin 切换实现滑块位移
+
+6. **宏列表点击不切换面板**
+   - 原因：CurrentMacro 变化时没有加载对应动作
+   - 解决：添加 `OnCurrentMacroChanged` partial 方法
+
+7. **循环设置功能不生效**
+   - 原因：RepeatCount 与 RepeatUntilReleased 是独立属性，无联动；固件用 repeat_count=0 表示无限循环
+   - 解决：在 Macro 类中实现属性联动，开启"按住重复"时 RepeatCount 自动设为0
+
+#### 验证结果
+- ✅ 编译通过（0 警告 0 错误）
+- ✅ 所有页面 UI 正常显示
+- ✅ 宏录制/编辑/保存功能正常
+- ✅ 循环设置联动正常
 
 ---
 

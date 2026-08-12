@@ -29,6 +29,8 @@ public partial class EncoderPageViewModel : ObservableObject
         if (_deviceService.IsConnected && _deviceService.CurrentConfig != null)
         {
             ReverseDirection = _deviceService.CurrentConfig.EncoderReverse;
+            StepsPerTick = _deviceService.CurrentConfig.EncoderStepsPerTick;
+            ScrollSpeed = _deviceService.CurrentConfig.EncoderScrollSpeed;
         }
 
         _isInitialized = true;
@@ -38,6 +40,18 @@ public partial class EncoderPageViewModel : ObservableObject
     {
         if (_isInitialized && !_isSaving)
             _ = SaveDirectionAsync();
+    }
+
+    partial void OnStepsPerTickChanged(int value)
+    {
+        if (_isInitialized && _deviceService.CurrentConfig != null)
+            _deviceService.CurrentConfig.EncoderStepsPerTick = value;
+    }
+
+    partial void OnScrollSpeedChanged(int value)
+    {
+        if (_isInitialized && _deviceService.CurrentConfig != null)
+            _deviceService.CurrentConfig.EncoderScrollSpeed = value;
     }
 
     private async Task SaveDirectionAsync()

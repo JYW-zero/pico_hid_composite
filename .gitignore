@@ -166,11 +166,10 @@ firmware/lib/*
 !firmware/lib/.sdk_version
 !firmware/lib/README.md
 
-# 临时文本文件
-*.txt
-!README*.txt
-!LICENSE*.txt
-!CHANGELOG*.txt
+# 临时文本文件（注意：不要用 *.txt 太宽泛，会误杀 CMakeLists.txt 等）
+# 临时文本请放在 temp/ 目录下，或使用 .tmp.txt 后缀
+*.tmp.txt
+*.temp.txt
 
 # ------------------------------------------------------------
 # 6. 图片与媒体文件（仅忽略临时截图）
@@ -258,9 +257,9 @@ dist/
 .env.*
 !.env.example
 
-# 调试文件
+# 调试文件（core dump）
 core.*
-*.core
 *.dmp
 *.mdmp
 *.hdmp
+# 注意：去掉了 *.core，因为会误杀 HidConfigTool.Core 项目目录
