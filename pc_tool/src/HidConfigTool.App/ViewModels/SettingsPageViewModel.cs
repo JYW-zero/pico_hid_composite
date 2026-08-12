@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HidConfigTool.App.Services;
 using HidConfigTool.Core.Interfaces;
+using HidConfigTool.Core.Models;
 using System.Collections.ObjectModel;
 using Microsoft.Win32;
 
@@ -322,7 +323,7 @@ public partial class SettingsPageViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void SwitchProfile(string? profileName)
+    private async Task SwitchProfile(string? profileName)
     {
         if (string.IsNullOrEmpty(profileName))
             return;
@@ -331,18 +332,46 @@ public partial class SettingsPageViewModel : ObservableObject
         StatusMessage = $"已切换到配置: {profileName}";
         _osdManager.ShowProfileChange(profileName);
 
-        // 实际项目中这里会从文件加载配置并应用到设备
+        // 从文件加载配置并应用到设备
+        try
+        {
+            var config = _profileManager.LoadProfile(profileName);
+            if (config != null)
+            {
+                await _deviceService.SaveConfigAsync(config);
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"配置应用失败: {ex.Message}";
+        }
     }
 
     [RelayCommand]
     private void NewProfile()
     {
         string newName = $"新配置 {Profiles.Count + 1}";
-        Profiles.Add(newName);
-        CurrentProfile = newName;
-        StatusMessage = $"已创建新配置: {newName}";
 
-        // 实际项目中这里会保存到文件
+        // 确保名称不重复
+        int suffix = 1;
+        while (_profileManager.ProfileExists(newName))
+        {
+            newName = $"新配置 {Profiles.Count + suffix}";
+            suffix++;
+        }
+
+        // 保存默认配置到文件
+        var defaultConfig = new DeviceConfig();
+        if (_profileManager.SaveProfile(newName, defaultConfig))
+        {
+            Profiles.Add(newName);
+            CurrentProfile = newName;
+            StatusMessage = $"已创建新配置: {newName}";
+        }
+        else
+        {
+            StatusMessage = $"创建配置失败: {newName}";
+        }
     }
 
     [RelayCommand]
@@ -357,18 +386,27 @@ public partial class SettingsPageViewModel : ObservableObject
         if (result == MessageBoxResult.Yes)
         {
             string toDelete = CurrentProfile;
-            Profiles.Remove(toDelete);
 
-            if (Profiles.Count > 0)
+            // 从文件删除
+            if (_profileManager.DeleteProfile(toDelete))
             {
-                CurrentProfile = Profiles[0];
+                Profiles.Remove(toDelete);
+
+                if (Profiles.Count > 0)
+                {
+                    CurrentProfile = Profiles[0];
+                }
+                else
+                {
+                    CurrentProfile = null;
+                }
+
+                StatusMessage = $"已删除配置: {toDelete}";
             }
             else
             {
-                CurrentProfile = null;
+                StatusMessage = $"删除配置失败: {toDelete}";
             }
-
-            StatusMessage = $"已删除配置: {toDelete}";
         }
     }
 
@@ -420,18 +458,11 @@ public partial class SettingsPageViewModel : ObservableObject
             return;
 
         // 弹出输入框让用户输入新名字
-        var inputDialog = new Views.KeyPickerDialog(); // 复用对话框，或者用简单的MessageBox
-        // 简单实现：用InputBox样式的对话框，这里先用MessageBox提示，后续可以做更好的UI
-        
-        // 临时方案：用Microsoft.VisualBasic的Interaction.InputBox，或者自己做个简单对话框
-        // 这里我们用一个简单的方式：直接弹出一个带输入框的窗口
-        
-        // 先检查是否有重名
-        string? newName = Microsoft.VisualBasic.Interaction.InputBox(
+        string? newName = Views.InputDialog.Show(
+            Application.Current.MainWindow,
             "请输入新的配置名称：",
             "重命名配置",
-            CurrentProfile,
-            -1, -1);
+            CurrentProfile);
 
         if (string.IsNullOrWhiteSpace(newName))
             return;
@@ -440,18 +471,26 @@ public partial class SettingsPageViewModel : ObservableObject
             return;
 
         // 检查是否重名
-        if (Profiles.Contains(newName))
+        if (_profileManager.ProfileExists(newName))
         {
             MessageBox.Show("该名称已存在，请换一个名称。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
-        int index = Profiles.IndexOf(CurrentProfile);
-        if (index >= 0)
+        // 实际重命名文件
+        if (_profileManager.RenameProfile(CurrentProfile, newName))
         {
-            Profiles[index] = newName;
-            CurrentProfile = newName;
-            StatusMessage = $"已重命名为: {newName}";
+            int index = Profiles.IndexOf(CurrentProfile);
+            if (index >= 0)
+            {
+                Profiles[index] = newName;
+                CurrentProfile = newName;
+                StatusMessage = $"已重命名为: {newName}";
+            }
+        }
+        else
+        {
+            StatusMessage = $"重命名失败: {CurrentProfile}";
         }
     }
     [RelayCommand]

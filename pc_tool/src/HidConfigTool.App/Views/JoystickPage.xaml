@@ -1,9 +1,9 @@
 <UserControl x:Class="HidConfigTool.App.Views.JoystickPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             mc:Ignorable="d" 
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
     <UserControl.Resources>
         <ResourceDictionary>
@@ -13,102 +13,120 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
         <StackPanel>
-            <TextBlock Text="摇杆设置"
-                   FontSize="24"
-                   FontWeight="Bold"
-                   Foreground="{StaticResource TextPrimaryBrush}"
-                   Margin="0,0,0,24" />
+            <!-- 页面标题 -->
+            <TextBlock Text="摇杆设置" Style="{StaticResource PageTitleStyle}" />
+            <TextBlock Text="配置摇杆死区、灵敏度和方向参数" Style="{StaticResource PageSubtitleStyle}" />
 
-        <!-- 死区设置卡片 -->
-        <Border Background="{StaticResource CardBackgroundBrush}"
-                CornerRadius="12"
-                Padding="20"
-                Margin="0,0,0,16">
-            <StackPanel>
-                <TextBlock Text="死区设置"
-                           FontSize="16"
-                           FontWeight="SemiBold"
-                           Foreground="{StaticResource TextPrimaryBrush}"
-                           Margin="0,0,0,16" />
+            <!-- 死区设置卡片 -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Text="死区设置" Style="{StaticResource CardTitleStyle}" />
 
-                <TextBlock Text="死区大小"
-                           FontSize="13"
-                           Foreground="{StaticResource TextSecondaryBrush}"
-                           Margin="0,0,0,8" />
-                <Slider Value="{Binding Deadzone}"
-                        Minimum="0"
-                        Maximum="500"
-                        TickFrequency="10"
-                        Margin="0,0,0,8" />
-                <TextBlock Text="{Binding Deadzone, StringFormat=当前值: {0}}"
-                           FontSize="12"
-                           Foreground="{StaticResource TextSecondaryBrush}" />
-            </StackPanel>
-        </Border>
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   Text="死区大小"
+                                   FontSize="13"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   VerticalAlignment="Center" />
+                        <Border Grid.Column="1"
+                                Background="{StaticResource InputBackgroundBrush}"
+                                CornerRadius="4"
+                                Padding="8,4">
+                            <TextBlock Text="{Binding Deadzone}"
+                                       FontSize="12"
+                                       Foreground="{StaticResource AccentBrush}"
+                                       FontFamily="Consolas"
+                                       FontWeight="SemiBold" />
+                        </Border>
+                    </Grid>
+                    <Slider Value="{Binding Deadzone}"
+                            Minimum="0"
+                            Maximum="500"
+                            TickFrequency="10" />
 
-        <!-- 灵敏度设置卡片 -->
-        <Border Background="{StaticResource CardBackgroundBrush}"
-                CornerRadius="12"
-                Padding="20"
-                Margin="0,0,0,16"
-                Opacity="0.5">
-            <StackPanel IsEnabled="False">
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
-                    <TextBlock Text="灵敏度"
-                               FontSize="16"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource TextPrimaryBrush}" />
-                    <TextBlock Text="（开发中）"
-                               FontSize="12"
-                               Foreground="{StaticResource TextSecondaryBrush}"
-                               VerticalAlignment="Center"
-                               Margin="8,0,0,0" />
+                    <TextBlock Text="死区范围内的摇杆输入将被忽略，可有效防止摇杆漂移。"
+                               Style="{StaticResource HintStyle}"
+                               Margin="0,12,0,0" />
                 </StackPanel>
+            </Border>
 
-                <TextBlock Text="灵敏度倍率"
-                           FontSize="13"
-                           Foreground="{StaticResource TextSecondaryBrush}"
-                           Margin="0,0,0,8" />
-                <Slider Value="{Binding Sensitivity}"
-                        Minimum="0.5"
-                        Maximum="2.0"
-                        TickFrequency="0.1"
-                        Margin="0,0,0,8" />
-                <TextBlock Text="{Binding Sensitivity, StringFormat=当前值: {0:0.0}x}"
-                           FontSize="12"
-                           Foreground="{StaticResource TextSecondaryBrush}" />
-            </StackPanel>
-        </Border>
+            <!-- 灵敏度设置卡片（开发中） -->
+            <Border Style="{StaticResource CardStyle}" Opacity="0.5">
+                <StackPanel IsEnabled="False">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                        <TextBlock Text="灵敏度" Style="{StaticResource CardTitleStyle}" Margin="0" />
+                        <Border Background="{StaticResource AccentTransparentBrush}"
+                                CornerRadius="4"
+                                Padding="6,2"
+                                VerticalAlignment="Center"
+                                Margin="10,0,0,0">
+                            <TextBlock Text="开发中"
+                                       FontSize="10"
+                                       Foreground="{StaticResource AccentBrush}"
+                                       FontWeight="Medium" />
+                        </Border>
+                    </StackPanel>
 
-        <!-- 方向设置卡片 -->
-        <Border Background="{StaticResource CardBackgroundBrush}"
-                CornerRadius="12"
-                Padding="20"
-                Opacity="0.5">
-            <StackPanel IsEnabled="False">
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
-                    <TextBlock Text="方向设置"
-                               FontSize="16"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource TextPrimaryBrush}" />
-                    <TextBlock Text="（开发中）"
-                               FontSize="12"
-                               Foreground="{StaticResource TextSecondaryBrush}"
-                               VerticalAlignment="Center"
-                               Margin="8,0,0,0" />
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   Text="灵敏度倍率"
+                                   FontSize="13"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   VerticalAlignment="Center" />
+                        <Border Grid.Column="1"
+                                Background="{StaticResource InputBackgroundBrush}"
+                                CornerRadius="4"
+                                Padding="8,4">
+                            <TextBlock Text="{Binding Sensitivity, StringFormat={}{0:0.0}x}"
+                                       FontSize="12"
+                                       Foreground="{StaticResource AccentBrush}"
+                                       FontFamily="Consolas"
+                                       FontWeight="SemiBold" />
+                        </Border>
+                    </Grid>
+                    <Slider Value="{Binding Sensitivity}"
+                            Minimum="0.5"
+                            Maximum="2.0"
+                            TickFrequency="0.1" />
                 </StackPanel>
+            </Border>
 
-                <CheckBox Content="反转 X 轴"
-                          IsChecked="{Binding InvertX}"
-                          Foreground="{StaticResource TextPrimaryBrush}"
-                          Margin="0,0,0,12" />
-                <CheckBox Content="反转 Y 轴"
-                          IsChecked="{Binding InvertY}"
-                          Foreground="{StaticResource TextPrimaryBrush}" />
-            </StackPanel>
-        </Border>
-    </StackPanel>
+            <!-- 方向设置卡片（开发中） -->
+            <Border Style="{StaticResource CardStyle}" Margin="0" Opacity="0.5">
+                <StackPanel IsEnabled="False">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                        <TextBlock Text="方向设置" Style="{StaticResource CardTitleStyle}" Margin="0" />
+                        <Border Background="{StaticResource AccentTransparentBrush}"
+                                CornerRadius="4"
+                                Padding="6,2"
+                                VerticalAlignment="Center"
+                                Margin="10,0,0,0">
+                            <TextBlock Text="开发中"
+                                       FontSize="10"
+                                       Foreground="{StaticResource AccentBrush}"
+                                       FontWeight="Medium" />
+                        </Border>
+                    </StackPanel>
+
+                    <CheckBox Content="反转 X 轴"
+                              IsChecked="{Binding InvertX}"
+                              Style="{StaticResource ToggleSwitchStyle}"
+                              Margin="0,0,0,14" />
+                    <CheckBox Content="反转 Y 轴"
+                              IsChecked="{Binding InvertY}"
+                              Style="{StaticResource ToggleSwitchStyle}" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
     </ScrollViewer>
 </UserControl>

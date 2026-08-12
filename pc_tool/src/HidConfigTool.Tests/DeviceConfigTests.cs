@@ -1,4 +1,4 @@
-﻿using HidConfigTool.Core.Models;
+using HidConfigTool.Core.Models;
 using System.Text.Json;
 
 namespace HidConfigTool.Tests;
@@ -23,7 +23,12 @@ public class DeviceConfigTests
         Assert.Equal(10, config.AccelerationThreshold);
         Assert.Equal(1.5, config.AccelerationRatio);
         Assert.Equal(100, config.JoystickDeadzone);
+        Assert.Equal(1.0, config.JoystickSensitivity);
+        Assert.False(config.JoystickInvertX);
+        Assert.False(config.JoystickInvertY);
         Assert.False(config.EncoderReverse);
+        Assert.Equal(1, config.EncoderStepsPerTick);
+        Assert.Equal(3, config.EncoderScrollSpeed);
         Assert.NotNull(config.Keymap);
         Assert.Equal(64, config.Keymap.Length);
         Assert.NotNull(config.FnKeymap);

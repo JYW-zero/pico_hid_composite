@@ -1,4 +1,4 @@
-﻿using System.Windows.Input;
+using System.Windows.Input;
 using HidConfigTool.Core.Models;
 
 namespace HidConfigTool.App.Services;
@@ -89,12 +89,18 @@ public class MacroRecorder
         int delayMs = (int)(e.Timestamp - _lastEventTime).TotalMilliseconds;
         _lastEventTime = e.Timestamp;
 
+        // 将 WPF Key 转换为 HID Usage 码（固件使用 HID Usage 码，不是 VK 码）
+        byte hidUsage = HidKeyConverter.KeyToHidUsage(e.Key);
+        string keyName = hidUsage != 0
+            ? HidKeyConverter.HidUsageToName(hidUsage)
+            : e.Key.ToString();
+
         // 创建宏动作
         var action = new MacroAction
         {
             Type = e.IsPressed ? MacroActionType.KeyDown : MacroActionType.KeyUp,
-            KeyCode = (int)KeyInterop.VirtualKeyFromKey(e.Key),
-            KeyName = e.Key.ToString(),
+            KeyCode = hidUsage,
+            KeyName = keyName,
             DelayMs = delayMs
         };
 

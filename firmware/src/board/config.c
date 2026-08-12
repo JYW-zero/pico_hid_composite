@@ -313,9 +313,9 @@ static int config_write_to_offset(uint32_t flash_offset, const device_config_t* 
     const uint32_t write_size = (config_size + FLASH_PAGE_SIZE - 1U) & ~(FLASH_PAGE_SIZE - 1U);
 
     /* 构造写入缓冲区（后面补0xFF，保持擦除状态）
-     * 注意：缓冲区放在栈上，write_size最大约1.5KB，栈空间足够
+     * 注意：使用 static 缓冲区避免栈溢出（write_size 最大约1.5KB）
      */
-    uint8_t write_buf[1536];  /* 6页 = 1536字节，足够容纳配置 */
+    static uint8_t write_buf[1536];  /* 6页 = 1536字节，足够容纳配置 */
     if (write_size > sizeof(write_buf))
     {
         fault_record(FAULT_LEVEL_ERROR, "config", "write buffer too small");

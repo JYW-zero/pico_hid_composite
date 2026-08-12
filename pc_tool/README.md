@@ -31,3 +31,8 @@ dotnet build
 ```bash
 dotnet run --project src/HidConfigTool.App
 ```
+
+## 联系作者
+
+- **作者**：JYW
+- **邮箱**：[J.YW@outlook.com](mailto:J.YW@outlook.com)

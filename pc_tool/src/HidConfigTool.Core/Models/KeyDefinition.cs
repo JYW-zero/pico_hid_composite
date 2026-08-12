@@ -1,9 +1,9 @@
-﻿namespace HidConfigTool.Core.Models;
+namespace HidConfigTool.Core.Models;
 
 /// <summary>
 /// 按键定义
 /// </summary>
-public class KeyDefinition
+public class KeyDefinition : IEquatable<KeyDefinition>
 {
     /// <summary>
     /// HID 用法码
@@ -24,6 +24,22 @@ public class KeyDefinition
     /// 描述
     /// </summary>
     public string Description { get; set; } = string.Empty;
+
+    public bool Equals(KeyDefinition? other)
+    {
+        if (other == null) return false;
+        return KeyCode == other.KeyCode;
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as KeyDefinition);
+    }
+
+    public override int GetHashCode()
+    {
+        return KeyCode.GetHashCode();
+    }
 }
 
 /// <summary>

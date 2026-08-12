@@ -1,0 +1,233 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ==================== 图标尺寸约定 ==================== -->
+    <!-- 所有图标设计在 24x24 视口内，使用时通过 Width/Height 缩放 -->
+
+    <!-- ==================== 导航图标 ==================== -->
+
+    <!-- 设备图标 -->
+    <Canvas x:Key="Icon.Device" Width="24" Height="24">
+        <Path Data="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm0 2v10h16V6H4zm4 14h8v2H8v-2z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 按键/键盘图标 -->
+    <Canvas x:Key="Icon.Keyboard" Width="24" Height="24">
+        <Path Data="M3 6h18a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zm0 2v8h18V8H3zm2 2h2v2H5v-2zm4 0h2v2H9v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2zM5 14h14v2H5v-2z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 鼠标图标 -->
+    <Canvas x:Key="Icon.Mouse" Width="24" Height="24">
+        <Path Data="M12 2a7 7 0 0 1 7 7v6a7 7 0 0 1-14 0V9a7 7 0 0 1 7-7zm0 2a5 5 0 0 0-5 5v3h5V4zm0 0v7h5V9a5 5 0 0 0-5-5z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 摇杆图标 -->
+    <Canvas x:Key="Icon.Joystick" Width="24" Height="24">
+        <Path Data="M12 2a5 5 0 0 1 5 5c0 1.5-.6 2.8-1.5 3.7L17 16h2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2h2l1.5-5.3A5 5 0 0 1 7 7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3c0 .9.4 1.7 1 2.3V11h4V9.3c.6-.6 1-1.4 1-2.3a3 3 0 0 0-3-3z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 编码器/旋钮图标 -->
+    <Canvas x:Key="Icon.Encoder" Width="24" Height="24">
+        <Path Data="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm0 3a1 1 0 0 1 1 1v4.586l2.707 2.707a1 1 0 0 1-1.414 1.414l-3-3A1 1 0 0 1 11 13V8a1 1 0 0 1 1-1z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 宏/闪电图标 -->
+    <Canvas x:Key="Icon.Macro" Width="24" Height="24">
+        <Path Data="M13 2L4 14h6l-1 8 9-12h-6l1-8z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 错误日志图标 -->
+    <Canvas x:Key="Icon.ErrorLog" Width="24" Height="24">
+        <Path Data="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm0 2v14h14V7h-4V5H5zm7 4v6h2V9h-2zm0 8v2h2v-2h-2z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 性能监控/图表图标 -->
+    <Canvas x:Key="Icon.PerfMonitor" Width="24" Height="24">
+        <Path Data="M3 3h2v18H3V3zm4 8h2v10H7V11zm4-6h2v16h-2V5zm4 10h2v6h-2v-6zm4-4h2v10h-2V11z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 设置/齿轮图标 -->
+    <Canvas x:Key="Icon.Settings" Width="24" Height="24">
+        <Path Data="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm8.5 1l2-1.5-2-3.5-2.4.8a8 8 0 0 0-1.7-1L16 3h-4l-.4 2.3a8 8 0 0 0-1.7 1L7.5 5.5l-2 3.5L7.5 11a8 8 0 0 0 0 2l-2 1.5 2 3.5 2.4-.8c.5.4 1.1.8 1.7 1L12 21h4l.4-2.3c.6-.2 1.2-.6 1.7-1l2.4.8 2-3.5-2-1.5c.2-.7.2-1.3 0-2z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- ==================== 操作图标 ==================== -->
+
+    <!-- 刷新 -->
+    <Canvas x:Key="Icon.Refresh" Width="24" Height="24">
+        <Path Data="M12 5V2L7 7l5 5V8a5 5 0 1 1-5 5H5a7 7 0 1 0 7-8z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 保存 -->
+    <Canvas x:Key="Icon.Save" Width="24" Height="24">
+        <Path Data="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm0 2v14h14V6.414L16.586 4H15v4H9V4H5zm4 0v3h6V4H9zm-1 9h8v5H8v-5z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 加号/新建 -->
+    <Canvas x:Key="Icon.Add" Width="24" Height="24">
+        <Path Data="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 删除/垃圾桶 -->
+    <Canvas x:Key="Icon.Delete" Width="24" Height="24">
+        <Path Data="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L6 9zm3 2v8h2v-8H9zm4 0v8h2v-8h-2z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 编辑/铅笔 -->
+    <Canvas x:Key="Icon.Edit" Width="24" Height="24">
+        <Path Data="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 上移 -->
+    <Canvas x:Key="Icon.ArrowUp" Width="24" Height="24">
+        <Path Data="M12 4l8 8h-5v8h-6v-8H4l8-8z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 下移 -->
+    <Canvas x:Key="Icon.ArrowDown" Width="24" Height="24">
+        <Path Data="M12 20l-8-8h5V4h6v8h5l-8 8z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 录制 -->
+    <Canvas x:Key="Icon.Record" Width="24" Height="24">
+        <Path Data="M12 5a7 7 0 1 1 0 14 7 7 0 0 1 0-14zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 停止 -->
+    <Canvas x:Key="Icon.Stop" Width="24" Height="24">
+        <Path Data="M6 6h12v12H6V6z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 搜索 -->
+    <Canvas x:Key="Icon.Search" Width="24" Height="24">
+        <Path Data="M10 4a6 6 0 0 1 4.47 10.03l4.75 4.75-1.42 1.42-4.75-4.75A6 6 0 1 1 10 4zm0 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 导入 -->
+    <Canvas x:Key="Icon.Import" Width="24" Height="24">
+        <Path Data="M12 3l5 5h-3v6h-4V8H7l5-5zM5 16h14v3H5v-3z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 导出 -->
+    <Canvas x:Key="Icon.Export" Width="24" Height="24">
+        <Path Data="M12 21l-5-5h3v-6h4v6h3l-5 5zM5 5h14v3H5V5z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 重启 -->
+    <Canvas x:Key="Icon.Reboot" Width="24" Height="24">
+        <Path Data="M12 4V1L7 6l5 5V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-8z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 烧录/芯片 -->
+    <Canvas x:Key="Icon.Chip" Width="24" Height="24">
+        <Path Data="M9 3h6v2h3a2 2 0 0 1 2 2v3h2v2h-2v2h2v2h-2v3a2 2 0 0 1-2 2h-3v2H9v-2H6a2 2 0 0 1-2-2v-3H2v-2h2v-2H2V9h2V6a2 2 0 0 1 2-2h3V2zm0 4v10h6V7H9z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 关闭 -->
+    <Canvas x:Key="Icon.Close" Width="24" Height="24">
+        <Path Data="M6.4 5L5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6 6.4 5z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 最小化 -->
+    <Canvas x:Key="Icon.Minimize" Width="24" Height="24">
+        <Path Data="M5 12h14v2H5v-2z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 最大化 -->
+    <Canvas x:Key="Icon.Maximize" Width="24" Height="24">
+        <Path Data="M5 5h14v14H5V5zm2 2v10h10V7H7z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 还原 -->
+    <Canvas x:Key="Icon.Restore" Width="24" Height="24">
+        <Path Data="M8 3h10v10h-2V7.414L7.414 16H13v2H3V8h2v5.586L13.586 5H8V3z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 连接/USB -->
+    <Canvas x:Key="Icon.Usb" Width="24" Height="24">
+        <Path Data="M12 2a3 3 0 0 1 3 3v5h1a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-1v2a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-2H8a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h1V5a3 3 0 0 1 3-3zm0 2a1 1 0 0 0-1 1v5h2V5a1 1 0 0 0-1-1z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 信息 -->
+    <Canvas x:Key="Icon.Info" Width="24" Height="24">
+        <Path Data="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm0 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm0 4a1 1 0 0 1 1 1v4a1 1 0 0 1-2 0v-4a1 1 0 0 1 1-1z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 警告 -->
+    <Canvas x:Key="Icon.Warning" Width="24" Height="24">
+        <Path Data="M12 2L1 21h22L12 2zm0 4l7.5 13h-15L12 6zm-1 5v4h2v-4h-2zm0 6v2h2v-2h-2z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 成功/对勾 -->
+    <Canvas x:Key="Icon.Success" Width="24" Height="24">
+        <Path Data="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 托盘/向上箭头框 -->
+    <Canvas x:Key="Icon.Tray" Width="24" Height="24">
+        <Path Data="M4 4h16v12h-7v2h3v2H8v-2h3v-2H4V4zm2 2v8h12V6H6z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 自动启动/电源 -->
+    <Canvas x:Key="Icon.Power" Width="24" Height="24">
+        <Path Data="M12 2a1 1 0 0 1 1 1v9a1 1 0 0 1-2 0V3a1 1 0 0 1 1-1zm5.66 3.34a1 1 0 0 1 1.41 0 9 9 0 1 1-14.14 0 1 1 0 0 1 1.41-1.41 7 7 0 1 0 9.9 0 1 1 0 0 1 1.42 0z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 更新/下载 -->
+    <Canvas x:Key="Icon.Download" Width="24" Height="24">
+        <Path Data="M12 3l5 5h-3v6h-4V8H7l5-5zM5 16h14v3H5v-3z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 文件夹 -->
+    <Canvas x:Key="Icon.Folder" Width="24" Height="24">
+        <Path Data="M3 5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm2 0v12h14V7h-8.414L9.586 5H5z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 复制 -->
+    <Canvas x:Key="Icon.Copy" Width="24" Height="24">
+        <Path Data="M8 2h10a2 2 0 0 1 2 2v12h-2V4H8V2zM4 6h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zm0 2v12h12V8H4z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+    <!-- 重置/回退 -->
+    <Canvas x:Key="Icon.Reset" Width="24" Height="24">
+        <Path Data="M12 5V2L7 7l5 5V8a5 5 0 1 1-5 5H5a7 7 0 1 0 7-8z"
+              Fill="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=Foreground, Mode=OneWay}" />
+    </Canvas>
+
+</ResourceDictionary>

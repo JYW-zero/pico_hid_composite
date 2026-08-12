@@ -13,6 +13,7 @@
 
 #include "hardware/flash.h"
 #include "hardware/sync.h"
+#include "hardware/watchdog.h"
 #include "pico/time.h"
 
 /* ==================== 静态变量 ==================== */
@@ -154,11 +155,10 @@ void fault_record(fault_level_e level, const char *module, const char *msg)
         s_write_index = 0;
     }
 
-    /* 致命错误：TODO: 可以触发复位 */
+    /* 致命错误：触发看门狗复位（10ms后复位，确保日志写入完成） */
     if (level == FAULT_LEVEL_FATAL)
     {
-        /* 确保日志写入完成后再复位 */
-        /* watchdog_reboot(0, 0, 10); */
+        watchdog_reboot(0, 0, 10);
     }
 }
 

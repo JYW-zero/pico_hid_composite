@@ -74,6 +74,7 @@ target_include_directories(pico_hid_composite PRIVATE
 target_link_libraries(pico_hid_composite PRIVATE
     pico_stdlib
     pico_unique_id
+    pico_multicore
     tinyusb_device
     tinyusb_board
     hardware_spi

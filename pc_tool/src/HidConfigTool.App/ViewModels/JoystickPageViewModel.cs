@@ -32,6 +32,9 @@ public partial class JoystickPageViewModel : ObservableObject
         if (_deviceService.IsConnected && _deviceService.CurrentConfig != null)
         {
             Deadzone = _deviceService.CurrentConfig.JoystickDeadzone;
+            Sensitivity = _deviceService.CurrentConfig.JoystickSensitivity;
+            InvertX = _deviceService.CurrentConfig.JoystickInvertX;
+            InvertY = _deviceService.CurrentConfig.JoystickInvertY;
         }
 
         _isInitialized = true;
@@ -41,6 +44,24 @@ public partial class JoystickPageViewModel : ObservableObject
     {
         if (_isInitialized && !_isSaving)
             _ = SaveDeadzoneAsync();
+    }
+
+    partial void OnSensitivityChanged(double value)
+    {
+        if (_isInitialized && _deviceService.CurrentConfig != null)
+            _deviceService.CurrentConfig.JoystickSensitivity = value;
+    }
+
+    partial void OnInvertXChanged(bool value)
+    {
+        if (_isInitialized && _deviceService.CurrentConfig != null)
+            _deviceService.CurrentConfig.JoystickInvertX = value;
+    }
+
+    partial void OnInvertYChanged(bool value)
+    {
+        if (_isInitialized && _deviceService.CurrentConfig != null)
+            _deviceService.CurrentConfig.JoystickInvertY = value;
     }
 
     private async Task SaveDeadzoneAsync()

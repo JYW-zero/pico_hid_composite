@@ -1,4 +1,4 @@
-﻿/*
+/*
  * src/middleware/shared_hw_data.c
  * 双核共享硬件数据模块实现
  * 用官方自旋锁保护，线程安全
@@ -33,6 +33,13 @@ static struct
     
     /* 心跳计数器：Core1 递增，Core0 读取，用于监控 Core1 是否正常运行 */
     uint32_t heartbeat;
+
+    /* Core1 运行状态统计（Core1 递增，Core0 读取） */
+    uint32_t keypad_scan_count;
+    uint32_t paw3395_read_count;
+    uint32_t encoder_scan_count;
+    uint32_t joystick_read_count;
+    uint32_t error_count;
 } s_data;
 
 /* ==================== 初始化 ==================== */
@@ -58,6 +65,11 @@ void shared_hw_data_init(void)
     s_data.joy_y = 0;
     s_data.joy_btn = false;
     s_data.heartbeat = 0;
+    s_data.keypad_scan_count = 0;
+    s_data.paw3395_read_count = 0;
+    s_data.encoder_scan_count = 0;
+    s_data.joystick_read_count = 0;
+    s_data.error_count = 0;
     
     s_initialized = true;
 }
@@ -230,6 +242,107 @@ uint32_t shared_hw_get_heartbeat(void)
     result = s_data.heartbeat;
     spin_unlock(s_spinlock, irq);
     return result;
+}
+
+/* ==================== 状态统计 ==================== */
+
+uint32_t shared_hw_get_keypad_scan_count(void)
+{
+    if (!s_initialized) return 0;
+    uint32_t irq = spin_lock_blocking(s_spinlock);
+    uint32_t result = s_data.keypad_scan_count;
+    spin_unlock(s_spinlock, irq);
+    return result;
+}
+
+uint32_t shared_hw_get_paw3395_read_count(void)
+{
+    if (!s_initialized) return 0;
+    uint32_t irq = spin_lock_blocking(s_spinlock);
+    uint32_t result = s_data.paw3395_read_count;
+    spin_unlock(s_spinlock, irq);
+    return result;
+}
+
+uint32_t shared_hw_get_encoder_scan_count(void)
+{
+    if (!s_initialized) return 0;
+    uint32_t irq = spin_lock_blocking(s_spinlock);
+    uint32_t result = s_data.encoder_scan_count;
+    spin_unlock(s_spinlock, irq);
+    return result;
+}
+
+uint32_t shared_hw_get_joystick_read_count(void)
+{
+    if (!s_initialized) return 0;
+    uint32_t irq = spin_lock_blocking(s_spinlock);
+    uint32_t result = s_data.joystick_read_count;
+    spin_unlock(s_spinlock, irq);
+    return result;
+}
+
+uint32_t shared_hw_get_error_count(void)
+{
+    if (!s_initialized) return 0;
+    uint32_t irq = spin_lock_blocking(s_spinlock);
+    uint32_t result = s_data.error_count;
+    spin_unlock(s_spinlock, irq);
+    return result;
+}
+
+void shared_hw_reset_stats(void)
+{
+    if (!s_initialized) return;
+    uint32_t irq = spin_lock_blocking(s_spinlock);
+    s_data.keypad_scan_count = 0;
+    s_data.paw3395_read_count = 0;
+    s_data.encoder_scan_count = 0;
+    s_data.joystick_read_count = 0;
+    s_data.error_count = 0;
+    spin_unlock(s_spinlock, irq);
+}
+
+/* ==================== Core1 专用递增函数 ==================== */
+
+void shared_hw_inc_keypad_scan(void)
+{
+    if (!s_initialized) return;
+    uint32_t irq = spin_lock_blocking(s_spinlock);
+    s_data.keypad_scan_count++;
+    spin_unlock(s_spinlock, irq);
+}
+
+void shared_hw_inc_paw3395_read(void)
+{
+    if (!s_initialized) return;
+    uint32_t irq = spin_lock_blocking(s_spinlock);
+    s_data.paw3395_read_count++;
+    spin_unlock(s_spinlock, irq);
+}
+
+void shared_hw_inc_encoder_scan(void)
+{
+    if (!s_initialized) return;
+    uint32_t irq = spin_lock_blocking(s_spinlock);
+    s_data.encoder_scan_count++;
+    spin_unlock(s_spinlock, irq);
+}
+
+void shared_hw_inc_joystick_read(void)
+{
+    if (!s_initialized) return;
+    uint32_t irq = spin_lock_blocking(s_spinlock);
+    s_data.joystick_read_count++;
+    spin_unlock(s_spinlock, irq);
+}
+
+void shared_hw_inc_error(void)
+{
+    if (!s_initialized) return;
+    uint32_t irq = spin_lock_blocking(s_spinlock);
+    s_data.error_count++;
+    spin_unlock(s_spinlock, irq);
 }
 
 

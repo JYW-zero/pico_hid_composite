@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel;
     private readonly IServiceProvider _serviceProvider;
     private readonly IDeviceService _deviceService;
+    private HwndSource? _hwndSource;
 
     // Windows 消息常量
     private const int WM_DEVICECHANGE = 0x0219;
@@ -55,8 +56,16 @@ public partial class MainWindow : Window
         base.OnSourceInitialized(e);
 
         // 添加 Windows 消息钩子
-        var source = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
-        source?.AddHook(WndProc);
+        _hwndSource = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
+        _hwndSource?.AddHook(WndProc);
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        // 移除 Windows 消息钩子，避免内存泄漏
+        _hwndSource?.RemoveHook(WndProc);
+        _hwndSource = null;
+        base.OnClosed(e);
     }
 
     /// <summary>
@@ -94,6 +103,7 @@ public partial class MainWindow : Window
             MainViewModel.PageType.Macro => _serviceProvider.GetRequiredService<MacroPage>(),
             MainViewModel.PageType.ErrorLog => _serviceProvider.GetRequiredService<ErrorLogPage>(),
             MainViewModel.PageType.PerfMonitor => _serviceProvider.GetRequiredService<PerfMonitorPage>(),
+            MainViewModel.PageType.Stats => _serviceProvider.GetRequiredService<StatsPage>(),
             MainViewModel.PageType.Settings => _serviceProvider.GetRequiredService<SettingsPage>(),
             _ => null
         };
@@ -115,18 +125,6 @@ public partial class MainWindow : Window
 
     #region 窗口控制
 
-    private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        if (e.ClickCount == 2)
-        {
-            ToggleMaximize();
-        }
-        else
-        {
-            DragMove();
-        }
-    }
-
     private void MinimizeButton_Click(object sender, RoutedEventArgs e)
     {
         WindowState = WindowState.Minimized;
@@ -147,14 +145,10 @@ public partial class MainWindow : Window
         if (WindowState == WindowState.Maximized)
         {
             WindowState = WindowState.Normal;
-            BorderBrush = (System.Windows.Media.Brush)FindResource("BorderBrush");
-            BorderThickness = new Thickness(1);
-            Margin = new Thickness(0);
         }
         else
         {
             WindowState = WindowState.Maximized;
-            BorderThickness = new Thickness(8);
         }
     }
 

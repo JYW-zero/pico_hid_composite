@@ -24,14 +24,15 @@ extern "C" {
 /* Flash存储区大小：4KB（一个扇区） */
 #define KEY_STATS_FLASH_SIZE    FLASH_LAYOUT_SECTOR_SIZE  /* 4096 bytes */
 
-/* 单条记录大小：256字节（64个uint32_t）
+/* 单条记录大小：512字节（2个Flash页）
  * 注意：必须是Flash页大小（256字节）的整数倍，
  * 因为flash_range_program要求页对齐写入
+ * 结构体实际大小268字节，512字节留有扩展空间
  */
-#define KEY_STATS_RECORD_SIZE   FLASH_PAGE_SIZE  /* 256 bytes */
+#define KEY_STATS_RECORD_SIZE   (FLASH_PAGE_SIZE * 2)  /* 512 bytes */
 
-/* 最大记录数：4KB / 256字节 = 16条
- * 顺序写入，写满16次才擦除一次，大大延长Flash寿命
+/* 最大记录数：4KB / 512字节 = 8条
+ * 顺序写入，写满8次才擦除一次，大大延长Flash寿命
  */
 #define KEY_STATS_MAX_RECORDS   (KEY_STATS_FLASH_SIZE / KEY_STATS_RECORD_SIZE)
 

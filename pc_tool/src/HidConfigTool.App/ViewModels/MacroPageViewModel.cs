@@ -24,7 +24,42 @@ public partial class MacroActionItemViewModel : ObservableObject
     private int _delayMs;
 
     [ObservableProperty]
-    private int _keyCode;
+    private byte _keyCode;
+
+    [ObservableProperty]
+    private int _index;
+
+    /// <summary>
+    /// 对应的按键定义（用于下拉框绑定）
+    /// </summary>
+    public KeyDefinition? KeyDefinition
+    {
+        get => KeyDefinitions.GetAll().FirstOrDefault(k => k.Name == KeyName);
+        set
+        {
+            if (value != null)
+            {
+                KeyCode = value.KeyCode;
+                KeyName = value.Name;
+            }
+        }
+    }
+
+    partial void OnKeyCodeChanged(byte value)
+    {
+        OnPropertyChanged(nameof(KeyDefinition));
+    }
+
+    partial void OnKeyNameChanged(string value)
+    {
+        // 根据按键名称同步更新 HID 用法码
+        var keyDef = KeyDefinitions.GetAll().FirstOrDefault(k => k.Name == value);
+        if (keyDef != null)
+        {
+            KeyCode = keyDef.KeyCode;
+        }
+        OnPropertyChanged(nameof(KeyDefinition));
+    }
 
     public string TypeText => Type switch
     {
@@ -54,6 +89,11 @@ public partial class MacroPageViewModel : ObservableObject
     private DateTime _recordStartTime;
 
     /// <summary>
+    /// 每个宏最大动作数（固件限制）
+    /// </summary>
+    private const int MaxActions = 32;
+
+    /// <summary>
     /// 宏列表
     /// </summary>
     public ObservableCollection<Macro> Macros { get; } = new();
@@ -70,11 +110,32 @@ public partial class MacroPageViewModel : ObservableObject
     [ObservableProperty]
     private string _currentMacroName = "新建宏";
 
+    partial void OnCurrentMacroChanged(Macro? value)
+    {
+        if (value != null)
+        {
+            CurrentMacroName = value.Name;
+            LoadActionsFromMacro(value);
+        }
+    }
+
     /// <summary>
     /// 是否正在录制
     /// </summary>
     [ObservableProperty]
     private bool _isRecording;
+
+    /// <summary>
+    /// 是否正在播放宏
+    /// </summary>
+    [ObservableProperty]
+    private bool _isPlaying;
+
+    /// <summary>
+    /// 状态消息
+    /// </summary>
+    [ObservableProperty]
+    private string _statusMessage = string.Empty;
 
     /// <summary>
     /// 录制时长
@@ -122,16 +183,30 @@ public partial class MacroPageViewModel : ObservableObject
         };
         _recordTimer.Tick += OnRecordTimerTick;
 
-        // 初始化宏列表（先添加占位符，后面从设备加载）
+        // 监听动作列表变化，更新索引
+        Actions.CollectionChanged += (s, e) => UpdateActionIndexes();
+
+        // 初始化8个固定宏槽位（固件限制 MACRO_MAX_COUNT=8）
         for (int i = 0; i < 8; i++)
         {
-            Macros.Add(new Macro { Name = $"宏 {i + 1}" });
+            Macros.Add(new Macro { Name = "未配置" });
         }
         CurrentMacro = Macros[0];
         CurrentMacroName = CurrentMacro.Name;
 
         // 从设备加载宏
         _ = LoadMacrosFromDeviceAsync();
+    }
+
+    /// <summary>
+    /// 更新所有动作的索引
+    /// </summary>
+    private void UpdateActionIndexes()
+    {
+        for (int i = 0; i < Actions.Count; i++)
+        {
+            Actions[i].Index = i + 1; // 从1开始
+        }
     }
 
     [RelayCommand]
@@ -143,16 +218,19 @@ public partial class MacroPageViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void DeleteMacro()
+    private void ClearMacro()
     {
-        if (CurrentMacro != null && Macros.Contains(CurrentMacro))
+        if (CurrentMacro != null)
         {
-            Macros.Remove(CurrentMacro);
-            if (Macros.Count > 0)
+            var result = MessageBox.Show("确定要清空当前宏的所有动作吗？", "确认清空", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (result == MessageBoxResult.Yes)
             {
-                CurrentMacro = Macros[0];
-                CurrentMacroName = CurrentMacro.Name;
-                LoadActionsFromMacro(CurrentMacro);
+                CurrentMacro.Actions.Clear();
+                CurrentMacro.Name = "未配置";
+                CurrentMacroName = "未配置";
+                Actions.Clear();
+                SelectedAction = null;
+                UpdateTotalDuration();
             }
         }
     }
@@ -160,11 +238,17 @@ public partial class MacroPageViewModel : ObservableObject
     [RelayCommand]
     private void AddKeyAction()
     {
+        if (Actions.Count >= MaxActions)
+        {
+            MessageBox.Show($"最多只能添加 {MaxActions} 个动作", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
         Actions.Add(new MacroActionItemViewModel
         {
             Type = MacroActionType.KeyDown,
+            KeyCode = 0x04,  // HID Usage 码：字母 A
             KeyName = "A",
-            KeyCode = 65,
             DelayMs = 0
         });
         UpdateTotalDuration();
@@ -173,6 +257,12 @@ public partial class MacroPageViewModel : ObservableObject
     [RelayCommand]
     private void AddDelayAction()
     {
+        if (Actions.Count >= MaxActions)
+        {
+            MessageBox.Show($"最多只能添加 {MaxActions} 个动作", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
         Actions.Add(new MacroActionItemViewModel
         {
             Type = MacroActionType.Delay,
@@ -186,7 +276,40 @@ public partial class MacroPageViewModel : ObservableObject
     {
         if (action != null)
         {
+            int index = Actions.IndexOf(action);
             Actions.Remove(action);
+
+            // 自动选中下一个或上一个动作
+            if (Actions.Count > 0)
+            {
+                if (index < Actions.Count)
+                {
+                    SelectedAction = Actions[index]; // 选中下一个
+                }
+                else
+                {
+                    SelectedAction = Actions[Actions.Count - 1]; // 选中上一个（最后一个）
+                }
+            }
+            else
+            {
+                SelectedAction = null;
+            }
+
+            UpdateTotalDuration();
+        }
+    }
+
+    [RelayCommand]
+    private void ClearActions()
+    {
+        if (Actions.Count == 0) return;
+
+        var result = MessageBox.Show("确定要清空所有动作吗？", "确认", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        if (result == MessageBoxResult.Yes)
+        {
+            Actions.Clear();
+            SelectedAction = null;
             UpdateTotalDuration();
         }
     }
@@ -227,22 +350,11 @@ public partial class MacroPageViewModel : ObservableObject
     [RelayCommand]
     private void StopRecording()
     {
-        var actions = _macroRecorder.StopRecording();
+        _macroRecorder.StopRecording();
         IsRecording = false;
         _recordTimer.Stop();
 
-        // 把录制的动作添加到当前宏
-        foreach (var action in actions)
-        {
-            Actions.Add(new MacroActionItemViewModel
-            {
-                Type = action.Type,
-                KeyName = action.KeyName,
-                DelayMs = action.DelayMs,
-                KeyCode = action.KeyCode
-            });
-        }
-
+        // 注意：动作已在 OnActionRecorded 事件中实时添加，这里不需要重复添加
         UpdateTotalDuration();
     }
 
@@ -251,12 +363,20 @@ public partial class MacroPageViewModel : ObservableObject
         // 录制过程中实时更新 UI
         Application.Current?.Dispatcher.Invoke(() =>
         {
+            if (Actions.Count >= MaxActions)
+            {
+                // 达到上限，自动停止录制
+                StopRecording();
+                MessageBox.Show($"已达到最大动作数 {MaxActions}，录制已自动停止", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
             Actions.Add(new MacroActionItemViewModel
             {
                 Type = e.Type,
+                KeyCode = (byte)e.KeyCode,
                 KeyName = e.KeyName,
-                DelayMs = e.DelayMs,
-                KeyCode = e.KeyCode
+                DelayMs = e.DelayMs
             });
             UpdateTotalDuration();
         });
@@ -279,15 +399,50 @@ public partial class MacroPageViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void PlayMacro()
+    private async Task PlayMacro()
     {
-        // 播放宏的逻辑
+        if (CurrentMacro == null || !_deviceService.IsConnected)
+        {
+            MessageBox.Show("设备未连接或未选择宏", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        byte macroId = (byte)Macros.IndexOf(CurrentMacro);
+        if (macroId >= 8)
+        {
+            MessageBox.Show("无效的宏ID", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        // 先保存当前宏到设备
+        await SaveCurrentMacroAsync();
+
+        // 发送播放命令
+        bool result = await _deviceService.PlayMacroAsync(macroId);
+        if (result)
+        {
+            IsPlaying = true;
+            StatusMessage = $"正在播放宏: {CurrentMacro.Name}";
+        }
+        else
+        {
+            MessageBox.Show("播放宏失败", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     [RelayCommand]
-    private void StopPlayback()
+    private async Task StopPlayback()
     {
-        // 停止播放的逻辑
+        if (!_deviceService.IsConnected)
+            return;
+
+        byte macroId = CurrentMacro != null ? (byte)Macros.IndexOf(CurrentMacro) : (byte)0xFF;
+        bool result = await _deviceService.StopMacroAsync(macroId);
+        if (result)
+        {
+            IsPlaying = false;
+            StatusMessage = "已停止播放";
+        }
     }
 
     #region 设备对接
@@ -410,8 +565,8 @@ public partial class MacroPageViewModel : ObservableObject
             Actions.Add(new MacroActionItemViewModel
             {
                 Type = action.Type,
+                KeyCode = (byte)action.KeyCode,
                 KeyName = action.KeyName,
-                KeyCode = action.KeyCode,
                 DelayMs = action.DelayMs
             });
         }
@@ -528,94 +683,9 @@ public partial class MacroPageViewModel : ObservableObject
     /// </summary>
     private static string GetKeyName(byte keyCode)
     {
-        return keyCode switch
-        {
-            0x00 => "None",
-            0x04 => "A",
-            0x05 => "B",
-            0x06 => "C",
-            0x07 => "D",
-            0x08 => "E",
-            0x09 => "F",
-            0x0A => "G",
-            0x0B => "H",
-            0x0C => "I",
-            0x0D => "J",
-            0x0E => "K",
-            0x0F => "L",
-            0x10 => "M",
-            0x11 => "N",
-            0x12 => "O",
-            0x13 => "P",
-            0x14 => "Q",
-            0x15 => "R",
-            0x16 => "S",
-            0x17 => "T",
-            0x18 => "U",
-            0x19 => "V",
-            0x1A => "W",
-            0x1B => "X",
-            0x1C => "Y",
-            0x1D => "Z",
-            0x1E => "1",
-            0x1F => "2",
-            0x20 => "3",
-            0x21 => "4",
-            0x22 => "5",
-            0x23 => "6",
-            0x24 => "7",
-            0x25 => "8",
-            0x26 => "9",
-            0x27 => "0",
-            0x28 => "Enter",
-            0x29 => "Esc",
-            0x2A => "Backspace",
-            0x2B => "Tab",
-            0x2C => "Space",
-            0x2D => "-",
-            0x2E => "=",
-            0x2F => "[",
-            0x30 => "]",
-            0x31 => "\\",
-            0x33 => ";",
-            0x34 => "'",
-            0x35 => "`",
-            0x36 => ",",
-            0x37 => ".",
-            0x38 => "/",
-            0x39 => "Caps Lock",
-            0x3A => "F1",
-            0x3B => "F2",
-            0x3C => "F3",
-            0x3D => "F4",
-            0x3E => "F5",
-            0x3F => "F6",
-            0x40 => "F7",
-            0x41 => "F8",
-            0x42 => "F9",
-            0x43 => "F10",
-            0x44 => "F11",
-            0x45 => "F12",
-            0x49 => "Insert",
-            0x4A => "Home",
-            0x4B => "Page Up",
-            0x4C => "Delete",
-            0x4D => "End",
-            0x4E => "Page Down",
-            0x4F => "Right",
-            0x50 => "Left",
-            0x51 => "Down",
-            0x52 => "Up",
-            0xE0 => "Ctrl L",
-            0xE1 => "Shift L",
-            0xE2 => "Alt L",
-            0xE3 => "GUI L",
-            0xE4 => "Ctrl R",
-            0xE5 => "Shift R",
-            0xE6 => "Alt R",
-            0xE7 => "GUI R",
-            _ => $"0x{keyCode:X2}"
-        };
+        if (keyCode == 0x00)
+            return "None";
+        return HidKeyConverter.HidUsageToName(keyCode);
     }
 
     #endregion

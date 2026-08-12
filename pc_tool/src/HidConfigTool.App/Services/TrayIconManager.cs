@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace HidConfigTool.App.Services;
@@ -9,6 +10,9 @@ namespace HidConfigTool.App.Services;
 /// </summary>
 public class TrayIconManager : IDisposable
 {
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    private static extern bool DestroyIcon(IntPtr handle);
+
     private readonly NotifyIcon _notifyIcon;
     private System.Windows.Window? _mainWindow;
 
@@ -133,7 +137,15 @@ public class TrayIconManager : IDisposable
 
         // 转换为 Icon
         IntPtr hIcon = bitmap.GetHicon();
-        return Icon.FromHandle(hIcon);
+        try
+        {
+            // FromHandle 不拥有句柄所有权，需要 Clone 创建独立副本后销毁原始句柄
+            return (Icon)Icon.FromHandle(hIcon).Clone();
+        }
+        finally
+        {
+            DestroyIcon(hIcon);
+        }
     }
 
     public void Dispose()
