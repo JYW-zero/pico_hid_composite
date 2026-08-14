@@ -6,6 +6,7 @@
  */
 
 #include "middleware/fault.h"
+#include "middleware/flash_service.h"
 #include "board/flash_layout.h"
 #include <stdio.h>
 #include <string.h>
@@ -15,6 +16,7 @@
 #include "hardware/sync.h"
 #include "hardware/watchdog.h"
 #include "pico/time.h"
+#include "pico/platform.h"
 
 /* ==================== 静态变量 ==================== */
 
@@ -60,9 +62,7 @@ static void scan_flash_logs(void)
 /* 擦除整个日志扇区 */
 static void erase_log_flash(void)
 {
-    uint32_t saved = save_and_disable_interrupts();
-    flash_range_erase(FAULT_LOG_FLASH_OFFSET, FAULT_LOG_FLASH_SIZE);
-    restore_interrupts(saved);
+    flash_service_erase(FAULT_LOG_FLASH_OFFSET, FAULT_LOG_FLASH_SIZE);
 }
 
 /* 写入一条日志到Flash指定位置 */
@@ -73,10 +73,13 @@ static void write_log_to_flash(uint32_t index, const fault_log_entry_t* entry)
         return;
     }
 
+    /* 使用静态缓冲区，避免传入栈指针（flash_range_program要求RAM指针） */
+    static uint8_t write_buf[FAULT_LOG_ENTRY_SIZE];
+    memset(write_buf, 0xFF, sizeof(write_buf));
+    memcpy(write_buf, entry, sizeof(fault_log_entry_t));
+
     uint32_t offset = FAULT_LOG_FLASH_OFFSET + index * FAULT_LOG_ENTRY_SIZE;
-    uint32_t saved = save_and_disable_interrupts();
-    flash_range_program(offset, (const uint8_t*)entry, sizeof(fault_log_entry_t));
-    restore_interrupts(saved);
+    flash_service_program(offset, write_buf, FAULT_LOG_ENTRY_SIZE);
 }
 
 /* ==================== 对外接口 ==================== */
@@ -132,27 +135,28 @@ void fault_record(fault_level_e level, const char *module, const char *msg)
     memcpy(entry.msg, msg, msg_len);
     entry.msg[msg_len] = '\0';
 
-    /* 如果写满了，先擦除整个扇区，然后从头开始写 */
-    if (s_write_index == 0 && s_log_count >= FAULT_LOG_MAX_COUNT)
+    /* 只在Core0中写Flash，避免Core1和Core0同时调用flash_safe_execute导致死锁 */
+    /* Core1中发生的错误只输出串口，由Core0统一处理Flash写入 */
+    if (level >= FAULT_LEVEL_ERROR && get_core_num() == 0)
     {
-        erase_log_flash();
-        s_log_count = 0;
-    }
+        if (s_write_index == 0 && s_log_count >= FAULT_LOG_MAX_COUNT)
+        {
+            erase_log_flash();
+            s_log_count = 0;
+        }
 
-    /* 写入Flash */
-    write_log_to_flash(s_write_index, &entry);
+        write_log_to_flash(s_write_index, &entry);
 
-    /* 更新索引和计数 */
-    s_write_index++;
-    if (s_log_count < FAULT_LOG_MAX_COUNT)
-    {
-        s_log_count++;
-    }
+        s_write_index++;
+        if (s_log_count < FAULT_LOG_MAX_COUNT)
+        {
+            s_log_count++;
+        }
 
-    /* 如果写满了，下一次从0开始 */
-    if (s_write_index >= FAULT_LOG_MAX_COUNT)
-    {
-        s_write_index = 0;
+        if (s_write_index >= FAULT_LOG_MAX_COUNT)
+        {
+            s_write_index = 0;
+        }
     }
 
     /* 致命错误：触发看门狗复位（10ms后复位，确保日志写入完成） */

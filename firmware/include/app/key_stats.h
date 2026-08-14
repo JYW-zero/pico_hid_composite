@@ -52,7 +52,7 @@ extern "C" {
 #define KEY_STATS_FLASH_ADDR    flash_layout_key_stats_addr()
 
 /* 自动保存间隔：5分钟（300000毫秒） */
-#define KEY_STATS_AUTO_SAVE_INTERVAL_MS    300000U
+#define KEY_STATS_AUTO_SAVE_INTERVAL_MS    1800000U  /* 30分钟 */
 
 /* 记录魔数："KEY0" */
 #define KEY_STATS_MAGIC    0x3059454BU

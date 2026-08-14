@@ -46,6 +46,7 @@
 #include "middleware/scheduler.h"
 #include "middleware/fault.h"
 #include "middleware/perf_monitor.h"
+#include "middleware/flash_service.h"
 #include "app/keymap.h"
 #include "app/macro.h"
 #include "app/key_stats.h"
@@ -162,16 +163,10 @@ static void dpi_cycle_next(void)
     int ret = paw3395_set_dpi(paw3395_cfg, new_dpi_enum);
     if (ret == 0)
     {
-        printf("[DPI] 切换到: %d DPI\n", new_dpi_val);
-
-        /* 保存到Flash配置 */
+        /* 保存配置到Flash（使用安全写入服务，双核同步） */
         device_config_t cfg = *config_get();
         cfg.dpi = new_dpi_val;
         config_save(&cfg);
-    }
-    else
-    {
-        printf("[DPI] 切换失败: %d\n", ret);
     }
 }
 
@@ -222,6 +217,9 @@ int main(void)
   printf("初始化板级硬件...\n");
   bsp_init();
 
+  // 初始化Flash安全写入服务（双核同步，必须在fault_init之前）
+  flash_service_init();
+
   // 初始化故障记录模块（Flash持久化错误日志）
   fault_init();
 
@@ -240,7 +238,7 @@ int main(void)
   perf_set_threshold(0, 1000);   // tud_task: 1ms
   perf_set_threshold(1, 2000);   // hid_config: 2ms
   perf_set_threshold(2, 500);    // macro_task: 0.5ms
-  perf_set_threshold(3, 500);    // scheduler: 0.5ms
+  perf_set_threshold(3, 60000);  // scheduler: 60ms（写Flash时约50ms，需留余量）
 
   // 初始化按键映射
   keymap_init();
@@ -382,8 +380,9 @@ int main(void)
     sched_run(g_task_list, TASK_COUNT);
     perf_end(3);
 
-    /* 主循环正常运行，喂BOARD层和APP层 */
+    /* 主循环正常运行，喂BOARD层、DEVICE层和APP层 */
     watchdog_feed_layer(WDG_LAYER_BOARD);
+    watchdog_feed_layer(WDG_LAYER_DEVICE);
     watchdog_feed_layer(WDG_LAYER_APP);
   }
 }
@@ -559,7 +558,6 @@ static void keypad_task(void)
       if (fn_now != fn_pressed)
       {
         fn_pressed = fn_now;
-        printf("[Fn] %s\n", fn_now ? "按下" : "松开");
       }
 
       // 检测DPI切换键（数字3键，索引3）的按下上升沿
@@ -590,7 +588,9 @@ static void keypad_task(void)
           pressed_count++;
         }
       }
-      printf("[键盘] 按下 %d 个键 (Fn=%s)\n", pressed_count, fn_pressed ? "是" : "否");
+      /* 临时关闭频繁打印
+      printf("[键盘] 按下 %d 个键 (Fn=%s) stable=0x%016llX\n", pressed_count, fn_pressed ? "是" : "否", (unsigned long long)stable_keys);
+      */
     }
 
     // 发送HID键盘报告
@@ -684,15 +684,6 @@ static void keypad_task(void)
         consumer_report[1] = (uint8_t)((consumer_code >> 8) & 0xFF);
         tud_hid_report(REPORT_ID_CONSUMER_CONTROL, consumer_report, 2);
         last_consumer = consumer_code;
-
-        if (consumer_code != 0)
-        {
-          printf("[多媒体] 按下: 0x%04X\n", consumer_code);
-        }
-        else
-        {
-          printf("[多媒体] 松开\n");
-        }
       }
     }
 

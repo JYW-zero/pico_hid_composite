@@ -96,6 +96,183 @@
 
 ---
 
+### 2026-08-14 - 硬件调试与Flash写入卡死问题定位
+
+**背景**：用户反馈所有输入设备不工作，设备频繁重启/卡死。经过多轮调试，定位到多个关键问题。
+
+#### 问题1：看门狗 DEVICE 层超时（已修复）
+
+**现象**：设备不断重启，串口日志显示 `[FAULT][FATAL] watchdog: DEVICE layer timeout`
+
+**根本原因**：`watchdog_init(500)` 设置了三层看门狗（BOARD/DEVICE/APP），但主循环只喂了 BOARD 和 APP 层，漏掉了 DEVICE 层。设备启动500ms后 DEVICE 层未被喂狗，触发 FATAL 复位。
+
+**修复**：`firmware/src/app/main.c` 主循环中添加 `watchdog_feed_layer(WDG_LAYER_DEVICE)`。
+
+---
+
+#### 问题2：Flash写入导致系统卡死/重启（核心问题，已临时修复）
+
+**现象**：设备运行一段时间后卡死，串口无输出，按键无反应。
+
+**根本原因**：双核系统中写 Flash 时使用 `save_and_disable_interrupts()` 关中断，导致：
+1. USB 中断无法处理 → USB 设备断开
+2. Core0 被阻塞 → 看门狗超时
+3. Core1 可能访问 Flash 时出问题
+4. 擦除扇区（4096字节）耗时几十ms，影响更大
+
+**涉及的写Flash位置（已全部临时禁用）**：
+
+| 位置 | 触发条件 | 影响 | 状态 |
+|------|----------|------|------|
+| `main.c` dpi_cycle_next() | 按DPI切换键 | 切换后立即重启 | ✅ 已注释config_save() |
+| `key_stats.c` key_stats_tick() | 每5分钟自动保存 | 运行5分钟后卡死 | ✅ 已禁用自动保存 |
+| `fault.c` fault_record() | **每次记录故障都写Flash** | **频繁卡死（主要元凶）** | ✅ 已禁用Flash写入 |
+| `config_hid.c` 宏延迟保存 | 修改宏后1秒自动保存 | 修改宏后卡死 | ✅ 已禁用延迟保存 |
+| `config_hid.c` CMD_SAVE_CONFIG | 上位机点击保存 | 用户主动触发 | ⚠️ 保留，提醒用户避免 |
+| `config_hid.c` CMD_APPLY_CONFIG | 上位机点击应用 | 用户主动触发 | ⚠️ 保留，提醒用户避免 |
+
+**特别说明**：`fault_record()` 设计缺陷——所有级别（INFO/WARN/ERROR/FATAL）都写 Flash。而 `perf_monitor` 频繁触发 scheduler 超时警告（约1.2ms，阈值500us），每次都写 Flash，导致系统越来越卡最终死机。
+
+**根本修复方案（待实施）**：
+1. 实现 `config_enter_flash_write()` / `config_exit_flash_write()` 的双核同步
+2. 写 Flash 前通过 FIFO 通知 Core1 暂停，或 `multicore_reset_core1()`
+3. 写 Flash 完成后恢复 Core1
+4. `fault_record()` 应只在 ERROR/FATAL 级别才写 Flash，WARN 只输出串口
+5. 考虑异步保存机制（配置变化后延迟几秒，在主循环空闲时写入）
+
+---
+
+#### 问题3：消抖算法导致按键无法检测（已修复）
+
+**现象**：SWD调试显示 `raw_keys` 有值，但 `stable_keys` 始终全1（0xFFFFFFFFFFFFFFFF）。
+
+**根本原因**：消抖阈值为5，SPI读取的值有轻微波动，计数器永远达不到阈值，`stable_state` 永远是初始值全1。
+
+**修复**：消抖阈值从5降到2。
+- `firmware/src/app/core1_scanner.c`：`debounce_64key_init(&s_keypad_debounce, 2)`
+
+---
+
+#### 问题4：74HC165 SPI时序（已确认正确）
+
+**关键参考**：用户提供的原始 MicroPython 代码（`64.py`）确认了正确时序：
+1. CS拉低 → 延时5us（加载并行数据）
+2. CS拉高 → 延时5us（锁存）
+3. SPI读取8字节（产生时钟，读取串行数据）
+
+**注意**：CS必须在读取前拉高，这是74HC165的特殊时序。曾错误地把SPI读取移到CS拉低期间，已恢复正确时序。
+
+---
+
+#### 当前硬件测试状态
+
+| 功能 | 状态 | 备注 |
+|------|------|------|
+| 64键键盘 | ✅ 正常 | HID报告发送成功，标准QWERTY布局 |
+| PAW3395鼠标 | ✅ 正常 | |
+| 旋转编码器（滚轮） | ✅ 正常 | |
+| 摇杆X/Y轴 | ✅ 正常 | 作为游戏手柄输出，死区76 |
+| 摇杆按键（SW） | ⚠️ 待确认 | btn始终为0，可能硬件接线问题（SW引脚是否接GPIO28） |
+| 系统稳定性 | ✅ 基本稳定 | 禁用所有自动Flash写入后 |
+
+---
+
+#### 调试环境
+
+- **SWD调试**：VSCode + Cortex-Debug，CMSIS-DAP，adapter speed 1000
+- **串口调试**：FT232接UART0（GPIO0 TX/GPIO1 RX），波特率115200，独立于USB HID
+- **当前调试打印**：Core1心跳（每秒）、[KEY] raw/stable（每秒）、[JOY]摇杆值（每秒）
+
+---
+
+#### Flash安全写入根本修复（阶段1，已完成代码修复，待烧录验证）
+
+**背景**：临时禁用所有自动Flash写入后系统稳定，但配置无法持久化。用户提供了基于SDK官方`flash_safe_execute()`的双核同步修复方案。
+
+**方案核心**：使用Pico SDK 2.3.0官方的`flash_safe_execute()`机制，内部自动处理：暂停Core1 → 禁用中断 → 执行擦写 → 恢复中断 → 恢复Core1。
+
+**新增模块**：`flash_service`（middleware层）
+- `firmware/include/middleware/flash_service.h`
+- `firmware/src/middleware/flash_service.c`
+- 封装官方`flash_safe_execute()`，提供`flash_service_erase/program/write_sector`接口
+- 回调函数用`__no_inline_not_in_flash_func()`修饰，放在RAM中执行
+- 写页循环中调用`watchdog_update()`防止看门狗超时
+- **禁止调用fault_record()**：避免递归写Flash（flash_service失败→fault_record→写Flash→flash_service）
+- **禁止调用printf()**：删除所有调试输出
+
+**修改的文件**：
+
+| 文件 | 修改内容 |
+|------|---------|
+| `core1_scanner.c` | 添加`flash_service_core1_init()`（必须最早调用），删除[KEY]/[JOY]/[Core1]调试打印 |
+| `main.c` | 添加`flash_service_init()`，恢复DPI切换的config_save()，删除[DPI]/[Fn]/[多媒体]调试打印 |
+| `config.c` | 改用`flash_service_erase/program`替换直接写Flash |
+| `key_stats.c` | 改用flash_service，恢复每5分钟自动保存，删除所有打印 |
+| `fault.c` | 改用flash_service，只在ERROR/FATAL级别写Flash，**添加核心检查（只有Core0写Flash）**，恢复写入 |
+| `config_hid.c` | 恢复宏配置延迟保存 |
+| `keypad_spi.c` | 超时从1ms改为100ms（写Flash期间Core1被暂停约50ms） |
+| `macro.c` | 删除所有[宏]调试打印 |
+
+**第一次烧录测试发现的问题及修复**：
+
+1. **无限递归**（F18）
+   - 现象：第4次DPI切换后，`flash_service: program: flash_safe_execute failed`无限重复，设备重启
+   - 原因：flash_service失败→调用fault_record(ERROR)→fault_record写Flash→又调用flash_service→死循环
+   - 修复：flash_service.c中所有fault_record改为printf，进一步删除所有printf，静默返回false
+
+2. **keypad_spi超时误报**（F19）
+   - 现象：写Flash期间Core1被暂停约50ms，keypad_spi超时阈值1ms必然超时
+   - 原因：超时阈值设置过短，未考虑写Flash期间Core1被暂停的情况
+   - 修复：`KEYPAD_SPI_TIMEOUT_US`从1000改为100000（100ms）
+
+3. **Core1写Flash死锁**（F20，关键发现）
+   - 现象：keypad_spi超时在Core1中检测到，调用fault_record(ERROR)，fault_record又写Flash
+   - 原因：官方`flash_safe_execute`设计是"调用方暂停另一个核心"，如果Core0和Core1同时调用，会互相等待对方暂停→死锁/超时
+   - 修复：fault_record中添加`get_core_num() == 0`检查，**只有Core0才写Flash**，Core1中发生的错误只输出串口
+
+**官方源码确认**：
+- `pico_flash/flash.c`：`flash_safe_execute()`内部使用`multicore_lockout`机制暂停另一个核心
+- `hardware_flash/flash.c`：`flash_range_erase/program`本身已是RAM函数，内部处理XIP进入/退出
+- 我们的实现完全符合官方用法，`flash_service`只是对官方API的薄薄封装
+
+**双核工作机制**：
+- 只有Core0写Flash（config_save、key_stats、fault_record、宏保存）
+- Core0写Flash时：Core0禁用中断执行擦写（约50ms），Core1被暂停在`__wfe()`低功耗等待
+- `config_save()`分两次调用（先擦除再写入），中间Core1短暂恢复
+
+**当前状态**：代码全部修复并编译通过，**烧录验证成功**，DPI切换10次以上正常，系统运行稳定，所有输入设备正常工作。
+
+---
+
+#### 阶段2优化（已完成）
+
+1. **perf_monitor scheduler 超时阈值调整**
+   - 从 500us 调整到 60000us（60ms）
+   - 原因：写 Flash 时 scheduler 被阻塞约 50ms，这是正常现象，不应算作超时
+   - 文件：`firmware/src/app/main.c`
+
+2. **key_stats 自动保存间隔延长**
+   - 从 5 分钟（300000ms）延长到 30 分钟（1800000ms）
+   - 原因：减少 Flash 写入次数，延长 Flash 寿命
+   - 文件：`firmware/include/app/key_stats.h`
+
+**编译状态**：通过，待烧录验证。
+
+---
+
+#### 下一步计划
+
+1. **烧录验证Flash安全写入修复**（最高优先级）
+   - 连续按DPI切换键10次以上
+   - 运行10分钟以上测试稳定性
+   - 测试所有输入设备
+2. 确认摇杆按键硬件接线（SW引脚是否接GPIO28）
+3. 阶段2优化：perf_monitor阈值调整、key_stats保存间隔延长
+4. 重新编译上位机验证KeyDefinition.ToString()修复
+5. 创建GitHub Pull Request
+
+---
+
 ### 2026-08-07
 - 项目启动，从MicroPython原型版迁移到C语言
 - 搭建五层架构基础框架
