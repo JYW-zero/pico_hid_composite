@@ -1,7 +1,99 @@
 # Pico HID Composite 代码结构全面分析报告
 
 > 生成日期：2026-08-12
+> 最后更新：2026-08-14
 > 分析范围：固件（C）+ 上位机（WPF .NET 10）
+
+---
+
+## 📌 2026-08-14 硬件调试更新
+
+本次硬件调试发现了**双核系统中 Flash 写入的致命问题**，这是导致设备频繁重启/卡死的根本原因。
+
+### 新发现的严重问题
+
+| 编号 | 位置 | 问题 | 严重程度 | 状态 |
+|------|------|------|----------|------|
+| F14 | fault.c:143 | `fault_record()` **每次调用都写Flash**，包括WARN级别。perf_monitor频繁触发scheduler超时警告，每次都关中断写Flash，导致系统越来越卡最终死机 | 🔴 严重 | ✅ 已优化（只在ERROR/FATAL级别写入） |
+| F15 | 多处 | 双核系统中写Flash未暂停Core1，`save_and_disable_interrupts()`关中断期间USB断开、看门狗超时 | 🔴 严重 | ✅ 已根本修复（flash_service模块 + flash_safe_execute） |
+| F16 | main.c 主循环 | 看门狗DEVICE层未喂狗，启动500ms后触发FATAL复位 | 🔴 严重 | ✅ 已修复 |
+| F17 | core1_scanner.c | 消抖阈值5过高，SPI轻微波动导致stable_keys始终全1，按键无法检测 | 🟡 高 | ✅ 已修复（阈值降为2） |
+| F18 | flash_service.c | flash_service失败后调用fault_record(ERROR)，fault_record又写Flash，又调用flash_service→**无限递归** | 🔴 严重 | ✅ 已修复（删除所有fault_record和printf，静默返回false） |
+| F19 | keypad_spi.c | 超时1ms太短，写Flash期间Core1被暂停约50ms，必然误报超时 | 🟡 高 | ✅ 已修复（改为100ms） |
+| F20 | fault.c | Core1中调用fault_record写Flash，与Core0写Flash同时调用flash_safe_execute→**双核死锁** | 🔴 严重 | ✅ 已修复（添加get_core_num()==0检查，只有Core0写Flash） |
+
+### Flash写入问题详细分析
+
+**根本原因**：RP2350双核系统中，写Flash必须：
+1. 暂停Core1（否则Core1访问Flash时可能崩溃）
+2. 关中断（`save_and_disable_interrupts()`）
+3. 执行擦除/编程
+4. 恢复中断
+5. 恢复Core1
+
+当前代码只做了第2-4步，缺少第1和第5步的双核同步。
+
+**关中断期间的影响**：
+- USB中断无法处理 → USB设备断开（电脑发出断开提示音）
+- Core0被阻塞 → 看门狗超时
+- 擦除4096字节扇区耗时几十ms，影响更大
+
+**涉及的写Flash位置（已全部改用flash_service安全写入）**：
+
+| 位置 | 触发条件 | 当前状态 |
+|------|----------|----------|
+| `config.c` config_write_to_offset() | 配置保存（DPI/keymap/宏等） | ✅ 改用flash_service_erase/program |
+| `main.c` dpi_cycle_next() | 按DPI切换键 | ✅ 已恢复config_save() |
+| `key_stats.c` key_stats_tick() | 每5分钟自动保存 | ✅ 已恢复自动保存 |
+| `fault.c` fault_record() | ERROR/FATAL级别故障 | ✅ 已恢复写入，只有Core0写Flash |
+| `config_hid.c` 宏延迟保存 | 修改宏后1秒自动保存 | ✅ 已恢复延迟保存 |
+| `config_hid.c` CMD_SAVE_CONFIG | 上位机点击保存 | ✅ 使用安全写入 |
+| `config_hid.c` CMD_APPLY_CONFIG | 上位机点击应用 | ✅ 使用安全写入 |
+
+**根本修复方案（已实施阶段1）**：
+
+使用Pico SDK 2.3.0官方的`flash_safe_execute()`机制，内部自动处理双核同步：
+1. `multicore_lockout_start_timeout_us()` → 暂停Core1
+2. `save_and_disable_interrupts()` → 禁用Core0中断
+3. 执行回调函数（RAM中）→ flash_range_erase/program
+4. `restore_interrupts()` → 恢复Core0中断
+5. `multicore_lockout_end_timeout_us()` → 恢复Core1
+
+**新增flash_service模块**：封装官方API，提供erase/program/write_sector接口。
+
+**关键约束**：
+- 回调函数必须用`__no_inline_not_in_flash_func()`修饰，放在RAM中
+- 回调函数内绝对不能访问Flash
+- **只有Core0应该写Flash**，Core1写Flash会导致双核死锁
+- flash_service模块禁止调用fault_record()（避免递归）
+
+**第一次测试发现的三个问题及修复**：
+- F18：无限递归 → flash_service静默返回false
+- F19：keypad_spi超时误报 → 超时从1ms改为100ms
+- F20：Core1写Flash死锁 → fault_record添加核心检查
+
+**当前状态**：代码全部修复并编译通过，待烧录验证。
+
+### 当前硬件测试状态
+
+| 功能 | 状态 | 备注 |
+|------|------|------|
+| 64键键盘 | ✅ 正常 | 标准QWERTY布局，HID报告发送成功 |
+| PAW3395鼠标 | ✅ 正常 | |
+| 旋转编码器（滚轮） | ✅ 正常 | |
+| 摇杆X/Y轴 | ✅ 正常 | 游戏手柄输出，死区76 |
+| 摇杆按键（SW） | ⚠️ 待确认 | btn始终为0，可能硬件接线问题 |
+| DPI切换 | ✅ 正常 | Flash安全写入修复后验证通过 |
+| 系统稳定性 | ✅ 正常 | Flash安全写入修复后验证通过 |
+
+### 74HC165 SPI时序确认
+
+参考用户提供的原始MicroPython代码，正确时序为：
+1. CS拉低 → 延时5us（加载并行数据）
+2. CS拉高 → 延时5us（锁存）
+3. SPI读取8字节
+
+**注意**：CS必须在读取前拉高，这是74HC165的特殊时序。
 
 ---
 

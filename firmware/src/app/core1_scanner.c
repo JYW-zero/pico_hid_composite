@@ -9,6 +9,7 @@
 #include "middleware/debounce.h"
 #include "middleware/watchdog.h"
 #include "middleware/ipc.h"
+#include "middleware/flash_service.h"
 #include "pico/multicore.h"
 #include "hardware/sync.h"
 #include "device/keypad_spi.h"
@@ -64,6 +65,7 @@ static void core1_keypad_task(void)
     uint64_t raw_keys = 0;
     if (keypad_spi_read_u64(s_keypad_cfg, &raw_keys) == 0)
     {
+        /* 恢复消抖，阈值降到2 */
         uint64_t stable_keys = debounce_64key_update(&s_keypad_debounce, raw_keys);
         shared_hw_set_keys(stable_keys);
         shared_hw_inc_keypad_scan();
@@ -210,25 +212,15 @@ static void core1_joystick_task(void)
     int16_t joy_y = (int16_t)(-y);  /* Y轴反转 */
     
     shared_hw_set_joystick(joy_x, joy_y, data.btn_pressed);
-
-    /* 调试打印：每秒一次 */
-    static uint32_t print_counter = 0;
-    print_counter++;
-    if (print_counter >= 100)  /* 10ms * 100 = 1秒 */
-    {
-        print_counter = 0;
-        printf("[摇杆] 原始: x=%d, y=%d | 死区: %d | 输出: x=%d, y=%d | 按键: %d\n",
-               (int32_t)data.x - 2048, (int32_t)data.y - 2048,
-               deadzone,
-               (int)joy_x, (int)joy_y,
-               data.btn_pressed ? 1 : 0);
-    }
 }
 
 /* ==================== 主入口 ==================== */
 
 void core1_scanner_main(void)
 {
+    /* 注册Core1为可被flash_safe_execute锁定的核心（必须最早调用） */
+    flash_service_core1_init();
+
     /* 获取硬件配置句柄（只读） */
     s_keypad_cfg = board_get_keypad_spi_cfg();
     s_paw3395_cfg = board_get_paw3395_cfg();
@@ -236,7 +228,7 @@ void core1_scanner_main(void)
     s_joystick_cfg = board_get_joystick_cfg();
     
     /* 初始化消抖 */
-    debounce_64key_init(&s_keypad_debounce, 5);
+    debounce_64key_init(&s_keypad_debounce, 2);
     
     /* 初始化编码器状态 */
     encoder_state_init(&s_encoder_state);

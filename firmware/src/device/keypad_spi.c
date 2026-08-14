@@ -28,7 +28,7 @@ enum
 /* SPI读取超时阈值（微秒）
  * 正常读取8字节约650us，设为1ms足够
  */
-#define KEYPAD_SPI_TIMEOUT_US  1000U
+#define KEYPAD_SPI_TIMEOUT_US  100000U  /* 100ms：写Flash期间Core1会被暂停约50ms，超时时间必须足够长 */
 
 int keypad_spi_init(const keypad_spi_cfg_t *cfg)
 {
@@ -78,7 +78,7 @@ int keypad_spi_read_u64(const keypad_spi_cfg_t *cfg, uint64_t *out_val)
         uint8_t data[8u] = {0u};
         uint32_t start_us = time_us_32();
 
-        /* CS 拉低 -> 延时 -> CS 拉高 -> 延时 -> 通过 SPI 读取 8 字节（大端）
+        /* 74HC165 读取时序：CS拉低加载并行数据 -> CS拉高锁存 -> SPI读取
          * 注意：底层 SPI、GPIO 模式应由 board 层完成初始化
          */
         gpio_put((uint)cfg->cs_pin, 0);

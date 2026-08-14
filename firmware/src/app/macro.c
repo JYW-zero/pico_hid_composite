@@ -165,7 +165,6 @@ static bool execute_action(const macro_action_t* action)
         {
             uint8_t keycode = action->param1;
             add_key(keycode);
-            printf("[宏] 按键按下: 0x%02X\n", keycode);
             break;
         }
 
@@ -173,7 +172,6 @@ static bool execute_action(const macro_action_t* action)
         {
             uint8_t keycode = action->param1;
             remove_key(keycode);
-            printf("[宏] 按键释放: 0x%02X\n", keycode);
             break;
         }
 
@@ -195,7 +193,6 @@ static bool execute_action(const macro_action_t* action)
             {
                 tud_hid_mouse_report(REPORT_ID_MOUSE, s_mouse_buttons, dx, dy, 0, 0);
             }
-            printf("[宏] 鼠标移动: dx=%d, dy=%d\n", dx, dy);
             break;
         }
 
@@ -209,13 +206,11 @@ static bool execute_action(const macro_action_t* action)
             if (action->param2 != 0)
             {
                 /* 按下 */
-                printf("[宏] 鼠标按下: 0x%02X\n", button);
             }
             else
             {
                 /* 释放 */
                 s_mouse_buttons &= ~button;
-                printf("[宏] 鼠标释放: 0x%02X\n", button);
             }
             break;
         }
@@ -228,7 +223,6 @@ static bool execute_action(const macro_action_t* action)
             {
                 tud_hid_mouse_report(REPORT_ID_MOUSE, s_mouse_buttons, 0, 0, scroll, 0);
             }
-            printf("[宏] 鼠标滚轮: %d\n", scroll);
             break;
         }
 
@@ -245,7 +239,6 @@ void macro_init(void)
 {
     /* TODO: 从Flash加载宏配置 */
     load_default_macros();
-    printf("[宏] 模块初始化完成，共 %d 个宏槽位\n", MACRO_MAX_COUNT);
 }
 
 void macro_task(void)
@@ -311,7 +304,6 @@ void macro_task(void)
             else
             {
                 /* 循环结束，停止 */
-                printf("[宏] 宏 %d 执行完成\n", s_current_macro);
                 release_all_keys();
                 s_state = MACRO_STATE_IDLE;
                 s_current_macro = 0xFF;
@@ -354,10 +346,6 @@ int macro_set(uint8_t macro_id, const macro_def_t* macro)
 
     /* TODO: 保存到Flash */
 
-    printf("[宏] 保存宏 %d: %s, %d 个动作\n",
-           macro_id, s_macros[macro_id].name,
-           s_macros[macro_id].action_count);
-
     return 0;
 }
 
@@ -384,8 +372,6 @@ bool macro_trigger(uint8_t macro_id)
     s_current_action = 0;
     s_repeat_remaining = s_macros[macro_id].repeat_count;
 
-    printf("[宏] 触发宏 %d: %s\n", macro_id, s_macros[macro_id].name);
-
     return true;
 }
 
@@ -401,7 +387,6 @@ void macro_stop_all(void)
 {
     if (s_state != MACRO_STATE_IDLE)
     {
-        printf("[宏] 停止所有宏\n");
         release_all_keys();
     }
 
@@ -481,7 +466,6 @@ int macro_load_from_config(const uint8_t* data, uint32_t len)
         s_macros[i].id = (uint8_t)i;  /* 确保ID正确 */
     }
 
-    printf("[宏] 从配置加载了 %d 个宏\n", macro_count);
     return 0;
 }
 

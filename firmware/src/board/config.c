@@ -8,6 +8,7 @@
 #include "board/config.h"
 #include "board/flash_layout.h"
 #include "middleware/fault.h"
+#include "middleware/flash_service.h"
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
@@ -326,17 +327,18 @@ static int config_write_to_offset(uint32_t flash_offset, const device_config_t* 
     memset(write_buf, 0xFF, write_size);
     memcpy(write_buf, cfg, config_size);
 
-    /* 关中断 */
-    uint32_t saved_interrupts = save_and_disable_interrupts();
+    /* 使用Flash安全写入服务（内部自动暂停Core1、禁用中断） */
+    if (!flash_service_erase(flash_offset, CONFIG_FLASH_SIZE))
+    {
+        fault_record(FAULT_LEVEL_ERROR, "config", "flash erase failed");
+        return -2;
+    }
 
-    /* 擦除扇区 */
-    flash_range_erase(flash_offset, CONFIG_FLASH_SIZE);
-
-    /* 写入数据（按页对齐的大小） */
-    flash_range_program(flash_offset, write_buf, write_size);
-
-    /* 开中断 */
-    restore_interrupts(saved_interrupts);
+    if (!flash_service_program(flash_offset, write_buf, write_size))
+    {
+        fault_record(FAULT_LEVEL_ERROR, "config", "flash program failed");
+        return -3;
+    }
 
     /* 验证 */
     const device_config_t* verify = (const device_config_t*)(config_get_flash_base() + flash_offset);

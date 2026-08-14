@@ -89,7 +89,9 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_t
     // 只处理 Feature 报告
     if (report_type != HID_REPORT_TYPE_FEATURE) return 0;
 
+    /* 临时关闭频繁打印，避免干扰调试
     LOG_INFO_PRINT("[CONFIG] 主机读取 Feature 报告: Report ID=%d, 请求长度=%d\n", report_id, reqlen);
+    */
 
     switch (report_id)
     {
@@ -446,7 +448,7 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
 /* 周期性处理函数（替代原 hid_config_task） */
 void hid_config_task(void)
 {
-    /* 处理宏配置的延迟保存 */
+    /* 处理宏配置的延迟保存（使用安全写入服务，双核同步） */
     if (s_macro_dirty) {
         uint32_t now = time_us_32();
         if (now - s_macro_dirty_time_us > 1000000U) {

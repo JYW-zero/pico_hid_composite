@@ -7,6 +7,7 @@
 #include "app/key_stats.h"
 #include "board/flash_layout.h"
 #include "middleware/fault.h"
+#include "middleware/flash_service.h"
 #include "hardware/flash.h"
 #include "hardware/sync.h"
 #include "pico/time.h"
@@ -59,9 +60,7 @@ static void scan_flash_records(void)
 /* 擦除整个统计扇区 */
 static void erase_stats_flash(void)
 {
-    uint32_t saved = save_and_disable_interrupts();
-    flash_range_erase(KEY_STATS_FLASH_OFFSET, KEY_STATS_FLASH_SIZE);
-    restore_interrupts(saved);
+    flash_service_erase(KEY_STATS_FLASH_OFFSET, KEY_STATS_FLASH_SIZE);
 }
 
 /* 写入一条记录到Flash指定位置 */
@@ -78,9 +77,7 @@ static void write_record_to_flash(uint32_t index, const key_stats_record_t* reco
     memcpy(write_buf, record, sizeof(key_stats_record_t));
 
     uint32_t offset = KEY_STATS_FLASH_OFFSET + index * KEY_STATS_RECORD_SIZE;
-    uint32_t saved = save_and_disable_interrupts();
-    flash_range_program(offset, write_buf, KEY_STATS_RECORD_SIZE);
-    restore_interrupts(saved);
+    flash_service_program(offset, write_buf, KEY_STATS_RECORD_SIZE);
 }
 
 /* ==================== 对外接口 ==================== */
@@ -105,8 +102,6 @@ void key_stats_init(void)
     }
 
     s_initialized = true;
-
-    printf("[KEY_STATS] 初始化完成，历史保存次数: %lu\n", s_save_count);
 }
 
 void key_stats_increment(uint8_t key_index)
@@ -174,9 +169,6 @@ void key_stats_save_to_flash(void)
     {
         s_next_save_index = 0;
     }
-
-    printf("[KEY_STATS] 已保存到Flash，位置: %lu，总次数: %lu\n",
-           s_next_save_index - 1, s_total);
 }
 
 bool key_stats_load_from_flash(void)
@@ -207,7 +199,6 @@ bool key_stats_load_from_flash(void)
     memcpy(s_counts, records[last_index].counts, sizeof(s_counts));
     s_uptime_s = records[last_index].timestamp_s;
 
-    printf("[KEY_STATS] 从Flash加载统计，总按键数: %lu\n", s_total);
     return true;
 }
 
@@ -228,7 +219,7 @@ void key_stats_tick(void)
         last_tick_ms = now;
     }
 
-    /* 自动保存：每隔5分钟保存一次 */
+    /* 自动保存：每隔5分钟保存一次（使用安全写入服务，双核同步） */
     if (now - s_last_save_ms >= KEY_STATS_AUTO_SAVE_INTERVAL_MS)
     {
         if (s_total > 0)
@@ -237,7 +228,7 @@ void key_stats_tick(void)
         }
         else
         {
-            s_last_save_ms = now;  /* 没有按键也更新时间，避免重复检查 */
+            s_last_save_ms = now;
         }
     }
 }
