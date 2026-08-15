@@ -4,7 +4,7 @@
 
 <div align="center">
 
-[![Build Status](https://img.shields.io/badge/CI-Passing-brightgreen)](https://github.com/your-username/pico_hid_composite/actions)
+[![Build Status](https://img.shields.io/badge/CI-Passing-brightgreen)](https://github.com/JYW-zero/pico_hid_composite/actions)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-RP2350-red)](https://www.raspberrypi.com/products/raspberry-pi-pico-2/)
 [![SDK](https://img.shields.io/badge/Pico%20SDK-2.3.0-green)](https://github.com/raspberrypi/pico-sdk)
@@ -49,7 +49,7 @@
 
 ### HID 报告描述符
 
-共 18 个 Report ID：
+共 19 个 Report ID：
 
 | Report ID | 名称 | 方向 | 说明 |
 |-----------|------|------|------|
@@ -155,7 +155,6 @@ pico_hid_composite/
 │   └── 📁 src/
 │       ├── HidConfigTool.App/     # UI 层（WPF / MVVM）
 │       ├── HidConfigTool.Core/    # 核心业务层
-│       ├── HidConfigTool.Drivers/ # HID 驱动层
 │       └── HidConfigTool.Tests/   # 单元测试
 │
 ├── 📁 docs/                       # 📚 项目文档
@@ -192,7 +191,7 @@ pico_hid_composite/
 
 ```powershell
 # 克隆仓库
-git clone https://github.com/your-username/pico_hid_composite.git
+git clone https://github.com/JYW-zero/pico_hid_composite.git
 cd pico_hid_composite
 
 # 全部编译（固件 + 上位机）
@@ -232,7 +231,7 @@ dotnet run --project src/HidConfigTool.App
 
 ## 📦 下载预编译版本
 
-前往 [Releases](https://github.com/your-username/pico_hid_composite/releases) 页面下载最新版本：
+前往 [Releases](https://github.com/JYW-zero/pico_hid_composite/releases) 页面下载最新版本：
 
 - `firmware-rp2350.zip` - 固件（.uf2 / .elf / .bin）
 - `pc-tool-windows.zip` - 上位机（自包含单文件，无需安装 .NET）

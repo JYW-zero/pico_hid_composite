@@ -45,6 +45,8 @@ enum
   REPORT_ID_PERF_TASK = 16,      /* 性能监控 - 任务统计 */
   REPORT_ID_FAULT_INFO = 17,     /* 错误日志 - 信息 */
   REPORT_ID_FAULT_LOG = 18,      /* 错误日志 - 读取日志 */
+  REPORT_ID_KEY_STATE = 19,      /* 实时按键状态 (64位bitmap) */
+  REPORT_ID_JOYSTICK_STATE = 20, /* 实时摇杆状态 */
   REPORT_ID_COUNT
 };
 
@@ -52,6 +54,14 @@ enum
 #define CONFIG_BLOCK_SIZE 62
 /* 配置总大小 */
 #define CONFIG_TOTAL_SIZE 146
+
+/* HID 接口编号 */
+enum
+{
+  ITF_NUM_HID = 0,        /* 键盘/鼠标/Consumer/Gamepad 接口 */
+  ITF_NUM_HID_CONFIG,     /* 配置接口 */
+  ITF_NUM_TOTAL
+};
 
 #endif /* USB_DESCRIPTORS_H_ */
 

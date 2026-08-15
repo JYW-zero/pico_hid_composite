@@ -51,7 +51,7 @@ extern "C" {
 #define KEY_STATS_FLASH_OFFSET  flash_layout_key_stats_offset()
 #define KEY_STATS_FLASH_ADDR    flash_layout_key_stats_addr()
 
-/* 自动保存间隔：5分钟（300000毫秒） */
+/* 自动保存间隔：30分钟（1800000毫秒） */
 #define KEY_STATS_AUTO_SAVE_INTERVAL_MS    1800000U  /* 30分钟 */
 
 /* 记录魔数："KEY0" */
@@ -66,6 +66,7 @@ typedef struct __attribute__((packed))
     uint32_t timestamp_s;                /* 时间戳（秒） */
     uint32_t total_keystrokes;           /* 总按键数 */
     uint32_t counts[KEY_STATS_MAX_KEYS]; /* 每个键的计数 */
+    uint32_t crc32;                      /* CRC32校验值（计算前面所有字段） */
 } key_stats_record_t;
 
 /* ==================== 对外接口 ==================== */

@@ -41,6 +41,10 @@ __attribute__((weak)) void config_exit_flash_write(void)
 static device_config_t s_current_config;
 static bool s_initialized = false;
 static uint16_t s_current_seq = 0;  /* 当前配置序列号 */
+static uint32_t s_last_save_ms = 0; /* 上次保存时间，用于最小间隔保护 */
+
+/* 配置保存最小间隔（毫秒），防止异常情况下频繁写入Flash */
+#define CONFIG_SAVE_MIN_INTERVAL_MS  500U
 
 /* ==================== 默认配置 ==================== */
 
@@ -182,6 +186,15 @@ static bool config_basic_valid(const device_config_t* cfg)
     }
 
     return true;
+}
+
+/* 序列号安全比较：考虑uint16回绕
+ * 返回true表示a比b新
+ * 使用有符号减法处理回绕：(int16_t)(a - b) > 0 表示a更新
+ */
+static bool seq_is_newer(uint16_t a, uint16_t b)
+{
+    return ((int16_t)(a - b)) > 0;
 }
 
 /* ==================== 版本迁移 ==================== */
@@ -365,8 +378,8 @@ void config_init(void)
 
     if (valid_a && valid_b)
     {
-        /* 两个都有效，选序列号大的（最新的） */
-        if (cfg_a.seq >= cfg_b.seq)
+        /* 两个都有效，选序列号新的（使用安全比较处理uint16回绕） */
+        if (seq_is_newer(cfg_a.seq, cfg_b.seq))
         {
             memcpy(&s_current_config, &cfg_a, sizeof(device_config_t));
             s_current_seq = cfg_a.seq;
@@ -381,23 +394,75 @@ void config_init(void)
     }
     else if (valid_a)
     {
-        /* 只有A有效 */
+        /* 只有A有效：加载A，并修复B区 */
         memcpy(&s_current_config, &cfg_a, sizeof(device_config_t));
         s_current_seq = cfg_a.seq;
-        fault_record(FAULT_LEVEL_INFO, "config", "load from A");
+        fault_record(FAULT_LEVEL_WARN, "config", "B invalid, load from A and repair B");
+
+        s_initialized = true;
+        /* 将A的内容写入B区（保持相同序列号） */
+        device_config_t repair_cfg = cfg_a;
+        uint32_t crc = crc32_calc((const uint8_t*)&repair_cfg,
+                                  sizeof(device_config_t) - sizeof(uint32_t));
+        repair_cfg.crc32 = crc;
+        config_enter_flash_write();
+        config_write_to_offset(CONFIG_FLASH_OFFSET_B, &repair_cfg);
+        config_exit_flash_write();
     }
     else if (valid_b)
     {
-        /* 只有B有效 */
+        /* 只有B有效：加载B，并修复A区 */
         memcpy(&s_current_config, &cfg_b, sizeof(device_config_t));
         s_current_seq = cfg_b.seq;
-        fault_record(FAULT_LEVEL_INFO, "config", "load from B");
+        fault_record(FAULT_LEVEL_WARN, "config", "A invalid, load from B and repair A");
+
+        s_initialized = true;
+        /* 将B的内容写入A区（保持相同序列号） */
+        device_config_t repair_cfg = cfg_b;
+        uint32_t crc = crc32_calc((const uint8_t*)&repair_cfg,
+                                  sizeof(device_config_t) - sizeof(uint32_t));
+        repair_cfg.crc32 = crc;
+        config_enter_flash_write();
+        config_write_to_offset(CONFIG_FLASH_OFFSET_A, &repair_cfg);
+        config_exit_flash_write();
     }
     else
     {
-        /* 都无效，加载默认值 */
+        /* 都无效，加载默认值并立即写入两个扇区，确保双备份 */
         load_default_config();
-        fault_record(FAULT_LEVEL_WARN, "config", "both A/B invalid, load default");
+        fault_record(FAULT_LEVEL_WARN, "config", "both A/B invalid, load default and write both");
+
+        /* 先标记已初始化，才能调用 config_save */
+        s_initialized = true;
+
+        /* 构造默认配置（序列号从1开始） */
+        device_config_t default_cfg;
+        memcpy(&default_cfg, &s_current_config, sizeof(device_config_t));
+        default_cfg.seq = 1;
+        default_cfg.magic = CONFIG_MAGIC;
+        default_cfg.version = CONFIG_VERSION;
+        uint32_t crc = crc32_calc((const uint8_t*)&default_cfg,
+                                  sizeof(device_config_t) - sizeof(uint32_t));
+        default_cfg.crc32 = crc;
+
+        /* 写入A区 */
+        config_enter_flash_write();
+        config_write_to_offset(CONFIG_FLASH_OFFSET_A, &default_cfg);
+        config_exit_flash_write();
+
+        /* 写入B区（序列号2，确保B区更新） */
+        default_cfg.seq = 2;
+        crc = crc32_calc((const uint8_t*)&default_cfg,
+                         sizeof(device_config_t) - sizeof(uint32_t));
+        default_cfg.crc32 = crc;
+
+        config_enter_flash_write();
+        config_write_to_offset(CONFIG_FLASH_OFFSET_B, &default_cfg);
+        config_exit_flash_write();
+
+        /* 更新当前序列号 */
+        s_current_seq = 2;
+        s_current_config.seq = 2;
     }
 
     s_initialized = true;
@@ -426,6 +491,14 @@ int config_save(const device_config_t* new_config)
     {
         fault_record(FAULT_LEVEL_ERROR, "config", "save: null pointer");
         return -1;
+    }
+
+    /* 最小间隔保护：防止异常情况下频繁写入Flash */
+    uint32_t now_ms = (uint32_t)to_ms_since_boot(get_absolute_time());
+    if (s_last_save_ms != 0 && (now_ms - s_last_save_ms) < CONFIG_SAVE_MIN_INTERVAL_MS)
+    {
+        fault_record(FAULT_LEVEL_WARN, "config", "save: too frequent, skipped");
+        return -4;
     }
 
     /* 构造新配置 */
@@ -475,15 +548,21 @@ int config_save(const device_config_t* new_config)
     /* 写入成功，更新当前配置 */
     memcpy(&s_current_config, &write_cfg, sizeof(device_config_t));
     s_current_seq = write_cfg.seq;
+    s_last_save_ms = now_ms;
 
     return 0;
 }
 
 void config_reset_default(void)
 {
+    /* 直接构造默认配置到局部变量，不修改s_current_config
+     * 避免config_save失败时内存与Flash不一致
+     */
     device_config_t default_cfg;
-    load_default_config();
-    memcpy(&default_cfg, &s_current_config, sizeof(device_config_t));
+    memcpy(&default_cfg, &s_default_config, sizeof(device_config_t));
+    memcpy(default_cfg.keymap, s_default_keymap, 64);
+    memcpy(default_cfg.fn_keymap, s_default_fn_keymap, 64);
+    memset(default_cfg.macro_data, 0, CONFIG_MACRO_DATA_SIZE);
 
     /* 序列号加1 */
     default_cfg.seq = (uint16_t)(s_current_seq + 1u);

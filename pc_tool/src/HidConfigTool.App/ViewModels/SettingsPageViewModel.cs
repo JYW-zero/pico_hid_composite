@@ -3,6 +3,7 @@ using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HidConfigTool.App.Services;
+using HidConfigTool.App.Views;
 using HidConfigTool.Core.Interfaces;
 using HidConfigTool.Core.Models;
 using System.Collections.ObjectModel;
@@ -103,14 +104,24 @@ public partial class SettingsPageViewModel : ObservableObject
     private readonly ConfigProfileManager _profileManager;
     private readonly OsdManager _osdManager;
     private readonly AppAwarenessManager _appAwarenessManager;
+    private readonly ThemeManager _themeManager;
+    private readonly LanguageManager _languageManager;
 
-    public SettingsPageViewModel(TrayIconManager trayIconManager, IDeviceService deviceService, ConfigProfileManager profileManager, OsdManager osdManager, AppAwarenessManager appAwarenessManager)
+    public SettingsPageViewModel(TrayIconManager trayIconManager, IDeviceService deviceService, ConfigProfileManager profileManager, OsdManager osdManager, AppAwarenessManager appAwarenessManager, ThemeManager themeManager, LanguageManager languageManager)
     {
         _trayIconManager = trayIconManager;
         _deviceService = deviceService;
         _profileManager = profileManager;
         _osdManager = osdManager;
         _appAwarenessManager = appAwarenessManager;
+        _themeManager = themeManager;
+        _languageManager = languageManager;
+
+        // 加载当前主题
+        Theme = _themeManager.CurrentTheme == ThemeManager.LightTheme ? "浅色" : "深色";
+
+        // 加载当前语言
+        Language = _languageManager.CurrentLanguage == LanguageManager.English ? "English" : "简体中文";
 
         // 加载应用感知规则
         foreach (var rule in _appAwarenessManager.Rules)
@@ -158,6 +169,18 @@ public partial class SettingsPageViewModel : ObservableObject
     partial void OnAutoStartChanged(bool value)
     {
         AutoStartManager.Toggle(value);
+    }
+
+    partial void OnThemeChanged(string value)
+    {
+        string theme = value == "浅色" ? ThemeManager.LightTheme : ThemeManager.DarkTheme;
+        _themeManager.SetTheme(theme);
+    }
+
+    partial void OnLanguageChanged(string value)
+    {
+        string language = value == "English" ? LanguageManager.English : LanguageManager.Chinese;
+        _languageManager.SetLanguage(language);
     }
 
     [RelayCommand]
@@ -498,6 +521,16 @@ public partial class SettingsPageViewModel : ObservableObject
     {
         // TODO: 打开日志文件夹
         MessageBox.Show("功能开发中...", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    [RelayCommand]
+    private void OpenHelp()
+    {
+        var helpWindow = new HelpWindow
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        helpWindow.ShowDialog();
     }
 }
 

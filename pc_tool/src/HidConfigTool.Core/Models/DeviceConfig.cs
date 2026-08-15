@@ -1,5 +1,7 @@
 namespace HidConfigTool.Core.Models;
 
+using System.Text.Json.Serialization;
+
 /// <summary>
 /// 设备配置
 /// </summary>
@@ -84,4 +86,10 @@ public class DeviceConfig
     /// Fn 层按键映射（64 键）
     /// </summary>
     public byte[] FnKeymap { get; set; } = new byte[64];
+
+    /// <summary>
+    /// 版本警告标志（不序列化）：加载配置文件时如果版本高于当前支持版本则为 true
+    /// </summary>
+    [JsonIgnore]
+    public bool HasVersionWarning { get; set; }
 }

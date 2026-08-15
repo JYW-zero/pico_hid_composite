@@ -1,4 +1,4 @@
-﻿/*
+/*
  * include/middleware/shared_hw_data.h
  * 双核共享硬件数据模块
  * 用官方自旋锁保护，线程安全
@@ -33,8 +33,13 @@ void shared_hw_add_wheel(int32_t delta);
 /* 更新键盘稳定按键状态（最新值） */
 void shared_hw_set_keys(uint64_t keys);
 
-/* 更新鼠标按键状态（最新值） */
+/* 设置鼠标按键（OR合并：只设置指定位，不清除其他位）
+ * 多个来源（编码器中键、PAW3395侧键等）的按钮状态通过OR合并
+ */
 void shared_hw_set_mouse_buttons(uint8_t buttons);
+
+/* 清除鼠标按键（清除指定位） */
+void shared_hw_clear_mouse_buttons(uint8_t buttons);
 
 /* 更新摇杆数据（最新值） */
 void shared_hw_set_joystick(int16_t x, int16_t y, bool btn);

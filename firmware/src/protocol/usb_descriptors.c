@@ -218,6 +218,24 @@ uint8_t const desc_hid_config_report[] =
   0x95, 62,                //   Report Count (62)
   0xB1, 0x02,              //   Feature (Data,Var,Abs)
 
+  // 实时按键状态 Feature 报告 (Report ID 19, 8 字节, 64位bitmap)
+  0x85, 19,                //   Report ID (19)
+  0x09, 0x10,              //   Usage (0x10) - 独立Usage，避免与Key Stats 0冲突
+  0x15, 0x00,              //   Logical Minimum (0)
+  0x26, 0xFF, 0x00,        //   Logical Maximum (255)
+  0x75, 0x08,              //   Report Size (8 bits)
+  0x95, 8,                 //   Report Count (8)
+  0xB1, 0x02,              //   Feature (Data,Var,Abs)
+
+  // 实时摇杆状态 Feature 报告 (Report ID 20, 8 字节)
+  0x85, 20,                //   Report ID (20)
+  0x09, 0x11,              //   Usage (0x11) - 独立Usage，避免与Key Stats 1冲突
+  0x15, 0x00,              //   Logical Minimum (0)
+  0x26, 0xFF, 0x00,        //   Logical Maximum (255)
+  0x75, 0x08,              //   Report Size (8 bits)
+  0x95, 8,                 //   Report Count (8)
+  0xB1, 0x02,              //   Feature (Data,Var,Abs)
+
   0xC0                     // End Collection
 };
 
@@ -242,13 +260,6 @@ uint8_t const * tud_hid_descriptor_report_cb(uint8_t instance)
 // Configuration Descriptor
 //--------------------------------------------------------------------+
 
-enum
-{
-  ITF_NUM_HID,
-  ITF_NUM_HID_CONFIG,   // 配置接口（第二个 HID 接口）
-  ITF_NUM_TOTAL
-};
-
 #define  CONFIG_TOTAL_LEN  (TUD_CONFIG_DESC_LEN + TUD_HID_DESC_LEN + TUD_HID_DESC_LEN)
 
 #define EPNUM_HID          0x81
@@ -261,7 +272,7 @@ uint8_t const desc_configuration[] =
 
   // 接口 0：标准 HID 功能（键盘、鼠标、消费者控制、游戏手柄）
   // Interface number, string index, protocol, report descriptor len, EP In address, size & polling interval
-  TUD_HID_DESCRIPTOR(ITF_NUM_HID, 0, HID_ITF_PROTOCOL_NONE, sizeof(desc_hid_report), EPNUM_HID, CFG_TUD_HID_EP_BUFSIZE, 5),
+  TUD_HID_DESCRIPTOR(ITF_NUM_HID, 0, HID_ITF_PROTOCOL_NONE, sizeof(desc_hid_report), EPNUM_HID, CFG_TUD_HID_EP_BUFSIZE, 1),
 
   // 接口 1：配置接口（Vendor 定义）
   TUD_HID_DESCRIPTOR(ITF_NUM_HID_CONFIG, 0, HID_ITF_PROTOCOL_NONE, sizeof(desc_hid_config_report), EPNUM_HID_CONFIG, CFG_TUD_HID_EP_BUFSIZE, 10)
@@ -342,8 +353,8 @@ enum {
 char const *string_desc_arr[] =
 {
   (const char[]) { 0x09, 0x04 }, // 0: is supported language is English (0x0409)
-  "TinyUSB",                     // 1: Manufacturer
-  "TinyUSB Device",              // 2: Product
+  "JYW",                          // 1: Manufacturer
+  "Pico HID Composite",           // 2: Product
   NULL,                          // 3: Serials will use unique ID if possible
 };
 

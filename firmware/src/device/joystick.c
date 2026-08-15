@@ -101,13 +101,25 @@ int joystick_read(const joystick_cfg_t *cfg, joystick_data_t *data)
         uint8_t ch_x = joystick_pin_to_adc_channel(cfg->adc_x_pin);
         uint8_t ch_y = joystick_pin_to_adc_channel(cfg->adc_y_pin);
 
-        /* 读取X轴 */
+        /* 读取X轴：切换通道后丢弃第一次采样（避免通道串扰），然后4次取平均 */
         adc_select_input(ch_x);
-        data->x = (uint16_t)adc_read();
+        (void)adc_read();  /* 丢弃第一次，通道切换后采样电容需要充电稳定 */
+        uint32_t sum_x = 0;
+        for (uint8_t i = 0; i < 4; i++)
+        {
+            sum_x += adc_read();
+        }
+        data->x = (uint16_t)(sum_x / 4u);
 
-        /* 读取Y轴 */
+        /* 读取Y轴：同样丢弃第一次，4次取平均 */
         adc_select_input(ch_y);
-        data->y = (uint16_t)adc_read();
+        (void)adc_read();
+        uint32_t sum_y = 0;
+        for (uint8_t i = 0; i < 4; i++)
+        {
+            sum_y += adc_read();
+        }
+        data->y = (uint16_t)(sum_y / 4u);
 
         /* 读取按键：低电平为按下（上拉输入） */
         data->btn_pressed = (gpio_get((uint)cfg->btn_pin) == 0) ? true : false;

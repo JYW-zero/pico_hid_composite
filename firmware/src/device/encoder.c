@@ -115,6 +115,15 @@ encoder_dir_e encoder_update(const encoder_cfg_t *cfg, encoder_state_t *state)
         }
         else
         {
+            /* 状态未变但有残余累积：逐步衰减，防止接触不良跳状态后的残留 */
+            if (state->accum > 0)
+            {
+                state->accum--;
+            }
+            else if (state->accum < 0)
+            {
+                state->accum++;
+            }
             result = ENCODER_DIR_NONE;
         }
     }

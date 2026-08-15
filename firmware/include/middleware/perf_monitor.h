@@ -115,6 +115,19 @@ void perf_set_threshold(uint8_t index, uint32_t threshold_us);
 void perf_loop_tick(void);
 
 /**
+ * @brief 设置性能监控开关
+ * @param enabled true=开启，false=关闭
+ * @note 关闭后所有 perf_start/perf_end/perf_loop_tick 直接返回，0开销
+ */
+void perf_set_enabled(bool enabled);
+
+/**
+ * @brief 获取性能监控开关状态
+ * @return true=开启，false=关闭
+ */
+bool perf_is_enabled(void);
+
+/**
  * @brief 打印性能统计到串口（调试用）
  */
 void perf_print_stats(void);

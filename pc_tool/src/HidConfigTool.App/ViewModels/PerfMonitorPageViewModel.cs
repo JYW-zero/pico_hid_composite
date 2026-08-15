@@ -12,10 +12,11 @@ namespace HidConfigTool.App.ViewModels;
 /// <summary>
 /// 性能监控页面视图模型
 /// </summary>
-public partial class PerfMonitorPageViewModel : ObservableObject
+public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
 {
     private readonly IDeviceService _deviceService;
     private readonly DispatcherTimer _refreshTimer;
+    private bool _disposed;
 
     /// <summary>
     /// 系统性能统计
@@ -61,7 +62,13 @@ public partial class PerfMonitorPageViewModel : ObservableObject
     /// 刷新间隔（秒）
     /// </summary>
     [ObservableProperty]
-    private int _refreshInterval = 1;
+    private int _refreshInterval = 5;  // 性能监控不需要实时，5秒足够
+
+    /// <summary>
+    /// 设备端性能监控是否开启
+    /// </summary>
+    [ObservableProperty]
+    private bool _isPerfMonitorEnabled;
 
     /// <summary>
     /// CPU使用率文本
@@ -110,7 +117,7 @@ public partial class PerfMonitorPageViewModel : ObservableObject
 
         _refreshTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromSeconds(1)
+            Interval = TimeSpan.FromSeconds(5)  // 5秒刷新，减少USB总线占用
         };
         _refreshTimer.Tick += OnRefreshTimerTick;
 
@@ -255,6 +262,50 @@ public partial class PerfMonitorPageViewModel : ObservableObject
     }
 
     /// <summary>
+    /// 切换性能监控开关
+    /// </summary>
+    [RelayCommand]
+    private async Task TogglePerfMonitorAsync()
+    {
+        if (!IsDeviceConnected)
+            return;
+
+        bool targetEnabled = !IsPerfMonitorEnabled;
+        try
+        {
+            bool success = await _deviceService.SetPerfMonitorEnabledAsync(targetEnabled);
+            if (success)
+            {
+                IsPerfMonitorEnabled = targetEnabled;
+                if (targetEnabled)
+                {
+                    // 开启后立即刷新一次数据
+                    await RefreshCoreAsync(isAutoRefresh: false);
+                }
+                else
+                {
+                    // 关闭时清空显示
+                    SystemStat = null;
+                    TaskStats.Clear();
+                    CpuHistory.Clear();
+                    UpdateCpuChart();
+                    OnPropertyChanged(nameof(CpuUsageText));
+                    OnPropertyChanged(nameof(LoopFreqText));
+                    OnPropertyChanged(nameof(UptimeText));
+                    OnPropertyChanged(nameof(TaskCountText));
+                    OnPropertyChanged(nameof(CpuAvg10sText));
+                    OnPropertyChanged(nameof(CpuAvg30sText));
+                    OnPropertyChanged(nameof(LoopFreqAvg10sText));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"切换性能监控失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
     /// 加载所有任务统计
     /// </summary>
     private async Task LoadTaskStatsAsync(byte taskCount)
@@ -343,5 +394,18 @@ public partial class PerfMonitorPageViewModel : ObservableObject
     public void OnUnloaded()
     {
         _refreshTimer.Stop();
+    }
+
+    /// <summary>
+    /// 释放资源，取消事件订阅，防止内存泄漏
+    /// </summary>
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        _refreshTimer.Stop();
+        _refreshTimer.Tick -= OnRefreshTimerTick;
+        _deviceService.DeviceConnectionChanged -= OnDeviceConnectionChanged;
     }
 }

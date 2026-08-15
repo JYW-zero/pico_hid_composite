@@ -22,8 +22,22 @@ extern "C" {
 
 /* 特殊键码标记 */
 #define KEYMAP_KEY_NONE     0x00  /* 空键 */
-#define KEYMAP_KEY_MODIFIER 0xFF  /* 修饰键标记（具体修饰键查表） */
+#define KEYMAP_KEY_MODIFIER 0xFF  /* 修饰键标记（具体修饰键查物理位置表，向后兼容） */
 #define KEYMAP_KEY_FN       0xFE  /* Fn键标记 */
+
+/* 修饰键编码（0xE0~0xE7）：直接编码修饰键类型，无需查物理位置表
+ * 支持用户将任意键位映射为任意修饰键
+ */
+#define KEYMAP_MOD_LCTRL    0xE0  /* 左Ctrl */
+#define KEYMAP_MOD_LSHIFT   0xE1  /* 左Shift */
+#define KEYMAP_MOD_LALT     0xE2  /* 左Alt */
+#define KEYMAP_MOD_LGUI     0xE3  /* 左Win */
+#define KEYMAP_MOD_RCTRL    0xE4  /* 右Ctrl */
+#define KEYMAP_MOD_RSHIFT   0xE5  /* 右Shift */
+#define KEYMAP_MOD_RALT     0xE6  /* 右Alt */
+#define KEYMAP_MOD_RGUI     0xE7  /* 右Win */
+#define KEYMAP_MOD_BASE     0xE0  /* 修饰键编码起始值 */
+#define KEYMAP_MOD_COUNT    8     /* 修饰键数量 */
 
 /* Fn键索引（默认值，可配置） */
 #define KEYMAP_DEFAULT_FN_INDEX  59  /* 第60号键，原F12位置 */

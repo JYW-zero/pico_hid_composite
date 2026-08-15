@@ -8,10 +8,11 @@ namespace HidConfigTool.App.ViewModels;
 /// <summary>
 /// 设备页面视图模型
 /// </summary>
-public partial class DevicePageViewModel : ObservableObject
+public partial class DevicePageViewModel : ObservableObject, IDisposable
 {
     private readonly IDeviceService _deviceService;
     private readonly MainViewModel _mainViewModel;
+    private bool _disposed;
 
     /// <summary>
     /// 设备列表
@@ -58,6 +59,9 @@ public partial class DevicePageViewModel : ObservableObject
         _deviceService = deviceService;
         _mainViewModel = mainViewModel;
 
+        // 订阅连接状态变化事件（自动连接/热插拔时更新UI）
+        _deviceService.DeviceConnectionChanged += OnDeviceConnectionChanged;
+
         // 如果已经连接，更新状态
         if (_deviceService.IsConnected)
         {
@@ -69,6 +73,29 @@ public partial class DevicePageViewModel : ObservableObject
 
         // 页面加载时自动刷新设备列表
         _ = RefreshAsync();
+    }
+
+    /// <summary>
+    /// 设备连接状态变化（由自动连接/热插拔触发）
+    /// </summary>
+    private async void OnDeviceConnectionChanged(object? sender, bool isConnected)
+    {
+        IsConnected = isConnected;
+        if (isConnected)
+        {
+            StatusMessage = "已连接";
+            _mainViewModel.NotifyDeviceConnected();
+        }
+        else
+        {
+            StatusMessage = "已断开连接";
+            _mainViewModel.NotifyDeviceDisconnected();
+        }
+        OnPropertyChanged(nameof(FirmwareVersion));
+        OnPropertyChanged(nameof(DeviceName));
+
+        // 连接状态变化后刷新设备列表（确保已连接设备显示在列表中）
+        await RefreshAsync();
     }
 
     [RelayCommand]
@@ -121,11 +148,8 @@ public partial class DevicePageViewModel : ObservableObject
             bool result = await _deviceService.ConnectAsync(SelectedDevice);
             if (result)
             {
-                IsConnected = true;
+                // ConnectAsync 内部会触发 DeviceConnectionChanged 事件，这里不需要重复设置
                 StatusMessage = "连接成功";
-                _mainViewModel.NotifyDeviceConnected();
-                OnPropertyChanged(nameof(FirmwareVersion));
-                OnPropertyChanged(nameof(DeviceName));
             }
             else
             {
@@ -146,11 +170,7 @@ public partial class DevicePageViewModel : ObservableObject
     private void Disconnect()
     {
         _deviceService.Disconnect();
-        IsConnected = false;
-        StatusMessage = "已断开连接";
-        _mainViewModel.NotifyDeviceDisconnected();
-        OnPropertyChanged(nameof(FirmwareVersion));
-        OnPropertyChanged(nameof(DeviceName));
+        // Disconnect 内部会触发 DeviceConnectionChanged 事件
     }
 
     [RelayCommand]
@@ -183,15 +203,21 @@ public partial class DevicePageViewModel : ObservableObject
 
         if (result)
         {
-            IsConnected = false;
             StatusMessage = "设备已进入烧录模式";
-            _mainViewModel.NotifyDeviceDisconnected();
-            OnPropertyChanged(nameof(FirmwareVersion));
-            OnPropertyChanged(nameof(DeviceName));
         }
         else
         {
             StatusMessage = "进入烧录模式失败";
         }
+    }
+
+    /// <summary>
+    /// 释放资源，取消事件订阅
+    /// </summary>
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _deviceService.DeviceConnectionChanged -= OnDeviceConnectionChanged;
     }
 }

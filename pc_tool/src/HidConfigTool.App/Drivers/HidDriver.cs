@@ -130,6 +130,7 @@ public class HidDriver : IHidDriver
     #endregion
 
     private SafeFileHandle? _deviceHandle;
+    private uint _featureReportSize = 65;  // 默认 65 字节（Report ID + 64 数据），OpenAsync 时探测实际值
 
     /// <summary>
     /// 写日志到文件
@@ -159,11 +160,6 @@ public class HidDriver : IHidDriver
     public async Task<IReadOnlyList<HidDeviceInfo>> FindDevicesAsync(ushort vendorId, ushort productId)
     {
         var result = new List<HidDeviceInfo>();
-        string logPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HIDConfigTool", "Logs", "hid_driver.log");
-        void Log(string msg)
-        {
-            try { File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss.fff}] {msg}\n"); } catch { }
-        }
 
         await Task.Run(() =>
         {
@@ -305,7 +301,8 @@ public class HidDriver : IHidDriver
         {
             try
             {
-                _deviceHandle = CreateFile(devicePath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, IntPtr.Zero, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, IntPtr.Zero);
+                // 独占访问：防止其他程序同时操作设备（竞争条件/信息泄露）
+                _deviceHandle = CreateFile(devicePath, GENERIC_READ | GENERIC_WRITE, 0, IntPtr.Zero, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, IntPtr.Zero);
 
                 if (_deviceHandle.IsInvalid)
                     return false;
@@ -317,6 +314,17 @@ public class HidDriver : IHidDriver
                 {
                     VendorId = attrs.VendorID;
                     ProductId = attrs.ProductID;
+                }
+
+                // 探测 Feature Report 实际长度
+                if (HidD_GetPreparsedData(_deviceHandle, out IntPtr preparsed))
+                {
+                    if (HidP_GetCaps(preparsed, out HIDP_CAPS caps) == (uint)HIDP_STATUS_SUCCESS)
+                    {
+                        _featureReportSize = caps.FeatureReportByteLength;
+                        if (_featureReportSize == 0) _featureReportSize = 65;
+                    }
+                    HidD_FreePreparsedData(preparsed);
                 }
 
                 return true;
@@ -345,12 +353,17 @@ public class HidDriver : IHidDriver
         {
             try
             {
-                // 构造 Feature 报告缓冲区（第 1 字节是 Report ID）
-                byte[] buffer = new byte[data.Length + 1];
+                // 使用局部变量捕获句柄，避免 IsConnected 检查与使用之间的 TOCTOU 竞态
+                SafeFileHandle? handle = _deviceHandle;
+                if (handle == null || handle.IsInvalid)
+                    return false;
+
+                // 构造 Feature 报告缓冲区，使用探测到的 FeatureReportByteLength
+                byte[] buffer = new byte[_featureReportSize];
                 buffer[0] = reportId;
                 Array.Copy(data, 0, buffer, 1, Math.Min(data.Length, buffer.Length - 1));
 
-                bool result = HidD_SetFeature(_deviceHandle!, buffer, (uint)buffer.Length);
+                bool result = HidD_SetFeature(handle, buffer, (uint)buffer.Length);
 
                 if (!result)
                 {
@@ -369,6 +382,44 @@ public class HidDriver : IHidDriver
     }
 
     /// <inheritdoc />
+    public async Task<bool> SendFeatureReportAsync(byte reportId, byte[] data, CancellationToken cancellationToken)
+    {
+        if (!IsConnected)
+            return false;
+
+        try
+        {
+            return await Task.Run(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                // 使用局部变量捕获句柄，避免 TOCTOU 竞态
+                SafeFileHandle? handle = _deviceHandle;
+                if (handle == null || handle.IsInvalid)
+                    return false;
+                byte[] buffer = new byte[_featureReportSize];
+                buffer[0] = reportId;
+                Array.Copy(data, 0, buffer, 1, Math.Min(data.Length, buffer.Length - 1));
+                bool result = HidD_SetFeature(handle, buffer, (uint)buffer.Length);
+                if (!result)
+                {
+                    int err = Marshal.GetLastWin32Error();
+                    Log($"SendFeatureReportAsync(cancel) failed: reportId={reportId}, error={err}");
+                }
+                return result;
+            }, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Log($"SendFeatureReportAsync(cancel) exception: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<byte[]?> GetFeatureReportAsync(byte reportId)
     {
         if (!IsConnected)
@@ -378,11 +429,16 @@ public class HidDriver : IHidDriver
         {
             try
             {
-                //  Feature 报告缓冲区（64 字节，第 1 字节是 Report ID）
-                byte[] buffer = new byte[65];
+                // 使用局部变量捕获句柄，避免 TOCTOU 竞态
+                SafeFileHandle? handle = _deviceHandle;
+                if (handle == null || handle.IsInvalid)
+                    return null;
+
+                // Feature 报告缓冲区，使用探测到的 FeatureReportByteLength
+                byte[] buffer = new byte[_featureReportSize];
                 buffer[0] = reportId;
 
-                if (!HidD_GetFeature(_deviceHandle!, buffer, (uint)buffer.Length))
+                if (!HidD_GetFeature(handle, buffer, (uint)buffer.Length))
                 {
                     int err = Marshal.GetLastWin32Error();
                     Log($"GetFeatureReportAsync failed: reportId={reportId}, error={err}");
@@ -400,6 +456,41 @@ public class HidDriver : IHidDriver
                 return null;
             }
         });
+    }
+
+    /// <inheritdoc />
+    public async Task<byte[]?> GetFeatureReportAsync(byte reportId, CancellationToken cancellationToken)
+    {
+        if (!IsConnected)
+            return null;
+
+        try
+        {
+            return await Task.Run(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                // 使用局部变量捕获句柄，避免 TOCTOU 竞态
+                SafeFileHandle? handle = _deviceHandle;
+                if (handle == null || handle.IsInvalid)
+                    return null;
+                byte[] buffer = new byte[_featureReportSize];
+                buffer[0] = reportId;
+                if (!HidD_GetFeature(handle, buffer, (uint)buffer.Length))
+                    return null;
+                byte[] result = new byte[buffer.Length - 1];
+                Array.Copy(buffer, 1, result, 0, result.Length);
+                return result;
+            }, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Log($"GetFeatureReportAsync(cancel) exception: {ex.Message}");
+            return null;
+        }
     }
 
     #region 辅助方法

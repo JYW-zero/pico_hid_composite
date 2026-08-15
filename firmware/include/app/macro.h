@@ -29,7 +29,9 @@ typedef enum {
     MACRO_ACTION_DELAY = 2,       /* 延迟 (ms) */
     MACRO_ACTION_MOUSE_MOVE = 3,  /* 鼠标移动 */
     MACRO_ACTION_MOUSE_CLICK = 4, /* 鼠标点击 */
-    MACRO_ACTION_MOUSE_SCROLL = 5 /* 鼠标滚轮 */
+    MACRO_ACTION_MOUSE_SCROLL = 5,/* 鼠标滚轮 */
+    MACRO_ACTION_KEY_PRESS = 6,   /* 按键点击（按下+释放，param1=键码） */
+    MACRO_ACTION_TEXT_CHAR = 7    /* 输入字符（param1=ASCII码，自动转HID键码） */
 } macro_action_type_t;
 
 /* 宏动作 */
@@ -79,6 +81,9 @@ void macro_stop(uint8_t macro_id);
 
 /* 停止所有宏 */
 void macro_stop_all(void);
+
+/* 根据触发键索引查找宏ID（0xFF表示未找到） */
+uint8_t macro_find_by_trigger_key(uint8_t key_index);
 
 /* 是否有宏正在运行 */
 bool macro_is_running(void);

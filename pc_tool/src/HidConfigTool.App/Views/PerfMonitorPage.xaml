@@ -47,6 +47,27 @@
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Command="{Binding TogglePerfMonitorCommand}"
+                            IsEnabled="{Binding IsDeviceConnected}"
+                            Padding="14,8"
+                            Margin="0,0,16,0"
+                            FontSize="12"
+                            MinWidth="90">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
+                                <Setter Property="Content" Value="开启监控" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsPerfMonitorEnabled}" Value="True">
+                                        <Setter Property="Content" Value="关闭监控" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsLoading}" Value="True">
+                                        <Setter Property="IsEnabled" Value="False" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+
                     <CheckBox Content="自动刷新"
                               IsChecked="{Binding AutoRefresh}"
                               Style="{StaticResource ToggleSwitchStyle}"
@@ -331,16 +352,16 @@
                                                     DisplayMemberBinding="{Binding CpuPercent, StringFormat={}{0}%}" />
                                     <GridViewColumn Header="最小(us)"
                                                     Width="80"
-                                                    DisplayMemberBinding="{Binding MinTimeUs}" />
+                                                    DisplayMemberBinding="{Binding MinTimeUsDisplay}" />
                                     <GridViewColumn Header="最大(us)"
                                                     Width="80"
-                                                    DisplayMemberBinding="{Binding MaxTimeUs}" />
+                                                    DisplayMemberBinding="{Binding MaxTimeUsDisplay}" />
                                     <GridViewColumn Header="平均(us)"
                                                     Width="80"
-                                                    DisplayMemberBinding="{Binding AvgTimeUs}" />
+                                                    DisplayMemberBinding="{Binding AvgTimeUsDisplay}" />
                                     <GridViewColumn Header="最近(us)"
                                                     Width="80"
-                                                    DisplayMemberBinding="{Binding LastTimeUs}" />
+                                                    DisplayMemberBinding="{Binding LastTimeUsDisplay}" />
                                     <GridViewColumn Header="超时次数"
                                                     Width="80"
                                                     DisplayMemberBinding="{Binding OverrunCount}" />

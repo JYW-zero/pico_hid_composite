@@ -116,7 +116,25 @@ bool keymap_lookup(uint8_t key_index, bool fn_pressed, keymap_result_t* out_resu
         return false;
     }
 
-    /* 修饰键 */
+    /* 修饰键（新编码：0xE0~0xE7 直接编码修饰键类型） */
+    if (keycode >= KEYMAP_MOD_BASE && keycode < (KEYMAP_MOD_BASE + KEYMAP_MOD_COUNT))
+    {
+        static const uint8_t modifier_bits[KEYMAP_MOD_COUNT] = {
+            KEYBOARD_MODIFIER_LEFTCTRL,   /* 0xE0 */
+            KEYBOARD_MODIFIER_LEFTSHIFT,  /* 0xE1 */
+            KEYBOARD_MODIFIER_LEFTALT,    /* 0xE2 */
+            KEYBOARD_MODIFIER_LEFTGUI,    /* 0xE3 */
+            KEYBOARD_MODIFIER_RIGHTCTRL,  /* 0xE4 */
+            KEYBOARD_MODIFIER_RIGHTSHIFT, /* 0xE5 */
+            KEYBOARD_MODIFIER_RIGHTALT,   /* 0xE6 */
+            KEYBOARD_MODIFIER_RIGHTGUI    /* 0xE7 */
+        };
+        out_result->type = KEYMAP_TYPE_MODIFIER;
+        out_result->code = modifier_bits[keycode - KEYMAP_MOD_BASE];
+        return true;
+    }
+
+    /* 修饰键（旧编码：0xFF + 物理位置表，向后兼容） */
     if (keycode == KEYMAP_KEY_MODIFIER)
     {
         out_result->type = KEYMAP_TYPE_MODIFIER;

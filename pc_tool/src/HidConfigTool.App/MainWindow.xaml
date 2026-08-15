@@ -251,14 +251,14 @@
                                     </StackPanel>
                                 </Button>
 
-                                <!-- 按键设置 -->
-                                <Button Command="{Binding NavigateToKeysCommand}"
+                                <!-- 按键管理 -->
+                                <Button Command="{Binding NavigateToKeyManagementCommand}"
                                         Padding="12,9"
                                         Margin="4,1">
                                     <Button.Style>
                                         <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding CurrentPage}" Value="Keys">
+                                                <DataTrigger Binding="{Binding CurrentPage}" Value="KeyManagement">
                                                     <Setter Property="Tag" Value="Active" />
                                                 </DataTrigger>
                                             </Style.Triggers>
@@ -270,7 +270,7 @@
                                               Width="16"
                                               Height="16"
                                               Margin="0,0,10,0" />
-                                        <TextBlock Text="按键设置" VerticalAlignment="Center" />
+                                        <TextBlock Text="按键管理" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
 
@@ -416,29 +416,6 @@
                                               Height="16"
                                               Margin="0,0,10,0" />
                                         <TextBlock Text="性能监控" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Button>
-
-                                <!-- 按键统计 -->
-                                <Button Command="{Binding NavigateToStatsCommand}"
-                                        Padding="12,9"
-                                        Margin="4,1">
-                                    <Button.Style>
-                                        <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding CurrentPage}" Value="Stats">
-                                                    <Setter Property="Tag" Value="Active" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                                    <StackPanel Orientation="Horizontal">
-                                        <Path Data="M3 3v18h18M7 14l4-4 4 4 5-5"
-                                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                              Width="16"
-                                              Height="16"
-                                              Margin="0,0,10,0" />
-                                        <TextBlock Text="按键统计" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
 

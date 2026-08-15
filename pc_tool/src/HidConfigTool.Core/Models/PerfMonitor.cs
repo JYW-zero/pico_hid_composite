@@ -86,9 +86,19 @@ public class PerfTaskStat
     public uint MinTimeUs { get; set; }
 
     /// <summary>
+    /// 最小执行时间显示文本（0xFFFFFFFF显示为"-"）
+    /// </summary>
+    public string MinTimeUsDisplay => MinTimeUs == 0xFFFFFFFF ? "-" : MinTimeUs.ToString();
+
+    /// <summary>
     /// 最大执行时间（微秒）
     /// </summary>
     public uint MaxTimeUs { get; set; }
+
+    /// <summary>
+    /// 最大执行时间显示文本
+    /// </summary>
+    public string MaxTimeUsDisplay => MaxTimeUs == 0 ? "-" : MaxTimeUs.ToString();
 
     /// <summary>
     /// 平均执行时间（微秒）
@@ -96,9 +106,19 @@ public class PerfTaskStat
     public uint AvgTimeUs { get; set; }
 
     /// <summary>
+    /// 平均执行时间显示文本
+    /// </summary>
+    public string AvgTimeUsDisplay => AvgTimeUs == 0 ? "-" : AvgTimeUs.ToString();
+
+    /// <summary>
     /// 最近执行时间（微秒）
     /// </summary>
     public uint LastTimeUs { get; set; }
+
+    /// <summary>
+    /// 最近执行时间显示文本
+    /// </summary>
+    public string LastTimeUsDisplay => LastTimeUs == 0 ? "-" : LastTimeUs.ToString();
 
     /// <summary>
     /// CPU占比（0-100，占总忙碌时间的百分比）

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * src/middleware/power_manager.c
  * 低功耗管理模块实现
  * 使用官方 pico_low_power API
@@ -6,6 +6,7 @@
  */
 #include "middleware/power_manager.h"
 #include "middleware/fault.h"
+#include "middleware/watchdog.h"
 #include "board/pins.h"
 #include "pico/low_power.h"
 #include "pico/time.h"
@@ -23,6 +24,7 @@ static power_level_t s_current_level = POWER_LEVEL_ACTIVE;
 static power_mode_t s_current_mode = POWER_MODE_WIRELESS;
 static bool s_initialized = false;
 static bool s_remote_wakeup_enabled = false;
+static volatile bool s_pending_sleep = false;  /* 待休眠标志：USB回调中设置，主循环中执行 */
 
 /* 最后一次用户活动的时间戳 */
 static uint32_t s_last_activity_ms = 0;
@@ -129,10 +131,21 @@ static void enter_dormant_mode(void)
     
     /* 清除唤醒配置 */
     clear_dormant_wakeup_pins();
-    
+
     s_current_level = POWER_LEVEL_ACTIVE;
-    
+
+    /* 调用唤醒回调（弱函数，上层可覆盖以重新初始化SPI/ADC等外设） */
+    power_manager_on_dormant_wakeup();
+
     fault_record(FAULT_LEVEL_INFO, "power", "wake from dormant");
+}
+
+/* Dormant 唤醒回调默认实现（空函数，可由上层覆盖） */
+__attribute__((weak)) void power_manager_on_dormant_wakeup(void)
+{
+    /* 默认不做任何操作
+     * board/app 层可覆盖此函数，在 Dormant 唤醒后重新初始化 SPI/ADC 等外设
+     */
 }
 
 /* ==================== 对外接口 ==================== */
@@ -174,11 +187,25 @@ void power_manager_tick(void)
     if (s_current_mode == POWER_MODE_WIRED)
     {
         /* 有线模式：USB 挂起时进入 Sleep
-         * 注意：USB 挂起会通过 tud_suspend_cb 回调通知
-         * 这里只是双重检查
+         * 优先处理 pending_sleep 标志（由 USB 回调设置）
+         * tud_suspended() 作为后备检查
          */
-        if (tud_suspended() && s_current_level == POWER_LEVEL_ACTIVE)
+        if (s_pending_sleep && s_current_level == POWER_LEVEL_ACTIVE)
         {
+            s_pending_sleep = false;
+            /* 休眠前喂一次所有层看门狗，确保休眠期间不会逻辑超时 */
+            watchdog_feed_layer(WDG_LAYER_BOARD);
+            watchdog_feed_layer(WDG_LAYER_DEVICE);
+            watchdog_feed_layer(WDG_LAYER_APP);
+            enter_sleep_mode();
+        }
+        else if (tud_suspended() && s_current_level == POWER_LEVEL_ACTIVE)
+        {
+            /* 后备：如果回调丢失但检测到挂起，也进入休眠 */
+            s_pending_sleep = false;
+            watchdog_feed_layer(WDG_LAYER_BOARD);
+            watchdog_feed_layer(WDG_LAYER_DEVICE);
+            watchdog_feed_layer(WDG_LAYER_APP);
             enter_sleep_mode();
         }
     }
@@ -217,8 +244,10 @@ void power_manager_on_usb_suspend(bool remote_wakeup_en)
     
     fault_record(FAULT_LEVEL_INFO, "power", "usb suspend");
     
-    /* USB 挂起时进入 Sleep 模式 */
-    enter_sleep_mode();
+    /* 不在 USB 回调中直接休眠（会阻塞主循环导致看门狗超时）
+     * 只设置标志位，由 power_manager_tick() 在主循环中执行休眠
+     */
+    s_pending_sleep = true;
 }
 
 void power_manager_on_usb_resume(void)

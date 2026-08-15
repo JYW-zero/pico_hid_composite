@@ -1,4 +1,4 @@
-﻿/*
+/*
  * src/device/paw3395.c
  * PAW3395 光学鼠标传感器驱动实现
  * 严格遵循 MISRA-like 约束：单返回点、显式类型转换、禁止动态内存
@@ -40,14 +40,20 @@ enum
 #define PAW3395_REG_DELTA_Y_L    (0x05u)
 #define PAW3395_REG_DELTA_Y_H    (0x06u)
 #define PAW3395_REG_CONFIG1      (0x0Du)  /* DPI配置寄存器 */
+#define PAW3395_REG_POWER_UP_RESET (0x3Au) /* 上电复位寄存器，写0x5A触发软复位 */
 
-/* DPI 寄存器值对照表 */
+/* PAW3395 标准 Product ID */
+#define PAW3395_PRODUCT_ID       (0x51u)
+
+/* DPI 寄存器值对照表
+ * 公式: CPI = (reg_value + 1) × 25
+ */
 static const uint8_t s_dpi_reg_table[PAW3395_DPI_MAX] =
 {
-    0x10u,  /* 400 CPI */
-    0x1Eu,  /* 800 CPI */
-    0x28u,  /* 1600 CPI */
-    0x34u   /* 3200 CPI */
+    0x0Fu,  /* 400 CPI:  (15+1)×25 = 400 */
+    0x1Fu,  /* 800 CPI:  (31+1)×25 = 800 */
+    0x3Fu,  /* 1600 CPI: (63+1)×25 = 1600 */
+    0x7Fu   /* 3200 CPI: (127+1)×25 = 3200 */
 };
 
 /* 内部函数：CS 拉低延时 */
@@ -194,6 +200,7 @@ int paw3395_init(const paw3395_cfg_t *cfg)
     else
     {
         uint8_t pid = 0u;
+        uint8_t dummy = 0u;
 
         /* 执行硬件复位 */
         status = paw3395_reset(cfg);
@@ -209,17 +216,37 @@ int paw3395_init(const paw3395_cfg_t *cfg)
             {
                 fault_record(FAULT_LEVEL_ERROR, "paw3395", "read pid failed");
             }
+            else if (pid != PAW3395_PRODUCT_ID)
+            {
+                fault_record(FAULT_LEVEL_ERROR, "paw3395", "unexpected product ID");
+                status = PAW3395_ERR_HW;
+            }
             else
             {
-                /* 设置默认DPI: 800 */
-                status = paw3395_set_dpi(cfg, PAW3395_DPI_800);
+                /* 软复位：确保寄存器回到已知状态 */
+                status = paw3395_reg_write(cfg, PAW3395_REG_POWER_UP_RESET, 0x5Au);
                 if (status != PAW3395_OK)
                 {
-                    fault_record(FAULT_LEVEL_ERROR, "paw3395", "set default dpi failed");
+                    fault_record(FAULT_LEVEL_ERROR, "paw3395", "soft reset failed");
                 }
                 else
                 {
-                    fault_record(FAULT_LEVEL_INFO, "paw3395", "init complete");
+                    /* 等待软复位完成（≥1ms） */
+                    busy_wait_ms(2);
+
+                    /* 清除运动标志（读一次Motion寄存器） */
+                    (void)paw3395_reg_read(cfg, PAW3395_REG_MOTION, &dummy);
+
+                    /* 设置默认DPI: 800 */
+                    status = paw3395_set_dpi(cfg, PAW3395_DPI_800);
+                    if (status != PAW3395_OK)
+                    {
+                        fault_record(FAULT_LEVEL_ERROR, "paw3395", "set default dpi failed");
+                    }
+                    else
+                    {
+                        fault_record(FAULT_LEVEL_INFO, "paw3395", "init complete");
+                    }
                 }
             }
         }
@@ -317,19 +344,9 @@ int paw3395_read_motion(const paw3395_cfg_t *cfg, paw3395_motion_t *motion)
                 }
                 else
                 {
-                    /* 组合12位有符号位移值 */
-                    int16_t dx = (int16_t)(((uint16_t)(dx_h & 0x0Fu) << 8) | (uint16_t)dx_l);
-                    int16_t dy = (int16_t)(((uint16_t)(dy_h & 0x0Fu) << 8) | (uint16_t)dy_l);
-
-                    /* 符号扩展：12位转16位 */
-                    if ((dx & 0x0800) != 0)
-                    {
-                        dx |= (int16_t)0xF000;
-                    }
-                    if ((dy & 0x0800) != 0)
-                    {
-                        dy |= (int16_t)0xF000;
-                    }
+                    /* 组合16位有符号位移值（PAW3395原生16位） */
+                    int16_t dx = (int16_t)(((uint16_t)dx_h << 8) | (uint16_t)dx_l);
+                    int16_t dy = (int16_t)(((uint16_t)dy_h << 8) | (uint16_t)dy_l);
 
                     motion->has_motion = true;
                     motion->dx = dx;

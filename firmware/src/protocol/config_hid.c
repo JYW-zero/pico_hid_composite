@@ -13,11 +13,36 @@
 #include "app/key_stats.h"
 #include "middleware/fault.h"
 #include "middleware/perf_monitor.h"
+#include "middleware/shared_hw_data.h"
 #include "middleware/watchdog.h"
+#include "middleware/ipc.h"
 #include "hardware/watchdog.h"
+#include "pico/multicore.h"
 #include "device/paw3395.h"
 #include "pico/time.h"
 #include "pico/bootrom.h"
+
+/* ==================== CRC32 实现（与 config.c 一致） ==================== */
+
+static const uint32_t s_crc32_table[16] =
+{
+    0x00000000u, 0x1DB71064u, 0x3B6E20C8u, 0x26D930ACu,
+    0x76DC4190u, 0x6B6B51F4u, 0x4DB26158u, 0x5005713Cu,
+    0xEDB88320u, 0xF00F9344u, 0xD6D6A3E8u, 0xCB61B38Cu,
+    0x9B64C2B0u, 0x86D3D2D4u, 0xA00AE278u, 0xBDBDF21Cu
+};
+
+static uint32_t crc32_calc(const uint8_t* data, uint32_t len)
+{
+    uint32_t crc = 0xFFFFFFFFu;
+    for (uint32_t i = 0; i < len; i++)
+    {
+        uint8_t byte = data[i];
+        crc = (crc >> 4) ^ s_crc32_table[(crc & 0x0Fu) ^ (byte & 0x0Fu)];
+        crc = (crc >> 4) ^ s_crc32_table[(crc & 0x0Fu) ^ (byte >> 4)];
+    }
+    return crc ^ 0xFFFFFFFFu;
+}
 
 /* 日志宏（与 main.c 中保持一致） */
 #ifndef LOG_LEVEL
@@ -31,10 +56,14 @@
 #define LOG_DEBUG_PRINT(fmt, ...) do { if (LOG_LEVEL >= LOG_DEBUG) printf("[DBG] " fmt, ##__VA_ARGS__); } while(0)
 
 /* 临时配置缓冲区 */
-static device_config_t g_tmp_config;
+static device_config_t g_tmp_config = {0};
 static volatile bool g_config_pending = false;
 static volatile uint8_t g_pending_cmd = 0;
-static volatile uint8_t g_pending_cmd_param = 0;
+static volatile uint16_t g_pending_cmd_param = 0;
+
+/* 配置块接收完整性跟踪（位掩码：bit0=block0, bit1=block1, bit2=block2） */
+static volatile uint8_t g_blocks_received = 0;
+#define CONFIG_BLOCKS_ALL  0x07u
 
 /* 宏配置读取索引 */
 static uint8_t s_macro_read_id = 0;
@@ -61,6 +90,30 @@ static uint32_t s_macro_dirty_time_us = 0;
 #define CMD_RESET_PERF    0x08
 #define CMD_MACRO_PLAY    0x09
 #define CMD_MACRO_STOP    0x0A
+#define CMD_SET_PERF_ENABLE 0x0B  /* 设置性能监控开关：data[1]=1开启,0关闭 */
+#define CMD_SET_JOYSTICK_DZ_RT 0x0C  /* 实时设置摇杆死区（不写Flash）：data[1-2]=死区值(小端) */
+#define CMD_UNLOCK_CONFIG   0x0D  /* 解锁配置写入：需连续发送3次(5秒内)才能解锁 */
+
+/* ==================== 配置锁定机制 ==================== */
+/* 默认锁定，防止恶意程序篡改配置。解锁后30秒无操作自动重新锁定。 */
+static volatile bool s_config_locked = true;
+static volatile uint8_t s_unlock_attempts = 0;
+static volatile uint32_t s_last_unlock_ms = 0;
+static volatile uint32_t s_last_write_ms = 0;
+#define UNLOCK_REQUIRED_ATTEMPTS  3u
+#define UNLOCK_WINDOW_MS          5000u
+#define UNLOCK_TIMEOUT_MS         30000u
+
+/* DFU/Reboot 命令确认：需连续3次（5秒内）才执行，防止恶意DoS
+ * 使用独立计数器，防止混合命令绕过确认机制 */
+static volatile uint8_t s_reboot_attempts = 0;
+static volatile uint32_t s_last_reboot_ms = 0;
+static volatile uint8_t s_dfu_attempts = 0;
+static volatile uint32_t s_last_dfu_ms = 0;
+#define REBOOT_REQUIRED_ATTEMPTS  3u
+#define REBOOT_WINDOW_MS          5000u
+#define DFU_REQUIRED_ATTEMPTS     3u
+#define DFU_WINDOW_MS             5000u
 
 /* DPI数值转枚举 */
 static paw3395_dpi_e dpi_val_to_enum(uint16_t dpi_val)
@@ -83,10 +136,8 @@ void config_hid_init(void)
 /* GET_REPORT 回调：只处理 Feature 报告（配置接口） */
 uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t* buffer, uint16_t reqlen)
 {
-    (void)instance;
-    (void)report_type;
-
-    // 只处理 Feature 报告
+    /* 只处理配置接口（instance 1）的 Feature 报告 */
+    if (instance != ITF_NUM_HID_CONFIG) return 0;
     if (report_type != HID_REPORT_TYPE_FEATURE) return 0;
 
     /* 临时关闭频繁打印，避免干扰调试
@@ -337,6 +388,35 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_t
             return (reqlen > 62) ? 62 : reqlen;
         }
 
+        case REPORT_ID_KEY_STATE:
+        {
+            /* 实时按键状态：64位bitmap，bit=1表示按下 */
+            uint64_t keys = shared_hw_get_keys();
+            /* keypad_spi读取的是bit=0表示按下，这里转换为bit=1表示按下 */
+            uint64_t pressed = ~keys;
+            if (reqlen == 0) return 0;
+            memset(buffer, 0, reqlen);
+            uint8_t max_bytes = (reqlen > 8) ? 8 : (uint8_t)reqlen;
+            for (uint8_t i = 0; i < max_bytes; i++) {
+                buffer[i] = (uint8_t)((pressed >> (i * 8)) & 0xFF);
+            }
+            return (reqlen > 8) ? 8 : reqlen;
+        }
+
+        case REPORT_ID_JOYSTICK_STATE:
+        {
+            /* 实时摇杆状态：x, y, btn */
+            int16_t x, y;
+            bool btn;
+            shared_hw_get_joystick(&x, &y, &btn);
+            if (reqlen == 0) return 0;
+            memset(buffer, 0, reqlen);
+            if (reqlen > 0) buffer[0] = (uint8_t)(int8_t)x;   /* 有符号字节 */
+            if (reqlen > 1) buffer[1] = (uint8_t)(int8_t)y;   /* 有符号字节 */
+            if (reqlen > 2) buffer[2] = btn ? 1 : 0;
+            return (reqlen > 8) ? 8 : reqlen;
+        }
+
         default:
             return 0;
     }
@@ -345,10 +425,16 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_t
 /* SET_REPORT 回调（Feature 写入/命令处理） */
 void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const* buffer, uint16_t bufsize)
 {
-    (void) instance;
-    (void) report_type;
-
+    /* 只处理配置接口（instance 1）的 Feature 报告 */
+    if (instance != ITF_NUM_HID_CONFIG) return;
     if (report_type != HID_REPORT_TYPE_FEATURE) return;
+
+    /* 防御性校验：Feature Report 最大 64 字节（含 Report ID），异常大的 bufsize 直接拒绝 */
+    if (bufsize > 64) {
+        LOG_ERROR_PRINT("[SECURITY] ❌ 异常的 Feature Report 长度: %d（最大64）\n", bufsize);
+        return;
+    }
+    if (buffer == NULL) return;
 
     switch (report_id)
     {
@@ -356,14 +442,20 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
         case REPORT_ID_CONFIG_BLOCK1:
         case REPORT_ID_CONFIG_BLOCK2:
         {
+            /* 配置锁定：拒绝写入 */
+            if (s_config_locked) {
+                LOG_ERROR_PRINT("[CONFIG] ❌ 配置已锁定，拒绝写入配置块\n");
+                break;
+            }
             uint8_t* cfg_bytes = (uint8_t*)&g_tmp_config;
             uint16_t cfg_size = sizeof(device_config_t);
             uint16_t offset;
+            uint8_t block_bit;
             switch (report_id) {
-                case REPORT_ID_CONFIG_BLOCK0: offset = 0; break;
-                case REPORT_ID_CONFIG_BLOCK1: offset = CONFIG_BLOCK_SIZE; break;
-                case REPORT_ID_CONFIG_BLOCK2: offset = CONFIG_BLOCK_SIZE * 2; break;
-                default: break;
+                case REPORT_ID_CONFIG_BLOCK0: offset = 0; block_bit = 0x01; break;
+                case REPORT_ID_CONFIG_BLOCK1: offset = CONFIG_BLOCK_SIZE; block_bit = 0x02; break;
+                case REPORT_ID_CONFIG_BLOCK2: offset = CONFIG_BLOCK_SIZE * 2; block_bit = 0x04; break;
+                default: offset = 0; block_bit = 0; break;
             }
             LOG_INFO_PRINT("[CONFIG] 收到配置块 %d (Report ID=%d, 偏移=%d, 长度=%d)\n", report_id - 5, report_id, offset, bufsize);
             if (offset < cfg_size) {
@@ -373,6 +465,7 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
                 if (copy_len > 0) {
                     memcpy(cfg_bytes + offset, buffer, copy_len);
                     g_config_pending = true;
+                    g_blocks_received |= block_bit;  /* 标记该块已接收 */
                 }
                 LOG_DEBUG_PRINT("[CONFIG] 配置块 %d 写入成功，复制 %d 字节\n", report_id - 5, copy_len);
             }
@@ -382,9 +475,45 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
         case REPORT_ID_CONTROL:
         {
             if (bufsize >= 1) {
-                g_pending_cmd = buffer[0];
-                g_pending_cmd_param = (bufsize >= 2) ? buffer[1] : 0;
-                LOG_INFO_PRINT("[CONFIG] 收到控制命令: 0x%02X, 参数: 0x%02X\n", buffer[0], g_pending_cmd_param);
+                uint8_t cmd = buffer[0];
+
+                /* 解锁命令：不需要锁定状态，始终处理 */
+                if (cmd == CMD_UNLOCK_CONFIG) {
+                    uint32_t now = to_ms_since_boot(get_absolute_time());
+                    /* 超过时间窗口则重置计数 */
+                    if (now - s_last_unlock_ms > UNLOCK_WINDOW_MS) {
+                        s_unlock_attempts = 0;
+                    }
+                    s_last_unlock_ms = now;
+                    s_unlock_attempts++;
+                    if (s_unlock_attempts >= UNLOCK_REQUIRED_ATTEMPTS) {
+                        s_config_locked = false;
+                        s_unlock_attempts = 0;
+                        s_last_write_ms = now;
+                        LOG_INFO_PRINT("[SECURITY] ✅ 配置已解锁（30秒后自动锁定）\n");
+                    } else {
+                        LOG_INFO_PRINT("[SECURITY] 解锁进度: %d/%d\n", s_unlock_attempts, UNLOCK_REQUIRED_ATTEMPTS);
+                    }
+                    break;
+                }
+
+                /* 配置锁定：拒绝其他控制命令 */
+                if (s_config_locked) {
+                    LOG_ERROR_PRINT("[SECURITY] ❌ 配置已锁定，拒绝命令 0x%02X\n", cmd);
+                    break;
+                }
+
+                /* 记录写入活动，刷新自动锁定计时器 */
+                s_last_write_ms = to_ms_since_boot(get_absolute_time());
+
+                g_pending_cmd = cmd;
+                /* 对于需要16位参数的命令，使用两个字节（小端） */
+                if (cmd == CMD_SET_JOYSTICK_DZ_RT && bufsize >= 3) {
+                    g_pending_cmd_param = (uint16_t)buffer[1] | ((uint16_t)buffer[2] << 8);
+                } else {
+                    g_pending_cmd_param = (bufsize >= 2) ? buffer[1] : 0;
+                }
+                LOG_INFO_PRINT("[CONFIG] 收到控制命令: 0x%02X, 参数: 0x%04X\n", cmd, g_pending_cmd_param);
             }
             break;
         }
@@ -396,6 +525,18 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
             uint8_t block_raw = buffer[1];
             bool is_read_cmd = (block_raw & 0x80) != 0;
             uint8_t block = block_raw & 0x7F;
+
+            /* 读取命令不需要锁定 */
+            if (!is_read_cmd && s_config_locked) {
+                LOG_ERROR_PRINT("[SECURITY] ❌ 配置已锁定，拒绝写入宏配置\n");
+                break;
+            }
+
+            /* 记录写入活动 */
+            if (!is_read_cmd) {
+                s_last_write_ms = to_ms_since_boot(get_absolute_time());
+            }
+
             LOG_INFO_PRINT("[宏] 收到宏配置: 宏ID=%d, 块=%d, 长度=%d, 读命令=%d\n", macro_id, block, bufsize, is_read_cmd);
             if (macro_id >= MACRO_MAX_COUNT) break;
             if (block > 2) break;
@@ -424,6 +565,11 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
         case REPORT_ID_FAULT_LOG:
         {
             if (bufsize >= 1) {
+                /* 配置锁定：拒绝修改日志读取索引 */
+                if (s_config_locked) {
+                    LOG_ERROR_PRINT("[SECURITY] ❌ 配置已锁定，拒绝修改日志索引\n");
+                    break;
+                }
                 s_fault_read_index = buffer[0];
                 LOG_INFO_PRINT("[FAULT] 设置日志读取索引: %d\n", s_fault_read_index);
             }
@@ -433,6 +579,11 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
         case REPORT_ID_PERF_TASK:
         {
             if (bufsize >= 1) {
+                /* 配置锁定：拒绝修改读取索引（与FAULT_LOG保持一致） */
+                if (s_config_locked) {
+                    LOG_ERROR_PRINT("[SECURITY] ❌ 配置已锁定，拒绝修改性能监控索引\n");
+                    break;
+                }
                 s_perf_task_index = buffer[0];
                 LOG_INFO_PRINT("[PERF] 设置任务读取索引: %d\n", s_perf_task_index);
             }
@@ -448,16 +599,26 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
 /* 周期性处理函数（替代原 hid_config_task） */
 void hid_config_task(void)
 {
+    /* 配置锁定：解锁后30秒无操作自动重新锁定 */
+    if (!s_config_locked) {
+        uint32_t now = to_ms_since_boot(get_absolute_time());
+        if (now - s_last_write_ms > UNLOCK_TIMEOUT_MS) {
+            s_config_locked = true;
+            LOG_INFO_PRINT("[SECURITY] 🔒 配置已自动锁定（超时）\n");
+        }
+    }
+
     /* 处理宏配置的延迟保存（使用安全写入服务，双核同步） */
     if (s_macro_dirty) {
         uint32_t now = time_us_32();
         if (now - s_macro_dirty_time_us > 1000000U) {
             const device_config_t* current_cfg = config_get();
             if (current_cfg != NULL) {
-                device_config_t new_cfg;
-                memcpy(&new_cfg, current_cfg, sizeof(device_config_t));
-                macro_save_to_config(new_cfg.macro_data, CONFIG_MACRO_DATA_SIZE);
-                config_save(&new_cfg);
+                /* 使用 static 缓冲区避免栈溢出（device_config_t 约1330字节） */
+                static device_config_t s_macro_save_buf;
+                memcpy(&s_macro_save_buf, current_cfg, sizeof(device_config_t));
+                macro_save_to_config(s_macro_save_buf.macro_data, CONFIG_MACRO_DATA_SIZE);
+                config_save(&s_macro_save_buf);
                 LOG_INFO_PRINT("[宏] 配置已保存到Flash\n");
             }
             s_macro_dirty = false;
@@ -481,37 +642,109 @@ void hid_config_task(void)
                 if (g_tmp_config.magic == CONFIG_MAGIC) config_save(&g_tmp_config);
                 break;
             case CMD_RESET_CONFIG:
-                config_init();
+                /* 恢复出厂默认配置（而非重新加载Flash中的当前配置） */
+                config_reset_default();
+                LOG_INFO_PRINT("[CONFIG] 已恢复出厂默认配置\n");
                 break;
             case CMD_REBOOT:
-                LOG_INFO_PRINT("[CMD] 重启设备...\n");
-                sleep_ms(10);
-                watchdog_reboot(0, 0, 1);
-                while (1) {};
+            {
+                /* 需连续3次确认（5秒内），防止恶意DoS
+                 * 使用独立计数器，防止与DFU命令混合绕过 */
+                uint32_t now = to_ms_since_boot(get_absolute_time());
+                if (now - s_last_reboot_ms > REBOOT_WINDOW_MS) s_reboot_attempts = 0;
+                s_last_reboot_ms = now;
+                s_reboot_attempts++;
+                if (s_reboot_attempts >= REBOOT_REQUIRED_ATTEMPTS) {
+                    s_reboot_attempts = 0;
+                    LOG_INFO_PRINT("[CMD] 重启设备（已确认%d次）...\n", REBOOT_REQUIRED_ATTEMPTS);
+                    sleep_ms(10);
+                    watchdog_reboot(0, 0, 1);
+                    while (1) {};
+                } else {
+                    LOG_INFO_PRINT("[CMD] 重启确认: %d/%d（5秒内连续发送）\n", s_reboot_attempts, REBOOT_REQUIRED_ATTEMPTS);
+                }
                 break;
+            }
             case CMD_ENTER_DFU:
-                LOG_INFO_PRINT("[CMD] 进入 BOOTSEL 模式...\n");
-                sleep_ms(10);
-                rom_reset_usb_boot(0, 0);
+            {
+                /* 需连续3次确认（5秒内），防止恶意DoS */
+                uint32_t now = to_ms_since_boot(get_absolute_time());
+                if (now - s_last_dfu_ms > DFU_WINDOW_MS) s_dfu_attempts = 0;
+                s_last_dfu_ms = now;
+                s_dfu_attempts++;
+                if (s_dfu_attempts >= DFU_REQUIRED_ATTEMPTS) {
+                    s_dfu_attempts = 0;
+                    LOG_INFO_PRINT("[CMD] 进入 BOOTSEL 模式（已确认%d次）...\n", DFU_REQUIRED_ATTEMPTS);
+                    sleep_ms(10);
+                    rom_reset_usb_boot(0, 0);
+                } else {
+                    LOG_INFO_PRINT("[CMD] DFU确认: %d/%d（5秒内连续发送）\n", s_dfu_attempts, DFU_REQUIRED_ATTEMPTS);
+                }
                 break;
+            }
             case CMD_APPLY_CONFIG:
                 LOG_INFO_PRINT("[CONFIG] 收到应用配置命令\n");
-                if (g_tmp_config.magic == CONFIG_MAGIC) {
-                    int save_ret = config_save(&g_tmp_config);
+
+                /* 检查配置块接收完整性 */
+                if (g_blocks_received != CONFIG_BLOCKS_ALL) {
+                    LOG_ERROR_PRINT("[CONFIG] ❌ 配置块不完整: 0x%02X (期望 0x%02X)\n",
+                                    g_blocks_received, CONFIG_BLOCKS_ALL);
+                    break;
+                }
+                g_blocks_received = 0;  /* 重置 */
+
+                /* 验证 magic */
+                if (g_tmp_config.magic != CONFIG_MAGIC) {
+                    LOG_ERROR_PRINT("[CONFIG] ❌ 魔数错误: 0x%08X (期望 0x%08X)\n",
+                                    g_tmp_config.magic, CONFIG_MAGIC);
+                    break;
+                }
+
+                /* 验证 DPI 范围 */
+                if (g_tmp_config.dpi != 400 && g_tmp_config.dpi != 800 &&
+                    g_tmp_config.dpi != 1600 && g_tmp_config.dpi != 3200) {
+                    LOG_ERROR_PRINT("[CONFIG] ❌ 非法 DPI: %d\n", g_tmp_config.dpi);
+                    break;
+                }
+
+                /* 以当前 Flash 配置为基底，只覆盖配置块传输的字段（前142字节，不含 macro_data）
+                 * 避免 macro_data 未传输部分写入垃圾数据
+                 */
+                {
+                    const device_config_t* current_cfg = config_get();
+                    device_config_t merged;
+
+                    if (current_cfg != NULL) {
+                        memcpy(&merged, current_cfg, sizeof(device_config_t));
+                    } else {
+                        memset(&merged, 0, sizeof(device_config_t));
+                    }
+
+                    /* 只覆盖前142字节（magic ~ fn_keymap 结束，不含 macro_data） */
+                    memcpy(&merged, &g_tmp_config, 142);
+
+                    /* 强制设置正确的 magic 和 version */
+                    merged.magic = CONFIG_MAGIC;
+                    merged.version = CONFIG_VERSION;
+
+                    /* 重新计算 CRC（忽略上位机传来的 CRC） */
+                    uint32_t crc = crc32_calc((const uint8_t*)&merged,
+                                              sizeof(device_config_t) - sizeof(uint32_t));
+                    merged.crc32 = crc;
+
+                    int save_ret = config_save(&merged);
                     if (save_ret == 0) {
                         LOG_INFO_PRINT("[CONFIG] ✅ 配置已保存到 Flash\n");
                         const paw3395_cfg_t *paw_cfg = board_get_paw3395_cfg();
                         if (paw_cfg != NULL) {
-                            paw3395_dpi_e dpi_enum = dpi_val_to_enum(g_tmp_config.dpi);
+                            paw3395_dpi_e dpi_enum = dpi_val_to_enum(merged.dpi);
                             int ret = paw3395_set_dpi(paw_cfg, dpi_enum);
-                            if (ret == 0) LOG_INFO_PRINT("[CONFIG] ✅ DPI 已应用: %d\n", g_tmp_config.dpi);
+                            if (ret == 0) LOG_INFO_PRINT("[CONFIG] ✅ DPI 已应用: %d\n", merged.dpi);
                             else LOG_ERROR_PRINT("[CONFIG] ❌ DPI 应用失败，错误码: %d\n", ret);
                         }
                     } else {
                         LOG_ERROR_PRINT("[CONFIG] ❌ 配置保存到 Flash 失败\n");
                     }
-                } else {
-                    LOG_ERROR_PRINT("[CONFIG] ❌ 魔数错误: 0x%08X (期望 0x%08X)\n", g_tmp_config.magic, CONFIG_MAGIC);
                 }
                 break;
             case CMD_RESET_STATS:
@@ -546,6 +779,37 @@ void hid_config_task(void)
                 } else {
                     macro_stop_all();
                     LOG_INFO_PRINT("[MACRO] 停止所有宏\n");
+                }
+                break;
+            }
+            case CMD_SET_PERF_ENABLE:
+            {
+                bool enable = (g_pending_cmd_param != 0);
+                perf_set_enabled(enable);
+                if (enable) {
+                    perf_reset();  /* 开启时重置统计，从干净状态开始 */
+                }
+                LOG_INFO_PRINT("[PERF] 性能监控: %s\n", enable ? "开启" : "关闭");
+                break;
+            }
+            case CMD_SET_JOYSTICK_DZ_RT:
+            {
+                /* 实时设置摇杆死区（不写Flash），通过IPC发送到Core1
+                 * 非阻塞发送：如果FIFO满则跳过，不等待ACK，避免阻塞主循环
+                 */
+                uint16_t deadzone = (uint16_t)g_pending_cmd_param;
+                /* 范围限制：ADC最大值4095，超过则截断，防止功能DoS */
+                if (deadzone > 4095) deadzone = 4095;
+                uint32_t cmd = IPC_MAKE_CMD(IPC_CMD_SET_JOYSTICK_DZ, deadzone);
+
+                /* 先清空FIFO中可能残留的旧ACK数据 */
+                multicore_fifo_drain();
+
+                if (multicore_fifo_wready()) {
+                    multicore_fifo_push_blocking(cmd);
+                    LOG_INFO_PRINT("[JOYSTICK] 实时死区设置: %u (已发送)\n", deadzone);
+                } else {
+                    LOG_ERROR_PRINT("[JOYSTICK] FIFO 满，跳过死区设置\n");
                 }
                 break;
             }

@@ -273,6 +273,203 @@
 
 ---
 
+### 2026-08-14 - 全功能开发（除工厂测试LED）
+
+**背景**：Flash安全写入修复验证成功后，用户要求开发所有未实现的功能（除工厂测试LED测试，因无实际LED灯），优先使用官方源码。
+
+#### 固件功能开发（3项）
+
+##### 1. 物理按键触发宏
+
+**新增功能**：每个宏可以设置一个物理触发键，按下触发键启动宏，松开停止宏。
+
+**实现细节**：
+- `firmware/include/app/macro.h`：添加 `macro_find_by_trigger_key(uint8_t key_index)` 函数声明
+- `firmware/src/app/macro.c`：实现 `macro_find_by_trigger_key()`，遍历所有宏查找匹配触发键的宏ID，未找到返回0xFF
+- `firmware/src/app/main.c`：`keypad_task()` 中添加宏触发检测逻辑
+  - 按键按下上升沿：调用 `macro_trigger(macro_id)`
+  - 按键松开下降沿：调用 `macro_stop(macro_id)`
+  - 收集按键时排除宏触发键（`macro_find_by_trigger_key(i) != 0xFF` 时 continue），触发键不作为普通按键发送
+
+**设计约束**：
+- 触发键本身不会作为普通按键发送（避免误输入）
+- 支持无限循环宏（松开触发键时停止）
+- 最多8个宏，每个宏可独立设置触发键
+
+##### 2. 更多宏动作类型
+
+**新增动作类型**：
+- `MACRO_ACTION_KEY_PRESS = 6`：按键点击（按下+立即释放，param1=HID键码）
+- `MACRO_ACTION_TEXT_CHAR = 7`：输入字符（param1=ASCII码，自动转换为HID键码+修饰键）
+
+**实现细节**：
+- `firmware/src/app/macro.c`：添加静态函数 `ascii_to_hid(char ascii, uint8_t* out_modifier)`
+  - 支持小写字母(a-z)、大写字母(A-Z，自动加Shift)
+  - 支持数字(0-9)、常见符号(!@#$%^&*()等)
+  - 支持空格、回车、Tab、Backspace
+  - 不支持的字符返回0
+- `execute_action()` 中添加新动作类型处理逻辑
+  - KEY_PRESS：调用 `add_key(keycode)` 然后立即 `remove_key(keycode)`
+  - TEXT_CHAR：调用 `ascii_to_hid()` 转换，如有修饰键先设置 `s_kb_modifier`，然后 add_key+remove_key，最后清除修饰键
+
+##### 3. 低功耗模式优化
+
+**背景**：`power_manager` 模块已有完整实现（使用官方 `pico_low_power` API），但未集成到主循环。
+
+**集成内容**：
+- `firmware/src/app/main.c`：
+  - 添加 `#include "middleware/power_manager.h"`
+  - 初始化：`power_manager_init()`（在性能监控初始化之后）
+  - 主循环：`power_manager_tick()`（在 key_stats_tick 之后）
+  - USB挂起回调：`tud_suspend_cb()` 中调用 `power_manager_on_usb_suspend(remote_wakeup_en)`
+  - USB恢复回调：`tud_resume_cb()` 中调用 `power_manager_on_usb_resume()`
+  - 按键活动通知：按键按下上升沿时调用 `power_manager_notify_activity()`
+
+**低功耗模式说明**：
+- **Sleep模式**：USB挂起时进入，CPU停止，外设继续运行，任何中断可唤醒，功耗约5.9mA
+- **Dormant模式**：无线模式无操作超时进入，XOSC和ROSC都停止，功耗约3.3mA，只能通过GPIO中断或AON timer唤醒
+- **唤醒源**：PAW3395 MOT引脚（鼠标移动）、编码器A/B相、摇杆按键
+- 64键SPI键盘暂不支持唤醒（SPI主模式，CPU休眠时不会主动读SPI）
+
+---
+
+#### 上位机功能开发（8项）
+
+##### 1. 设置页面双击重命名
+
+**修改文件**：
+- `Views/SettingsPage.xaml`：配置文件ComboBox添加 `x:Name="ProfileComboBox"` 和 `MouseDoubleClick="ProfileComboBox_MouseDoubleClick"`
+- `Views/SettingsPage.xaml.cs`：添加 `ProfileComboBox_MouseDoubleClick` 事件处理，调用 `ViewModel.RenameProfileCommand.Execute(null)`
+
+**效果**：双击配置文件名称即可重命名，与点击重命名按钮效果相同。
+
+##### 2. 浅色主题
+
+**新增文件**：
+- `Themes/LightTheme.xaml`：浅色主题资源字典，从DarkTheme复制并修改颜色定义
+  - 背景：#F5F6FA（浅灰）
+  - 卡片：#FFFFFF（白色）
+  - 文字主色：#1F2937（深灰）
+  - 主色调：#3B82F6（蓝色）
+  - 边框：#E1E4EB（浅灰）
+- `Services/ThemeManager.cs`：主题管理服务
+  - 支持深色/浅色主题切换
+  - 持久化到 `%APPDATA%/HidConfigTool/theme.txt`
+  - `ApplyTheme()` 动态替换 Application.Resources 中的主题字典
+
+**修改文件**：
+- `App.xaml.cs`：注册 ThemeManager 单例，启动时调用 `LoadTheme()`
+- `ViewModels/SettingsPageViewModel.cs`：注入 ThemeManager，构造函数加载当前主题，添加 `OnThemeChanged()` partial方法
+- `Views/SettingsPage.xaml`：主题ComboBox绑定到 Theme 属性，选项改为"深色"/"浅色"
+
+##### 3. 帮助文档
+
+**新增文件**：
+- `Views/HelpWindow.xaml`：帮助文档窗口，包含8个章节
+  - 快速开始（连接设备、打开工具、修改配置）
+  - 按键配置、鼠标配置、宏功能
+  - 配置文件管理、应用感知
+  - 常见问题（设备连接不上、配置不保存、进入烧录模式、摇杆不工作）
+  - 技术支持（项目地址、问题反馈、固件版本）
+- `Views/HelpWindow.xaml.cs`：帮助窗口代码后台
+
+**修改文件**：
+- `ViewModels/SettingsPageViewModel.cs`：添加 `OpenHelpCommand`，创建 HelpWindow 并 ShowDialog
+- `Views/SettingsPage.xaml`：在"关于"Expander中添加"打开帮助文档"按钮
+
+##### 4. 宏录制功能（已有完整实现）
+
+**现有实现**：`Services/MacroRecorder.cs` + `ViewModels/MacroPageViewModel.cs`
+- 全局键盘钩子（`KeyboardHook.cs`）录制按键序列
+- 实时录制，延迟计算（毫秒精度）
+- WPF Key 自动转换为 HID Usage 码（`HidKeyConverter`）
+- 录制时长计时，最大动作数限制（32个）
+- 达到上限自动停止录制并提示
+
+##### 5. 应用感知功能（已有完整实现）
+
+**现有实现**：`Services/AppAwarenessManager.cs`
+- Windows API（user32.dll + psapi.dll）检测前台应用进程名
+- 每500ms轮询一次，进程名变化时触发
+- 规则匹配：进程名 → 配置文件，自动切换配置
+- 切换时显示 OSD 提示
+- 支持添加/删除规则，默认包含记事本、Chrome、VS Code、CS:GO示例
+- `SettingsPageViewModel` 中已集成规则列表UI和总开关
+
+##### 6. 云同步功能（已有完整框架）
+
+**现有实现**：`Services/LocalCloudSyncService.cs`（实现 `ICloudSyncService` 接口）
+- 本地文件模拟云端存储（`%APPDATA%/HIDConfigTool/CloudStorage/`）
+- 登录/登出（模拟，任意用户名密码均可）
+- 上传/下载配置（JSON序列化）
+- 获取云端配置列表、删除云端配置
+- 双向同步：比较本地和云端，上传本地更新的，下载云端更新的
+- 同步状态事件（进度、状态、是否同步中）
+- 实际使用时可替换为真实云端服务（接口已抽象）
+
+##### 7. 自动更新功能（已有完整框架）
+
+**现有实现**：`Services/UpdateService.cs`（实现 `IUpdateService` 接口）
+- 版本检查：从服务器获取 version.json，比较版本号
+- 下载更新：带进度报告（百分比、已下载字节、总字节、下载速度）
+- SHA256 哈希验证：下载完成后验证文件完整性，不匹配则删除
+- 安装更新：
+  - .exe 安装包：直接运行（请求管理员权限）
+  - .zip 压缩包：生成批处理脚本，等待程序退出→解压→复制文件→重启程序
+- 事件通知：更新检查完成、下载进度变化
+- 更新服务器地址为占位符（`https://example.com/updates/version.json`），需替换为实际地址
+
+##### 8. 多语言支持（基础框架完成）
+
+**新增文件**：
+- `Resources/Strings.zh-CN.resx`：中文资源文件（50+键值，覆盖导航、按钮、标签、状态、消息、标题等）
+- `Resources/Strings.en.resx`：英文资源文件（对应中文的英文翻译）
+- `Services/LanguageManager.cs`：语言管理服务
+  - 支持中英文切换（zh-CN / en）
+  - 持久化到 `%APPDATA%/HIDConfigTool/language.txt`
+  - `GetString(key)` 静态方法获取本地化字符串
+  - 切换时设置 `CultureInfo.CurrentCulture` 和 `CurrentUICulture`
+
+**修改文件**：
+- `App.xaml.cs`：注册 LanguageManager 单例，启动时调用 `Initialize()`
+- `ViewModels/SettingsPageViewModel.cs`：注入 LanguageManager，构造函数加载当前语言，添加 `OnLanguageChanged()` partial方法
+- `Views/SettingsPage.xaml`：语言ComboBox绑定到 Language 属性
+
+**待完成**：各 XAML 页面的硬编码文本尚未全部替换为动态资源引用，需后续逐步迁移（约16个XAML文件，200+处文本）。
+
+---
+
+#### 编译状态
+
+| 端 | 状态 | 说明 |
+|----|------|------|
+| 固件 | ✅ 编译成功 | ninja编译通过，生成 .elf 和 .uf2 |
+| 上位机 | ✅ 编译成功 | dotnet build 0错误，1个警告（文件占用重试后成功） |
+
+#### 修改文件清单
+
+**固件（5个）**：
+- `firmware/include/app/macro.h`（新增函数声明和动作类型）
+- `firmware/src/app/macro.c`（新增函数实现和动作处理）
+- `firmware/src/app/main.c`（宏触发检测、power_manager集成）
+- `firmware/include/middleware/flash_service.h`（已有）
+- `firmware/src/middleware/flash_service.c`（已有）
+
+**上位机（12个）**：
+- `Views/SettingsPage.xaml`（双击重命名、主题/语言绑定、帮助按钮）
+- `Views/SettingsPage.xaml.cs`（双击事件处理）
+- `Themes/LightTheme.xaml`（新建浅色主题）
+- `Services/ThemeManager.cs`（新建主题管理）
+- `Services/LanguageManager.cs`（新建语言管理）
+- `Resources/Strings.zh-CN.resx`（新建中文资源）
+- `Resources/Strings.en.resx`（新建英文资源）
+- `Views/HelpWindow.xaml`（新建帮助窗口）
+- `Views/HelpWindow.xaml.cs`（新建帮助窗口后台）
+- `App.xaml.cs`（注册ThemeManager和LanguageManager）
+- `ViewModels/SettingsPageViewModel.cs`（注入服务、添加命令和partial方法）
+
+---
+
 ### 2026-08-07
 - 项目启动，从MicroPython原型版迁移到C语言
 - 搭建五层架构基础框架

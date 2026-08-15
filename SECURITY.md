@@ -19,7 +19,7 @@
 4. 填写漏洞详情并提交
 
 ### 方式二：邮件
-发送邮件至 **[your-email@example.com]**，标题请注明 `[SECURITY] pico_hid_composite 安全漏洞报告`。
+发送邮件至 **[J.YW@outlook.com]**，标题请注明 `[SECURITY] pico_hid_composite 安全漏洞报告`。
 
 ---
 

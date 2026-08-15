@@ -33,7 +33,73 @@ static volatile bool s_kb_changed = false;
 static uint8_t s_mouse_buttons = 0;
 static volatile bool s_mouse_changed = false;
 
+/* 按键点击两阶段状态机（KEY_PRESS / TEXT_CHAR 需要按下后等下一帧再释放） */
+#define MACRO_PHASE_PRESS   0   /* 按下阶段 */
+#define MACRO_PHASE_RELEASE 1   /* 释放阶段（等下一帧HID报告发送后） */
+static uint8_t s_press_phase = MACRO_PHASE_PRESS;
+static uint8_t s_press_keycode = 0;
+static uint8_t s_press_modifier = 0;
+
 /* ==================== 内部函数 ==================== */
+
+/* ASCII 字符转 HID 键码（返回键码，修饰键通过 out_modifier 返回） */
+static uint8_t ascii_to_hid(char ascii, uint8_t* out_modifier)
+{
+    *out_modifier = 0;
+    if (ascii >= 'a' && ascii <= 'z')
+    {
+        return 0x04 + (ascii - 'a');  /* a=0x04, z=0x1D */
+    }
+    if (ascii >= 'A' && ascii <= 'Z')
+    {
+        *out_modifier = 0x02;  /* 左 Shift */
+        return 0x04 + (ascii - 'A');
+    }
+    if (ascii >= '0' && ascii <= '9')
+    {
+        return 0x27 + (ascii - '0');  /* 0=0x27, 9=0x30 */
+    }
+    switch (ascii)
+    {
+        case ' ': return 0x2C;  /* 空格 */
+        case '!': *out_modifier = 0x02; return 0x1E;  /* Shift+1 */
+        case '@': *out_modifier = 0x02; return 0x1F;  /* Shift+2 */
+        case '#': *out_modifier = 0x02; return 0x20;  /* Shift+3 */
+        case '$': *out_modifier = 0x02; return 0x21;  /* Shift+4 */
+        case '%': *out_modifier = 0x02; return 0x22;  /* Shift+5 */
+        case '^': *out_modifier = 0x02; return 0x23;  /* Shift+6 */
+        case '&': *out_modifier = 0x02; return 0x24;  /* Shift+7 */
+        case '*': *out_modifier = 0x02; return 0x25;  /* Shift+8 */
+        case '(': *out_modifier = 0x02; return 0x26;  /* Shift+9 */
+        case ')': *out_modifier = 0x02; return 0x27;  /* Shift+0 */
+        case '-': return 0x2D;
+        case '_': *out_modifier = 0x02; return 0x2D;
+        case '=': return 0x2E;
+        case '+': *out_modifier = 0x02; return 0x2E;
+        case '[': return 0x2F;
+        case '{': *out_modifier = 0x02; return 0x2F;
+        case ']': return 0x30;
+        case '}': *out_modifier = 0x02; return 0x30;
+        case '\\': return 0x31;
+        case '|': *out_modifier = 0x02; return 0x31;
+        case ';': return 0x33;
+        case ':': *out_modifier = 0x02; return 0x33;
+        case '\'': return 0x34;
+        case '"': *out_modifier = 0x02; return 0x34;
+        case '`': return 0x35;
+        case '~': *out_modifier = 0x02; return 0x35;
+        case ',': return 0x36;
+        case '<': *out_modifier = 0x02; return 0x36;
+        case '.': return 0x37;
+        case '>': *out_modifier = 0x02; return 0x37;
+        case '/': return 0x38;
+        case '?': *out_modifier = 0x02; return 0x38;
+        case '\n': return 0x28;  /* Enter */
+        case '\t': return 0x2B;  /* Tab */
+        case '\b': return 0x2A;  /* Backspace */
+        default: return 0;  /* 不支持的字符 */
+    }
+}
 
 /* 加载默认宏（空宏） */
 static void load_default_macros(void)
@@ -154,6 +220,11 @@ static void release_all_keys(void)
         s_mouse_buttons = 0;
         s_mouse_changed = true;
     }
+
+    /* 重置按键点击两阶段状态机 */
+    s_press_phase = MACRO_PHASE_PRESS;
+    s_press_keycode = 0;
+    s_press_modifier = 0;
 }
 
 /* 执行单个动作 */
@@ -224,6 +295,67 @@ static bool execute_action(const macro_action_t* action)
                 tud_hid_mouse_report(REPORT_ID_MOUSE, s_mouse_buttons, 0, 0, scroll, 0);
             }
             break;
+        }
+
+        case MACRO_ACTION_KEY_PRESS:
+        {
+            /* 按键点击：两阶段——先按下，等下一帧HID报告发送后再释放 */
+            if (s_press_phase == MACRO_PHASE_PRESS)
+            {
+                /* 第一帧：按下 */
+                uint8_t keycode = action->param1;
+                add_key(keycode);
+                s_press_keycode = keycode;
+                s_press_phase = MACRO_PHASE_RELEASE;
+                return false;  /* 等待下一帧 */
+            }
+            else
+            {
+                /* 第二帧：释放 */
+                remove_key(s_press_keycode);
+                s_press_keycode = 0;
+                s_press_phase = MACRO_PHASE_PRESS;
+                return true;   /* 完成 */
+            }
+        }
+
+        case MACRO_ACTION_TEXT_CHAR:
+        {
+            /* 输入字符：两阶段——ASCII转HID键码，按下后等下一帧再释放 */
+            if (s_press_phase == MACRO_PHASE_PRESS)
+            {
+                uint8_t modifier = 0;
+                uint8_t keycode = ascii_to_hid((char)action->param1, &modifier);
+                if (keycode != 0)
+                {
+                    if (modifier != 0)
+                    {
+                        s_kb_modifier |= modifier;
+                    }
+                    add_key(keycode);
+                    s_press_keycode = keycode;
+                    s_press_modifier = modifier;
+                    s_press_phase = MACRO_PHASE_RELEASE;
+                }
+                return false;  /* 等待下一帧（即使keycode为0也跳过该字符） */
+            }
+            else
+            {
+                /* 第二帧：释放 */
+                if (s_press_keycode != 0)
+                {
+                    remove_key(s_press_keycode);
+                }
+                if (s_press_modifier != 0)
+                {
+                    s_kb_modifier &= ~s_press_modifier;
+                }
+                s_press_keycode = 0;
+                s_press_modifier = 0;
+                s_press_phase = MACRO_PHASE_PRESS;
+                s_kb_changed = true;
+                return true;   /* 完成 */
+            }
         }
 
         default:
@@ -338,15 +470,17 @@ int macro_set(uint8_t macro_id, const macro_def_t* macro)
     memcpy(&s_macros[macro_id], macro, sizeof(macro_def_t));
     s_macros[macro_id].id = macro_id;
 
-    /* 限制动作数量 */
+    /* 限制动作数量，截断时返回1（部分成功） */
+    int result = 0;  /* 0=完全成功 */
     if (s_macros[macro_id].action_count > MACRO_MAX_ACTIONS)
     {
         s_macros[macro_id].action_count = MACRO_MAX_ACTIONS;
+        result = 1;  /* 1=部分成功：动作被截断 */
     }
 
     /* TODO: 保存到Flash */
 
-    return 0;
+    return result;
 }
 
 bool macro_trigger(uint8_t macro_id)
@@ -395,6 +529,18 @@ void macro_stop_all(void)
     s_current_action = 0;
     s_delay_end_ms = 0;
     s_repeat_remaining = 0;
+}
+
+uint8_t macro_find_by_trigger_key(uint8_t key_index)
+{
+    for (uint8_t i = 0; i < MACRO_MAX_COUNT; i++)
+    {
+        if (s_macros[i].trigger_key == key_index && s_macros[i].action_count > 0)
+        {
+            return i;
+        }
+    }
+    return 0xFF;
 }
 
 bool macro_is_running(void)
