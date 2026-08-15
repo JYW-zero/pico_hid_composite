@@ -1,0 +1,89 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:HidConfigTool.Desktop.ViewModels"
+        xmlns:pages="using:HidConfigTool.Desktop.Views.Pages"
+        x:Class="HidConfigTool.Desktop.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="{Binding WindowTitle}"
+        Width="1140" Height="720"
+        MinWidth="960" MinHeight="620"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource AppBg}">
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="200" />
+      <ColumnDefinition Width="*" />
+    </Grid.ColumnDefinitions>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="*" />
+      <RowDefinition Height="28" />
+    </Grid.RowDefinitions>
+
+    <Border Grid.Row="0" Grid.Column="0" Background="{DynamicResource SidebarBg}"
+            BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="16,16,16,20" Spacing="8">
+          <Border Width="22" Height="22" Background="{DynamicResource Accent}" CornerRadius="5">
+            <TextBlock Text="H" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <TextBlock Text="HID 配置" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" FontWeight="Medium" />
+        </StackPanel>
+        <StackPanel Margin="8,0" Spacing="4">
+          <Button Content="设备" Command="{Binding NavigateToDeviceCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="按键" Command="{Binding NavigateToKeysCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="鼠标" Command="{Binding NavigateToMouseCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="摇杆" Command="{Binding NavigateToJoystickCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="编码器" Command="{Binding NavigateToEncoderCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="宏" Command="{Binding NavigateToMacroCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="统计" Command="{Binding NavigateToStatsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="性能" Command="{Binding NavigateToPerfCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="错误日志" Command="{Binding NavigateToErrorLogCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="设置" Command="{Binding NavigateToSettingsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <Panel Grid.Row="0" Grid.Column="1" Margin="20">
+      <Panel IsVisible="{Binding IsDevicePage}">
+        <pages:DevicePage DataContext="{Binding DevicePage}" />
+      </Panel>
+      <Panel IsVisible="{Binding IsKeysPage}">
+        <pages:KeyPage DataContext="{Binding KeyPage}" />
+      </Panel>
+      <Panel IsVisible="{Binding IsMousePage}">
+        <pages:MousePage DataContext="{Binding MousePage}" />
+      </Panel>
+      <Panel IsVisible="{Binding IsJoystickPage}">
+        <pages:JoystickPage DataContext="{Binding JoystickPage}" />
+      </Panel>
+      <Panel IsVisible="{Binding IsEncoderPage}">
+        <pages:EncoderPage DataContext="{Binding EncoderPage}" />
+      </Panel>
+      <Panel IsVisible="{Binding IsMacroPage}">
+        <pages:MacroPage DataContext="{Binding MacroPage}" />
+      </Panel>
+      <Panel IsVisible="{Binding IsStatsPage}">
+        <pages:StatsPage DataContext="{Binding StatsPage}" />
+      </Panel>
+      <Panel IsVisible="{Binding IsPerfPage}">
+        <pages:PerfPage DataContext="{Binding PerfPage}" />
+      </Panel>
+      <Panel IsVisible="{Binding IsErrorLogPage}">
+        <pages:ErrorLogPage DataContext="{Binding ErrorLogPage}" />
+      </Panel>
+      <Panel IsVisible="{Binding IsSettingsPage}">
+        <pages:SettingsPage DataContext="{Binding SettingsPage}" />
+      </Panel>
+    </Panel>
+
+    <Border Grid.Row="1" Grid.ColumnSpan="2" Background="{DynamicResource SidebarBg}"
+            BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0">
+      <DockPanel Margin="12,0">
+        <TextBlock DockPanel.Dock="Left" Text="{Binding StatusMessage}" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center" FontSize="12" />
+        <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="12"
+                   Foreground="{DynamicResource TextSecondary}"
+                   Text="{Binding ConnectionText}" />
+      </DockPanel>
+    </Border>
+  </Grid>
+</Window>

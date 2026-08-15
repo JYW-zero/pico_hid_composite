@@ -1,0 +1,41 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HidConfigTool.Desktop.ViewModels"
+             xmlns:models="using:HidConfigTool.Core.Models"
+             x:Class="HidConfigTool.Desktop.Views.Pages.KeyPage"
+             x:DataType="vm:KeyPageViewModel">
+  <DockPanel>
+    <StackPanel DockPanel.Dock="Top" Spacing="10">
+      <TextBlock Text="按键映射" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="普通层" Command="{Binding SwitchLayerCommand}" CommandParameter="0" />
+        <Button Content="Fn 层" Command="{Binding SwitchLayerCommand}" CommandParameter="1" />
+        <Button Content="保存到设备" Command="{Binding SaveToDeviceCommand}" />
+        <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}" />
+      </StackPanel>
+      <TextBlock Text="{Binding SelectedKey.KeyName, FallbackValue='点按键位进行映射'}" Foreground="{DynamicResource Accent}" />
+      <ComboBox ItemsSource="{Binding AllKeys}" SelectedItem="{Binding PickedKey}" Width="280"
+                HorizontalAlignment="Left" PlaceholderText="给选中键选择 HID 码">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="models:KeyDefinition">
+            <TextBlock Text="{Binding Name}" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+    </StackPanel>
+    <ItemsControl ItemsSource="{Binding Keys}" Margin="0,12,0,0">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <UniformGrid Rows="8" Columns="8" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:KeyItemViewModel">
+          <Button Margin="3" MinHeight="44" Click="OnKeyClick" Tag="{Binding}">
+            <TextBlock Text="{Binding KeyName}" FontSize="11" TextWrapping="Wrap" />
+          </Button>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+  </DockPanel>
+</UserControl>

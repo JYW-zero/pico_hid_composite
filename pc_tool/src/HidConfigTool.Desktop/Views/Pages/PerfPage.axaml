@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HidConfigTool.Desktop.ViewModels"
+             xmlns:models="using:HidConfigTool.Core.Models"
+             x:Class="HidConfigTool.Desktop.Views.Pages.PerfPage"
+             x:DataType="vm:PerfPageViewModel">
+  <DockPanel>
+    <StackPanel DockPanel.Dock="Top" Spacing="10">
+      <TextBlock Text="性能监控" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" />
+      <StackPanel Orientation="Horizontal" Spacing="24">
+        <TextBlock Text="{Binding CpuUsageText, StringFormat='CPU: {0}%'}" Foreground="{DynamicResource Accent}" />
+        <TextBlock Text="{Binding LoopFreqText, StringFormat='主循环: {0} Hz'}" Foreground="{DynamicResource TextPrimary}" />
+        <TextBlock Text="{Binding UptimeText, StringFormat='运行: {0}'}" Foreground="{DynamicResource TextPrimary}" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="刷新" Command="{Binding RefreshCommand}" />
+        <Button Content="重置" Command="{Binding ResetCommand}" />
+      </StackPanel>
+      <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource TextSecondary}" />
+    </StackPanel>
+    <DataGrid ItemsSource="{Binding TaskStats}" AutoGenerateColumns="False" Margin="0,12,0,0" IsReadOnly="True">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="任务" Binding="{Binding Name}" Width="*" />
+        <DataGridTextColumn Header="次数" Binding="{Binding ExecutionCount}" Width="80" />
+        <DataGridTextColumn Header="平均 us" Binding="{Binding AvgTimeUs}" Width="90" />
+        <DataGridTextColumn Header="最大 us" Binding="{Binding MaxTimeUs}" Width="90" />
+        <DataGridTextColumn Header="CPU%" Binding="{Binding CpuPercent}" Width="70" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </DockPanel>
+</UserControl>
