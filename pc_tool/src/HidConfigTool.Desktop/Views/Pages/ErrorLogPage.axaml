@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HidConfigTool.Desktop.ViewModels"
+             xmlns:models="using:HidConfigTool.Core.Models"
+             x:Class="HidConfigTool.Desktop.Views.Pages.ErrorLogPage"
+             x:DataType="vm:ErrorLogPageViewModel">
+  <DockPanel>
+    <StackPanel DockPanel.Dock="Top" Spacing="10">
+      <TextBlock Text="错误日志" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" />
+      <StackPanel Orientation="Horizontal" Spacing="16">
+        <TextBlock Text="{Binding TotalLogCount, StringFormat='日志: {0}'}" Foreground="{DynamicResource TextPrimary}" />
+        <TextBlock Text="{Binding TotalFaultCount, StringFormat='故障: {0}'}" Foreground="{DynamicResource Error}" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="刷新" Command="{Binding RefreshCommand}" />
+        <Button Content="清除" Command="{Binding ClearCommand}" />
+      </StackPanel>
+      <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource TextSecondary}" />
+    </StackPanel>
+    <DataGrid ItemsSource="{Binding Logs}" SelectedItem="{Binding SelectedLog}" AutoGenerateColumns="False" Margin="0,12,0,0" IsReadOnly="True">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="时间" Binding="{Binding TimeFormatted}" Width="100" />
+        <DataGridTextColumn Header="级别" Binding="{Binding LevelName}" Width="80" />
+        <DataGridTextColumn Header="模块" Binding="{Binding Module}" Width="120" />
+        <DataGridTextColumn Header="消息" Binding="{Binding Message}" Width="*" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </DockPanel>
+</UserControl>

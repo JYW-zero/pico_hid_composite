@@ -1,0 +1,33 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HidConfigTool.Desktop.ViewModels"
+             xmlns:core="using:HidConfigTool.Core.Interfaces"
+             x:Class="HidConfigTool.Desktop.Views.Pages.DevicePage"
+             x:DataType="vm:DevicePageViewModel">
+  <ScrollViewer>
+    <StackPanel Spacing="16">
+      <TextBlock Text="设备" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" />
+      <Border Background="{DynamicResource CardBg}" CornerRadius="8" Padding="16">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource TextSecondary}" />
+          <TextBlock Text="{Binding DeviceName, StringFormat='名称: {0}'}" Foreground="{DynamicResource TextPrimary}" />
+          <TextBlock Text="{Binding FirmwareVersion, StringFormat='固件: {0}'}" Foreground="{DynamicResource TextPrimary}" />
+          <ListBox ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}" Height="140">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="core:HidDeviceInfo">
+                <TextBlock Text="{Binding ProductName}" />
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="刷新" Command="{Binding RefreshCommand}" />
+            <Button Content="连接" Command="{Binding ConnectCommand}" />
+            <Button Content="断开" Command="{Binding DisconnectCommand}" />
+            <Button Content="重启设备" Command="{Binding RebootCommand}" />
+            <Button Content="进入烧录" Command="{Binding EnterBootselCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

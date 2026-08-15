@@ -20,10 +20,17 @@ Windows 平台的 HID 复合设备配置工具。
 
 ## 编译
 
-使用 Visual Studio 2022 或命令行：
+跨平台配置工具（Mac / Windows）：
 
 ```bash
-dotnet build
+cd pc_tool
+dotnet run --project src/HidConfigTool.Desktop
+```
+
+Windows 专用 WPF 版：
+
+```bash
+dotnet build src/HidConfigTool.App
 ```
 
 ## 运行

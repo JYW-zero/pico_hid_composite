@@ -1,9 +1,8 @@
 using HidConfigTool.Core.Interfaces;
 using HidConfigTool.Core.Models;
-using HidConfigTool.App.Drivers;
 using System.IO;
 
-namespace HidConfigTool.App.Services;
+namespace HidConfigTool.Core.Services;
 
 /// <summary>
 /// HID 设备服务实现
