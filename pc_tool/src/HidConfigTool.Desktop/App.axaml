@@ -1,0 +1,21 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="HidConfigTool.Desktop.App"
+             RequestedThemeVariant="Dark">
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+  </Application.Styles>
+  <Application.Resources>
+    <SolidColorBrush x:Key="AppBg">#1A1B26</SolidColorBrush>
+    <SolidColorBrush x:Key="SidebarBg">#16161E</SolidColorBrush>
+    <SolidColorBrush x:Key="CardBg">#24283B</SolidColorBrush>
+    <SolidColorBrush x:Key="Accent">#7AA2F7</SolidColorBrush>
+    <SolidColorBrush x:Key="TextPrimary">#C0CAF5</SolidColorBrush>
+    <SolidColorBrush x:Key="TextSecondary">#A9B1D6</SolidColorBrush>
+    <SolidColorBrush x:Key="Success">#9ECE6A</SolidColorBrush>
+    <SolidColorBrush x:Key="Error">#F7768E</SolidColorBrush>
+    <SolidColorBrush x:Key="Warning">#E0AF68</SolidColorBrush>
+    <SolidColorBrush x:Key="Border">#2E3347</SolidColorBrush>
+  </Application.Resources>
+</Application>

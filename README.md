@@ -255,6 +255,7 @@ dotnet run --project src/HidConfigTool.App
 |------|------|
 | [快速上手指南](docs/QUICKSTART.md) | 5 分钟快速上手 |
 | [开发环境配置](docs/SETUP.md) | 完整的环境配置指南 |
+| [macOS 安装教程](docs/SETUP_MAC.md) | Mac 上安装工具链并编译固件 |
 | [功能清单](docs/FEATURES.md) | 详细功能说明 |
 | [HID 协议文档](docs/HID_PROTOCOL.md) | USB HID 协议详细说明 |
 | [硬件接线图](docs/wiring_diagram.md) | 硬件接线说明 |

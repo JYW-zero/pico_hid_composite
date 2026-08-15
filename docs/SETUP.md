@@ -156,6 +156,12 @@ cd pico_hid_composite
 
 ---
 
+### macOS
+
+Apple Silicon Mac 上编译固件，请看 [SETUP_MAC.md](SETUP_MAC.md)。上位机（WPF）无法在 Mac 上运行。
+
+---
+
 ### 方式三：手动编译（备选）
 
 如果你不使用 VS Code 插件，也可以手动编译：

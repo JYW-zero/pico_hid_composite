@@ -8,6 +8,7 @@ using HidConfigTool.App.Drivers;
 using HidConfigTool.App.ViewModels;
 using HidConfigTool.App.Views;
 using HidConfigTool.App.Services;
+using HidConfigTool.Core.Services;
 
 namespace HidConfigTool.App;
 
