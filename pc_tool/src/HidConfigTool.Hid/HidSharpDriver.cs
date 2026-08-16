@@ -1,6 +1,7 @@
 using HidConfigTool.Core.Interfaces;
 using HidSharp;
 using HidSharp.Reports;
+using System.Threading;
 
 namespace HidConfigTool.Hid;
 
@@ -147,6 +148,61 @@ public sealed class HidSharpDriver : IHidDriver
                 return null;
             }
         });
+    }
+
+    public Task<bool> SendFeatureReportAsync(byte reportId, byte[] data, CancellationToken cancellationToken)
+    {
+        if (_stream == null)
+            return Task.FromResult(false);
+
+        return Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                byte[] buffer = new byte[_featureLength];
+                buffer[0] = reportId;
+                Array.Copy(data, 0, buffer, 1, Math.Min(data.Length, buffer.Length - 1));
+                _stream.SetFeature(buffer);
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                return false;
+            }
+        }, cancellationToken);
+    }
+
+    public Task<byte[]?> GetFeatureReportAsync(byte reportId, CancellationToken cancellationToken)
+    {
+        if (_stream == null)
+            return Task.FromResult<byte[]?>(null);
+
+        return Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                byte[] buffer = new byte[_featureLength];
+                buffer[0] = reportId;
+                _stream.GetFeature(buffer);
+                byte[] result = new byte[buffer.Length - 1];
+                Array.Copy(buffer, 1, result, 0, result.Length);
+                return (byte[]?)result;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                return null;
+            }
+        }, cancellationToken);
     }
 
     public void Dispose()
