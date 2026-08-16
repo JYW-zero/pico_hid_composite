@@ -40,6 +40,11 @@ public class KeyDefinition : IEquatable<KeyDefinition>
     {
         return KeyCode.GetHashCode();
     }
+
+    public override string ToString()
+    {
+        return Name;
+    }
 }
 
 /// <summary>

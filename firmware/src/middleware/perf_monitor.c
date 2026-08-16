@@ -26,6 +26,7 @@ static uint32_t s_current_sec_loops = 0; /* 当前秒的循环数 */
 static uint32_t s_busy_us_total = 0;    /* 总忙碌时间 */
 static uint32_t s_last_sec_busy_us = 0; /* 上一秒的忙碌时间 */
 static uint32_t s_current_sec_busy_us = 0; /* 当前秒的忙碌时间 */
+static uint32_t s_last_sec_task_us[PERF_MAX_TASKS]; /* 上一秒各任务累计耗时（用于计算增量） */
 static uint32_t s_loop_freq = 0;       /* 主循环频率（Hz） */
 static uint32_t s_cpu_usage = 0;       /* CPU使用率（0-100） */
 
@@ -39,6 +40,21 @@ static uint8_t  s_cpu_avg_30s = 0;                /* 30秒平均CPU使用率 */
 static uint32_t s_freq_avg_10s = 0;               /* 10秒平均主循环频率 */
 
 static bool s_initialized = false;
+
+/* 性能监控全局开关，默认关闭（0开销） */
+static volatile bool g_perf_enabled = false;
+
+/* ==================== 开关控制 ==================== */
+
+void perf_set_enabled(bool enabled)
+{
+    g_perf_enabled = enabled;
+}
+
+bool perf_is_enabled(void)
+{
+    return g_perf_enabled;
+}
 
 /* ==================== 对外接口 ==================== */
 
@@ -91,7 +107,7 @@ void perf_register_task(uint8_t index, const char* name)
 
 void perf_start(uint8_t index)
 {
-    if (!s_initialized || index >= PERF_MAX_TASKS)
+    if (!g_perf_enabled || !s_initialized || index >= PERF_MAX_TASKS)
     {
         return;
     }
@@ -101,7 +117,7 @@ void perf_start(uint8_t index)
 
 void perf_end(uint8_t index)
 {
-    if (!s_initialized || index >= PERF_MAX_TASKS)
+    if (!g_perf_enabled || !s_initialized || index >= PERF_MAX_TASKS)
     {
         return;
     }
@@ -197,6 +213,7 @@ void perf_reset(void)
     s_cpu_usage = 0;
     s_cpu_avg_10s = 0;
     s_cpu_avg_30s = 0;
+    memset(s_last_sec_task_us, 0, sizeof(s_last_sec_task_us));
     s_freq_avg_10s = 0;
 
     uint32_t now = time_us_32();
@@ -220,7 +237,7 @@ void perf_set_threshold(uint8_t index, uint32_t threshold_us)
 
 void perf_loop_tick(void)
 {
-    if (!s_initialized)
+    if (!g_perf_enabled || !s_initialized)
     {
         return;
     }
@@ -245,18 +262,20 @@ void perf_loop_tick(void)
             }
             s_cpu_usage = (s_current_sec_busy_us * 100U) / elapsed_us;
 
-            /* 计算每个任务的CPU占比（占总忙碌时间的百分比） */
+            /* 计算每个任务的CPU占比（用每秒增量值，保证实时性） */
             if (s_current_sec_busy_us > 0)
             {
                 for (uint8_t i = 0; i < s_task_count; i++)
                 {
-                    /* 注意：这里用的是累计的total_us，不是每秒的。
-                       为了准确计算每秒的占比，我们需要每秒的任务耗时。
-                       简化处理：用累计值计算，误差不大，够用 */
-                    if (s_busy_us_total > 0)
+                    /* 计算本秒内该任务的耗时增量 */
+                    uint32_t task_delta = s_tasks[i].total_us - s_last_sec_task_us[i];
+                    s_last_sec_task_us[i] = s_tasks[i].total_us;
+
+                    if (task_delta > s_current_sec_busy_us)
                     {
-                        s_tasks[i].cpu_percent = (uint8_t)((s_tasks[i].total_us * 100ULL) / s_busy_us_total);
+                        task_delta = s_current_sec_busy_us;  /* 防止溢出 */
                     }
+                    s_tasks[i].cpu_percent = (uint8_t)((task_delta * 100ULL) / s_current_sec_busy_us);
                 }
             }
 

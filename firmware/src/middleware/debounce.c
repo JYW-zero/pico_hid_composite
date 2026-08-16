@@ -17,8 +17,13 @@ void debounce_64key_init(debounce_64key_t *db, uint8_t threshold)
 
     db->last_raw = 0xFFFFFFFFFFFFFFFFULL;
     db->stable_state = 0xFFFFFFFFFFFFFFFFULL;
-    db->debounce_count = 0;
     db->debounce_threshold = threshold;
+
+    /* 初始化所有按键计数器为0 */
+    for (int i = 0; i < 64; i++)
+    {
+        db->count[i] = 0;
+    }
 }
 
 uint64_t debounce_64key_update(debounce_64key_t *db, uint64_t raw)
@@ -29,21 +34,36 @@ uint64_t debounce_64key_update(debounce_64key_t *db, uint64_t raw)
         return 0xFFFFFFFFFFFFFFFFULL;
     }
 
-    if (raw == db->last_raw)
+    /* 找出哪些位发生了变化 */
+    uint64_t changed = raw ^ db->last_raw;
+    db->last_raw = raw;
+
+    /* 逐位独立消抖 */
+    for (int i = 0; i < 64; i++)
     {
-        if (db->debounce_count < db->debounce_threshold)
+        if ((changed >> i) & 1ULL)
         {
-            db->debounce_count++;
+            /* 该位变化，重置计数器为1（当前采样算第一次） */
+            db->count[i] = 1;
+        }
+        else if (db->count[i] < db->debounce_threshold)
+        {
+            /* 该位未变化但未达到阈值，累加计数器 */
+            db->count[i]++;
         }
         else
         {
-            db->stable_state = raw;
+            /* 该位已稳定，更新稳定状态 */
+            uint64_t bit = (raw >> i) & 1ULL;
+            if (bit)
+            {
+                db->stable_state |= (1ULL << i);
+            }
+            else
+            {
+                db->stable_state &= ~(1ULL << i);
+            }
         }
-    }
-    else
-    {
-        db->debounce_count = 0;
-        db->last_raw = raw;
     }
 
     return db->stable_state;

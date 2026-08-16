@@ -7,9 +7,10 @@ namespace HidConfigTool.App.ViewModels;
 /// <summary>
 /// 主窗口视图模型
 /// </summary>
-public partial class MainViewModel : ObservableObject
+public partial class MainViewModel : ObservableObject, IDisposable
 {
     private readonly IDeviceService _deviceService;
+    private bool _disposed;
 
     /// <summary>
     /// 页面类型枚举
@@ -17,14 +18,13 @@ public partial class MainViewModel : ObservableObject
     public enum PageType
     {
         Device,
-        Keys,
+        KeyManagement,
         Mouse,
         Joystick,
         Encoder,
         Macro,
         ErrorLog,
         PerfMonitor,
-        Stats,
         Settings
     }
 
@@ -43,11 +43,13 @@ public partial class MainViewModel : ObservableObject
     /// <summary>
     /// 设备是否已连接
     /// </summary>
-    public bool IsDeviceConnected => _deviceService.IsConnected;
+    [ObservableProperty]
+    private bool _isDeviceConnected;
 
     public MainViewModel(IDeviceService deviceService)
     {
         _deviceService = deviceService;
+        IsDeviceConnected = _deviceService.IsConnected;
 
         // 订阅操作状态变化事件
         _deviceService.OperationStatusChanged += OnOperationStatusChanged;
@@ -58,7 +60,7 @@ public partial class MainViewModel : ObservableObject
 
     private void OnDeviceConnectionChanged(object? sender, bool isConnected)
     {
-        OnPropertyChanged(nameof(IsDeviceConnected));
+        IsDeviceConnected = isConnected;
         StatusMessage = isConnected ? "设备已连接" : "设备已断开";
     }
 
@@ -75,7 +77,7 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     public void NotifyDeviceConnected()
     {
-        OnPropertyChanged(nameof(IsDeviceConnected));
+        IsDeviceConnected = true;
         StatusMessage = "设备已连接";
     }
 
@@ -84,7 +86,7 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     public void NotifyDeviceDisconnected()
     {
-        OnPropertyChanged(nameof(IsDeviceConnected));
+        IsDeviceConnected = false;
         StatusMessage = "设备已断开";
     }
 
@@ -95,9 +97,9 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void NavigateToKeys()
+    private void NavigateToKeyManagement()
     {
-        CurrentPage = PageType.Keys;
+        CurrentPage = PageType.KeyManagement;
     }
 
     [RelayCommand]
@@ -137,15 +139,21 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void NavigateToStats()
-    {
-        CurrentPage = PageType.Stats;
-    }
-
-    [RelayCommand]
     private void NavigateToSettings()
     {
         CurrentPage = PageType.Settings;
+    }
+
+    /// <summary>
+    /// 释放资源，取消事件订阅
+    /// </summary>
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        _deviceService.OperationStatusChanged -= OnOperationStatusChanged;
+        _deviceService.DeviceConnectionChanged -= OnDeviceConnectionChanged;
     }
 }
 

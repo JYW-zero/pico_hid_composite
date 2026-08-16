@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="App_Title" xml:space="preserve">
+    <value>Pico HID 配置工具</value>
+  </data>
+  <data name="Nav_Device" xml:space="preserve">
+    <value>设备</value>
+  </data>
+  <data name="Nav_Keyboard" xml:space="preserve">
+    <value>键盘</value>
+  </data>
+  <data name="Nav_Mouse" xml:space="preserve">
+    <value>鼠标</value>
+  </data>
+  <data name="Nav_Joystick" xml:space="preserve">
+    <value>摇杆</value>
+  </data>
+  <data name="Nav_Encoder" xml:space="preserve">
+    <value>编码器</value>
+  </data>
+  <data name="Nav_Macro" xml:space="preserve">
+    <value>宏</value>
+  </data>
+  <data name="Nav_Stats" xml:space="preserve">
+    <value>统计</value>
+  </data>
+  <data name="Nav_Settings" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="Nav_ErrorLog" xml:space="preserve">
+    <value>错误日志</value>
+  </data>
+  <data name="Nav_PerfMonitor" xml:space="preserve">
+    <value>性能监控</value>
+  </data>
+  <data name="Btn_Save" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="Btn_Reset" xml:space="preserve">
+    <value>恢复默认</value>
+  </data>
+  <data name="Btn_New" xml:space="preserve">
+    <value>新建</value>
+  </data>
+  <data name="Btn_Rename" xml:space="preserve">
+    <value>重命名</value>
+  </data>
+  <data name="Btn_Delete" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <data name="Btn_Import" xml:space="preserve">
+    <value>导入</value>
+  </data>
+  <data name="Btn_Export" xml:space="preserve">
+    <value>导出</value>
+  </data>
+  <data name="Btn_StartRecord" xml:space="preserve">
+    <value>开始录制</value>
+  </data>
+  <data name="Btn_StopRecord" xml:space="preserve">
+    <value>停止录制</value>
+  </data>
+  <data name="Btn_Play" xml:space="preserve">
+    <value>播放</value>
+  </data>
+  <data name="Btn_Stop" xml:space="preserve">
+    <value>停止</value>
+  </data>
+  <data name="Btn_CheckUpdate" xml:space="preserve">
+    <value>检查更新</value>
+  </data>
+  <data name="Btn_Update" xml:space="preserve">
+    <value>立即更新</value>
+  </data>
+  <data name="Btn_Help" xml:space="preserve">
+    <value>帮助</value>
+  </data>
+  <data name="Label_Theme" xml:space="preserve">
+    <value>主题</value>
+  </data>
+  <data name="Label_Language" xml:space="preserve">
+    <value>语言</value>
+  </data>
+  <data name="Theme_Dark" xml:space="preserve">
+    <value>深色</value>
+  </data>
+  <data name="Theme_Light" xml:space="preserve">
+    <value>浅色</value>
+  </data>
+  <data name="Lang_Chinese" xml:space="preserve">
+    <value>简体中文</value>
+  </data>
+  <data name="Lang_English" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Status_Connected" xml:space="preserve">
+    <value>已连接</value>
+  </data>
+  <data name="Status_Disconnected" xml:space="preserve">
+    <value>未连接</value>
+  </data>
+  <data name="Status_Saving" xml:space="preserve">
+    <value>保存中...</value>
+  </data>
+  <data name="Status_Saved" xml:space="preserve">
+    <value>已保存</value>
+  </data>
+  <data name="Status_Recording" xml:space="preserve">
+    <value>录制中...</value>
+  </data>
+  <data name="Msg_SaveSuccess" xml:space="preserve">
+    <value>保存成功</value>
+  </data>
+  <data name="Msg_SaveFailed" xml:space="preserve">
+    <value>保存失败</value>
+  </data>
+  <data name="Msg_DeleteConfirm" xml:space="preserve">
+    <value>确定要删除吗？</value>
+  </data>
+  <data name="Msg_UpdateAvailable" xml:space="preserve">
+    <value>发现新版本</value>
+  </data>
+  <data name="Msg_NoUpdate" xml:space="preserve">
+    <value>已是最新版本</value>
+  </data>
+  <data name="Title_Help" xml:space="preserve">
+    <value>帮助文档</value>
+  </data>
+  <data name="Title_About" xml:space="preserve">
+    <value>关于</value>
+  </data>
+  <data name="Title_ProfileManager" xml:space="preserve">
+    <value>配置文件管理</value>
+  </data>
+  <data name="Title_Appearance" xml:space="preserve">
+    <value>外观设置</value>
+  </data>
+  <data name="Title_AppAwareness" xml:space="preserve">
+    <value>应用感知</value>
+  </data>
+  <data name="Title_CloudSync" xml:space="preserve">
+    <value>云同步</value>
+  </data>
+  <data name="Title_AutoUpdate" xml:space="preserve">
+    <value>自动更新</value>
+  </data>
+</root>

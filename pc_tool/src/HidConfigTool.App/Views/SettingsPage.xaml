@@ -100,9 +100,11 @@
                     </StackPanel>
                 </Expander.Header>
                 <StackPanel>
-                    <ComboBox ItemsSource="{Binding Profiles}"
+                    <ComboBox x:Name="ProfileComboBox"
+                              ItemsSource="{Binding Profiles}"
                               SelectedItem="{Binding CurrentProfile}"
                               DisplayMemberPath="Name"
+                              MouseDoubleClick="ProfileComboBox_MouseDoubleClick"
                               Margin="0,0,0,12" />
                     <StackPanel Orientation="Horizontal">
                         <Button Command="{Binding NewProfileCommand}" Content="新建" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,8,0" Padding="14,8" FontSize="12" />
@@ -225,12 +227,12 @@
                 </Expander.Header>
                 <StackPanel>
                     <TextBlock Text="主题" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
-                    <ComboBox SelectedIndex="0" Margin="0,0,0,16">
-                        <ComboBoxItem Content="深色 (Tokyo Night)" />
+                    <ComboBox SelectedItem="{Binding Theme}" Margin="0,0,0,16">
+                        <ComboBoxItem Content="深色" />
                         <ComboBoxItem Content="浅色" />
                     </ComboBox>
                     <TextBlock Text="语言" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
-                    <ComboBox SelectedIndex="0">
+                    <ComboBox SelectedItem="{Binding Language}">
                         <ComboBoxItem Content="简体中文" />
                         <ComboBoxItem Content="English" />
                     </ComboBox>
@@ -268,6 +270,12 @@
                         <TextBlock Grid.Row="3" Grid.Column="0" Text="技术栈" Style="{StaticResource LabelStyle}" />
                         <TextBlock Grid.Row="3" Grid.Column="1" Text="WPF + .NET 10" Style="{StaticResource ValueStyle}" />
                     </Grid>
+                    <Button Content="打开帮助文档"
+                            Command="{Binding OpenHelpCommand}"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Margin="0,16,0,0"
+                            HorizontalAlignment="Left"
+                            Padding="20,10" />
                 </StackPanel>
             </Expander>
         </StackPanel>

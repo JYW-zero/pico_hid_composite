@@ -10,6 +10,8 @@
 #include "middleware/watchdog.h"
 #include "middleware/ipc.h"
 #include "middleware/flash_service.h"
+#include "middleware/perf_monitor.h"
+#include "middleware/fault.h"
 #include "pico/multicore.h"
 #include "hardware/sync.h"
 #include "device/keypad_spi.h"
@@ -62,6 +64,7 @@ static sched_task_t s_core1_tasks[CORE1_TASK_COUNT];
 /* 键盘扫描任务：5ms */
 static void core1_keypad_task(void)
 {
+    perf_start(10);
     uint64_t raw_keys = 0;
     if (keypad_spi_read_u64(s_keypad_cfg, &raw_keys) == 0)
     {
@@ -74,14 +77,21 @@ static void core1_keypad_task(void)
     {
         shared_hw_inc_error();
     }
+    perf_end(10);
 }
 
 /* PAW3395 传感器读取任务：2ms */
 static void core1_paw3395_task(void)
 {
+    /* 连续错误计数器，超过阈值尝试重新初始化 */
+    static uint8_t s_consecutive_errors = 0;
+#define PAW3395_MAX_CONSECUTIVE_ERRORS  50u  /* 50次×2ms = 100ms */
+
+    perf_start(9);
     paw3395_motion_t motion;
     if (paw3395_read_motion(s_paw3395_cfg, &motion) == 0)
     {
+        s_consecutive_errors = 0;  /* 成功则重置错误计数 */
         shared_hw_inc_paw3395_read();
 
         if (motion.has_motion)
@@ -110,6 +120,14 @@ static void core1_paw3395_task(void)
     else
     {
         shared_hw_inc_error();
+        s_consecutive_errors++;
+        if (s_consecutive_errors >= PAW3395_MAX_CONSECUTIVE_ERRORS)
+        {
+            /* 连续错误过多，尝试重新初始化传感器 */
+            fault_record(FAULT_LEVEL_WARN, "paw3395", "consecutive errors, re-init");
+            (void)paw3395_init(s_paw3395_cfg);
+            s_consecutive_errors = 0;
+        }
     }
     
     /* 喂 DEVICE 层看门狗 */
@@ -117,11 +135,13 @@ static void core1_paw3395_task(void)
     
     /* 递增心跳计数器，供 Core0 监控 */
     shared_hw_increment_heartbeat();
+    perf_end(9);
 }
 
 /* 编码器扫描任务：1ms */
 static void core1_encoder_task(void)
 {
+    perf_start(8);
     shared_hw_inc_encoder_scan();
     encoder_dir_e dir = encoder_update(s_encoder_cfg, &s_encoder_state);
     
@@ -151,19 +171,46 @@ static void core1_encoder_task(void)
         shared_hw_add_wheel(delta);
     }
     
-    /* 中键状态（简单处理，以后可以加消抖） */
-    bool sw = encoder_read_switch(s_encoder_cfg);
-    uint8_t buttons = sw ? 0x04 : 0x00;  /* 中键是 bit2 */
-    shared_hw_set_mouse_buttons(buttons);
+    /* 中键状态（带消抖：连续3次一致才确认） */
+    static uint8_t s_sw_debounce_count = 0;
+    static bool s_sw_stable = false;
+#define ENCODER_SW_DEBOUNCE_THRESHOLD  3u
+
+    bool sw_raw = encoder_read_switch(s_encoder_cfg);
+    if (sw_raw == s_sw_stable)
+    {
+        s_sw_debounce_count = 0;
+    }
+    else
+    {
+        s_sw_debounce_count++;
+        if (s_sw_debounce_count >= ENCODER_SW_DEBOUNCE_THRESHOLD)
+        {
+            s_sw_stable = sw_raw;
+            s_sw_debounce_count = 0;
+        }
+    }
+    /* 中键状态（OR合并：只设置/清除中键位，不影响其他来源的按钮） */
+    if (s_sw_stable)
+    {
+        shared_hw_set_mouse_buttons(0x04);  /* 中键按下：设置 bit2 */
+    }
+    else
+    {
+        shared_hw_clear_mouse_buttons(0x04);  /* 中键释放：清除 bit2 */
+    }
+    perf_end(8);
 }
 
 /* 摇杆读取任务：10ms */
 static void core1_joystick_task(void)
 {
+    perf_start(11);
     joystick_data_t data;
     if (joystick_read(s_joystick_cfg, &data) != 0)
     {
         shared_hw_inc_error();
+        perf_end(11);
         return;
     }
     shared_hw_inc_joystick_read();
@@ -210,8 +257,28 @@ static void core1_joystick_task(void)
 
     int16_t joy_x = (int16_t)x;
     int16_t joy_y = (int16_t)(-y);  /* Y轴反转 */
-    
-    shared_hw_set_joystick(joy_x, joy_y, data.btn_pressed);
+
+    /* 摇杆按键消抖：连续3次一致才确认（10ms任务周期=30ms消抖） */
+    static uint8_t s_joy_btn_debounce_count = 0;
+    static bool s_joy_btn_stable = false;
+#define JOYSTICK_BTN_DEBOUNCE_THRESHOLD  3u
+
+    if (data.btn_pressed == s_joy_btn_stable)
+    {
+        s_joy_btn_debounce_count = 0;
+    }
+    else
+    {
+        s_joy_btn_debounce_count++;
+        if (s_joy_btn_debounce_count >= JOYSTICK_BTN_DEBOUNCE_THRESHOLD)
+        {
+            s_joy_btn_stable = data.btn_pressed;
+            s_joy_btn_debounce_count = 0;
+        }
+    }
+
+    shared_hw_set_joystick(joy_x, joy_y, s_joy_btn_stable);
+    perf_end(11);
 }
 
 /* ==================== 主入口 ==================== */
@@ -235,6 +302,16 @@ void core1_scanner_main(void)
     
     /* 初始化调度器 */
     sched_init();
+
+    /* 注册 Core1 性能监控任务（索引8-11，与Core0的0-3分开） */
+    perf_register_task(8, "c1_encoder");
+    perf_register_task(9, "c1_paw3395");
+    perf_register_task(10, "c1_keypad");
+    perf_register_task(11, "c1_joystick");
+    perf_set_threshold(8, 200);    /* encoder: 0.2ms */
+    perf_set_threshold(9, 500);    /* paw3395: 0.5ms */
+    perf_set_threshold(10, 1000);  /* keypad: 1ms */
+    perf_set_threshold(11, 500);   /* joystick: 0.5ms */
     
     /* 配置任务列表 */
     int idx = 0;

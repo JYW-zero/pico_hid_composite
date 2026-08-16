@@ -14,7 +14,10 @@
 #include "device/joystick.h"
 #include "device/encoder.h"
 #include "pico/time.h"
+#include "pico/stdlib.h"
 #include "hardware/gpio.h"
+#include "hardware/watchdog.h"
+#include "bsp/board_api.h"
 #include "tusb.h"
 #include <stdio.h>
 #include <string.h>
@@ -214,20 +217,62 @@ static factory_test_status_t test_flash(char* detail, uint32_t* duration_ms)
 
     /* 测试Flash：读取配置魔数，验证Flash可读 */
     const device_config_t* cfg = config_get();
-    if (cfg != NULL && cfg->magic == CONFIG_MAGIC)
+    bool config_valid = (cfg != NULL && cfg->magic == CONFIG_MAGIC);
+
+    /* Flash写入-回读测试：使用按键统计区作为临时测试区域
+     * 工厂测试阶段该区域尚未使用，测试后擦除恢复
+     */
+    uint32_t test_offset = flash_layout_get_offset(FLASH_REGION_KEY_STATS);
+    uint32_t test_addr = flash_layout_get_xip_addr(FLASH_REGION_KEY_STATS);
+    bool write_test_pass = false;
+
+    if (test_offset != 0xFFFFFFFF && test_addr != 0xFFFFFFFF)
     {
-        sprintf(detail, "Flash: %s, 配置魔数正确", size_str);
+        /* 擦除测试扇区 */
+        flash_range_erase(test_offset, FLASH_LAYOUT_SECTOR_SIZE);
+
+        /* 写入测试数据（256字节，交替模式） */
+        uint8_t test_data[256];
+        for (int i = 0; i < 256; i++)
+        {
+            test_data[i] = (uint8_t)(i ^ 0xA5);
+        }
+        flash_range_program(test_offset, test_data, 256);
+
+        /* 回读验证 */
+        const uint8_t* read_ptr = (const uint8_t*)test_addr;
+        write_test_pass = true;
+        for (int i = 0; i < 256; i++)
+        {
+            if (read_ptr[i] != test_data[i])
+            {
+                write_test_pass = false;
+                break;
+            }
+        }
+
+        /* 擦除恢复（写入全0xFF） */
+        flash_range_erase(test_offset, FLASH_LAYOUT_SECTOR_SIZE);
+    }
+
+    if (write_test_pass)
+    {
+        if (config_valid)
+        {
+            sprintf(detail, "Flash: %s, 读写测试通过, 配置魔数正确", size_str);
+        }
+        else
+        {
+            sprintf(detail, "Flash: %s, 读写测试通过, 无有效配置（首次启动？）", size_str);
+        }
         *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
         return FACTORY_TEST_PASS;
     }
     else
     {
-        /* 配置魔数不对不一定是Flash坏了，可能是第一次启动
-         * 这里只警告，不返回失败
-         */
-        sprintf(detail, "Flash: %s, 无有效配置（首次启动？）", size_str);
+        sprintf(detail, "Flash: %s, 写入-回读测试失败", size_str);
         *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
-        return FACTORY_TEST_PASS;
+        return FACTORY_TEST_FAIL;
     }
 }
 
@@ -236,15 +281,19 @@ static factory_test_status_t test_led(char* detail, uint32_t* duration_ms)
 {
     uint32_t start = to_ms_since_boot(get_absolute_time());
 
-    /* TODO: 实际测试LED
-     * - 点亮LED
-     * - 等待一段时间
-     * - 熄灭LED
-     */
-    strcpy(detail, "LED: 测试完成");
+    /* 点亮LED 500ms，熄灭 500ms，重复 3 次供目视检查 */
+    for (int i = 0; i < 3; i++)
+    {
+        board_led_write(true);
+        sleep_ms(500);
+        board_led_write(false);
+        sleep_ms(500);
+    }
+
+    strcpy(detail, "LED: 闪烁 3 次完成，请目视确认");
 
     *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
-    return FACTORY_TEST_PASS;
+    return FACTORY_TEST_PASS;  /* 需要人工确认 */
 }
 
 /* 测试7：USB连接测试 */
@@ -445,10 +494,38 @@ void factory_test_enter(void)
     factory_test_init();
     factory_test_start_all();
 
-    /* 测试完成后，循环等待复位 */
+    printf("\n工厂测试完成！按任意键或等待30秒自动重启...\n");
+
+    /* 测试完成后，等待按键或超时自动重启 */
+    uint32_t wait_start = to_ms_since_boot(get_absolute_time());
+    const keypad_spi_cfg_t* keypad_cfg = board_get_keypad_spi_cfg();
+
     while (1)
     {
-        /* 可以用LED闪烁指示结果 */
-        sleep_ms(1000);
+        /* 检测键盘：任意键按下即重启 */
+        if (keypad_cfg != NULL)
+        {
+            uint64_t keys = 0;
+            keypad_spi_read_u64(keypad_cfg, &keys);
+            /* 0xFFFFFFFFFFFFFFFF 表示无键按下（所有位为1，低电平有效） */
+            if (keys != 0xFFFFFFFFFFFFFFFFULL)
+            {
+                printf("检测到按键，重启设备...\n");
+                break;
+            }
+        }
+
+        /* 超时 30 秒自动重启 */
+        if (to_ms_since_boot(get_absolute_time()) - wait_start > 30000)
+        {
+            printf("超时，自动重启设备...\n");
+            break;
+        }
+
+        sleep_ms(100);
     }
+
+    /* 看门狗复位 */
+    watchdog_reboot(0, 0, 100);
+    while (1) {}
 }

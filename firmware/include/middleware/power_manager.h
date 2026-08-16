@@ -1,4 +1,4 @@
-﻿/*
+/*
  * include/middleware/power_manager.h
  * 低功耗管理模块
  * 使用官方 pico_low_power API
@@ -67,6 +67,12 @@ power_mode_t power_manager_get_mode(void);
 
 /* 获取累计休眠时间（毫秒），用于统计 */
 uint32_t power_manager_get_sleep_time_ms(void);
+
+/* Dormant 唤醒回调（弱函数，可由上层覆盖）
+ * Dormant 模式会停止振荡器，唤醒后 SPI/ADC 等外设可能需要重新初始化
+ * 默认实现为空，board/app 层可覆盖此函数执行外设恢复
+ */
+void power_manager_on_dormant_wakeup(void);
 
 #ifdef __cplusplus
 }

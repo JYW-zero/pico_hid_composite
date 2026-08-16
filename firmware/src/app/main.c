@@ -47,6 +47,7 @@
 #include "middleware/fault.h"
 #include "middleware/perf_monitor.h"
 #include "middleware/flash_service.h"
+#include "middleware/power_manager.h"
 #include "app/keymap.h"
 #include "app/macro.h"
 #include "app/key_stats.h"
@@ -94,14 +95,14 @@ static uint64_t g_stable_keys = 0xFFFFFFFFFFFFFFFFULL;
 
 /* ==================== PAW3395鼠标传感器相关 ==================== */
 static const paw3395_cfg_t *paw3395_cfg;
-static int16_t g_mouse_dx = 0;  /* 累积的X位移 */
-static int16_t g_mouse_dy = 0;  /* 累积的Y位移 */
+static int32_t g_mouse_dx = 0;  /* 累积的X位移（int32防止溢出） */
+static int32_t g_mouse_dy = 0;  /* 累积的Y位移（int32防止溢出） */
 static uint8_t g_mouse_buttons = 0; /* 鼠标按键位掩码 */
 
 /* ==================== 滚轮编码器相关 ==================== */
 static const encoder_cfg_t *encoder_cfg;
 static encoder_state_t encoder_state;
-static int8_t g_wheel = 0;  /* 累积的滚轮步数 */
+static int16_t g_wheel = 0;  /* 累积的滚轮步数（int16防止溢出） */
 
 /* ==================== PS2摇杆相关 ==================== */
 static const joystick_cfg_t *joystick_cfg;
@@ -160,8 +161,12 @@ static void dpi_cycle_next(void)
     uint16_t new_dpi_val = s_dpi_list[idx];
     paw3395_dpi_e new_dpi_enum = dpi_val_to_enum(new_dpi_val);
 
-    int ret = paw3395_set_dpi(paw3395_cfg, new_dpi_enum);
-    if (ret == 0)
+    /* 通过IPC发送给Core1执行DPI切换，避免Core0直接操作SPI1与Core1竞争 */
+    uint32_t cmd = IPC_MAKE_CMD(IPC_CMD_SET_DPI, (uint32_t)new_dpi_enum);
+    multicore_fifo_push_blocking(cmd);
+    uint32_t ack = multicore_fifo_pop_blocking();
+
+    if (ack == IPC_ACK_OK)
     {
         /* 保存配置到Flash（使用安全写入服务，双核同步） */
         device_config_t cfg = *config_get();
@@ -182,20 +187,20 @@ static void joystick_task(void);
  */
 static sched_task_t g_task_list[] =
 {
-    /* 看门狗巡检：1ms */
-    {.interval_us = 1000,  .last_run_us = 0, .task_func = watchdog_tick},
+    /* 看门狗巡检：1ms，最高优先级 */
+    {.interval_us = 1000,  .last_run_us = 0, .priority = SCHED_PRIORITY_HIGHEST, .task_func = watchdog_tick},
 
-    /* 鼠标HID发送：1ms（1000Hz回报率） */
-    {.interval_us = 1000,  .last_run_us = 0, .task_func = mouse_hid_task},
+    /* 鼠标HID发送：1ms（1000Hz回报率），高优先级 */
+    {.interval_us = 1000,  .last_run_us = 0, .priority = SCHED_PRIORITY_HIGH,    .task_func = mouse_hid_task},
 
-    /* 键盘业务处理：5ms（200Hz）- 硬件扫描在 Core1 */
-    {.interval_us = 5000,  .last_run_us = 0, .task_func = keypad_task},
+    /* 键盘业务处理：5ms（200Hz）- 硬件扫描在 Core1，普通优先级 */
+    {.interval_us = 5000,  .last_run_us = 0, .priority = SCHED_PRIORITY_NORMAL,  .task_func = keypad_task},
 
-    /* 摇杆业务处理：10ms（100Hz）- 硬件扫描在 Core1 */
-    {.interval_us = 10000, .last_run_us = 0, .task_func = joystick_task},
+    /* 摇杆业务处理：10ms（100Hz）- 硬件扫描在 Core1，普通优先级 */
+    {.interval_us = 10000, .last_run_us = 0, .priority = SCHED_PRIORITY_NORMAL,  .task_func = joystick_task},
 
-    /* LED闪烁：10ms（内部有自己的时间判断） */
-    {.interval_us = 10000, .last_run_us = 0, .task_func = led_blinking_task},
+    /* LED闪烁：10ms（内部有自己的时间判断），低优先级 */
+    {.interval_us = 10000, .last_run_us = 0, .priority = SCHED_PRIORITY_LOW,     .task_func = led_blinking_task},
 };
 
 #define TASK_COUNT (sizeof(g_task_list) / sizeof(g_task_list[0]))
@@ -213,12 +218,12 @@ int main(void)
   printf("\n=== Pico2 HID 复合设备启动 ===\n");
   printf("USB 设备栈初始化中...\n");
 
-  // 初始化板级硬件
+  // 初始化Flash安全写入服务（双核同步，必须在bsp_init/config_init之前）
+  flash_service_init();
+
+  // 初始化板级硬件（内部会调用config_init读取Flash配置）
   printf("初始化板级硬件...\n");
   bsp_init();
-
-  // 初始化Flash安全写入服务（双核同步，必须在fault_init之前）
-  flash_service_init();
 
   // 初始化故障记录模块（Flash持久化错误日志）
   fault_init();
@@ -234,11 +239,17 @@ int main(void)
   perf_register_task(2, "macro_task");
   perf_register_task(3, "scheduler");
 
+  // 初始化低功耗管理模块
+  power_manager_init();
+
   // 设置默认超时阈值（微秒）
   perf_set_threshold(0, 1000);   // tud_task: 1ms
   perf_set_threshold(1, 2000);   // hid_config: 2ms
   perf_set_threshold(2, 500);    // macro_task: 0.5ms
   perf_set_threshold(3, 60000);  // scheduler: 60ms（写Flash时约50ms，需留余量）
+
+  // 启用性能监控（默认关闭，必须显式启用）
+  perf_set_enabled(true);
 
   // 初始化按键映射
   keymap_init();
@@ -266,24 +277,27 @@ int main(void)
   // 检查是否进入工厂测试模式（按住Fn键启动）
   printf("检测工厂测试模式...\n");
   {
-    // 读取几次按键，确保稳定
+    /* 工厂测试模式进入条件：按住Fn键持续约300ms
+     * 检测30次，每次间隔10ms，超过25次（>83%）按下才进入
+     * 防止用户无意中按住Fn键上电误入工厂模式
+     */
     uint64_t keys = 0;
     int fn_press_count = 0;
     uint8_t fn_key = keymap_get_fn_key();
-    for (int i = 0; i < 20; i++)
+    for (int i = 0; i < 30; i++)
     {
       keypad_spi_read_u64(keypad_cfg, &keys);
       if (((keys >> fn_key) & 1ULL) == 0ULL)  // 低电平有效
       {
         fn_press_count++;
       }
-      sleep_ms(5);
+      sleep_ms(10);
     }
-    // 如果超过15次检测到Fn键按下，就进入工厂测试模式
-    if (fn_press_count > 15)
+    // 如果超过25次检测到Fn键按下，就进入工厂测试模式
+    if (fn_press_count > 25)
     {
       printf("\n========================================\n");
-      printf("  检测到Fn键按下，进入工厂测试模式！\n");
+      printf("  检测到Fn键长按，进入工厂测试模式！\n");
       printf("========================================\n\n");
       factory_test_enter();
       // factory_test_enter() 不会返回
@@ -362,6 +376,9 @@ int main(void)
     /* 按键统计：自动保存计时 */
     key_stats_tick();
 
+    /* 低功耗管理：检查是否需要进入休眠 */
+    power_manager_tick();
+
     /* TinyUSB设备任务：每轮都调用，保证USB响应及时 */
     perf_start(0);
     tud_task();
@@ -380,9 +397,8 @@ int main(void)
     sched_run(g_task_list, TASK_COUNT);
     perf_end(3);
 
-    /* 主循环正常运行，喂BOARD层、DEVICE层和APP层 */
+    /* 主循环正常运行，喂BOARD层和APP层（DEVICE层由Core1喂） */
     watchdog_feed_layer(WDG_LAYER_BOARD);
-    watchdog_feed_layer(WDG_LAYER_DEVICE);
     watchdog_feed_layer(WDG_LAYER_APP);
   }
 }
@@ -411,12 +427,14 @@ void tud_suspend_cb(bool remote_wakeup_en)
 {
   (void) remote_wakeup_en;
   blink_interval_ms = BLINK_SUSPENDED;
+  power_manager_on_usb_suspend(remote_wakeup_en);
 }
 
 // Invoked when usb bus is resumed
 void tud_resume_cb(void)
 {
   blink_interval_ms = tud_mounted() ? BLINK_MOUNTED : BLINK_NOT_MOUNTED;
+  power_manager_on_usb_resume();
 }
 
 //--------------------------------------------------------------------+
@@ -459,12 +477,12 @@ static void mouse_hid_task(void)
   // 从 Core1 共享数据读取累积的位移和滚轮
   int32_t new_dx = 0, new_dy = 0;
   shared_hw_take_motion(&new_dx, &new_dy);
-  g_mouse_dx += (int16_t)new_dx;
-  g_mouse_dy += (int16_t)new_dy;
-  g_wheel += (int8_t)shared_hw_take_wheel();
+  g_mouse_dx += new_dx;
+  g_mouse_dy += new_dy;
+  g_wheel += shared_hw_take_wheel();
 
-  // 读取鼠标按键状态
-  g_mouse_buttons = shared_hw_get_mouse_buttons();
+  // 读取鼠标按键状态（物理按钮 + 宏按钮合并）
+  g_mouse_buttons = shared_hw_get_mouse_buttons() | macro_get_mouse_buttons();
 
   // 没有数据且按键无变化就不发
   if (g_mouse_dx == 0 && g_mouse_dy == 0 && g_wheel == 0 && g_mouse_buttons == last_buttons)
@@ -576,6 +594,32 @@ static void keypad_task(void)
         if (now && !last)
         {
           key_stats_increment(i);
+          power_manager_notify_activity();
+        }
+      }
+
+      // 宏触发检测：只检查状态变化的键（上升沿触发，下降沿停止）
+      {
+        uint64_t changed_keys = stable_keys ^ last_stable;
+        while (changed_keys)
+        {
+          int i = __builtin_ctzll(changed_keys);  // 找到最低位变化的键
+          changed_keys &= changed_keys - 1;       // 清除最低位
+
+          bool now = ((stable_keys >> i) & 1ULL) == 0ULL;
+          bool last = ((last_stable >> i) & 1ULL) == 0ULL;
+          uint8_t macro_id = macro_find_by_trigger_key((uint8_t)i);
+          if (macro_id != 0xFF)
+          {
+            if (now && !last)
+            {
+              macro_trigger(macro_id);
+            }
+            else if (!now && last)
+            {
+              macro_stop(macro_id);
+            }
+          }
         }
       }
 
@@ -606,6 +650,12 @@ static void keypad_task(void)
       {
         if (((stable_keys >> i) & 1ULL) == 0ULL) // bit=0表示按下
         {
+          // 宏触发键不作为普通按键发送
+          if (macro_find_by_trigger_key((uint8_t)i) != 0xFF)
+          {
+            continue;
+          }
+
           keymap_result_t result;
           if (!keymap_lookup(i, fn_pressed, &result))
           {

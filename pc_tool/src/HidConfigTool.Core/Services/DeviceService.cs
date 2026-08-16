@@ -33,6 +33,8 @@ public class DeviceService : IDeviceService
     private const byte REPORT_ID_PERF_TASK = 0x10;      // 性能监控 - 任务统计
     private const byte REPORT_ID_FAULT_INFO = 0x11;     // 错误日志 - 信息
     private const byte REPORT_ID_FAULT_LOG = 0x12;      // 错误日志 - 读取日志
+    private const byte REPORT_ID_KEY_STATE = 0x13;      // 实时按键状态 (64位bitmap)
+    private const byte REPORT_ID_JOYSTICK_STATE = 0x14; // 实时摇杆状态
 
     // 控制命令码
     private const byte CMD_SAVE_CONFIG = 0x01;
@@ -45,6 +47,8 @@ public class DeviceService : IDeviceService
     private const byte CMD_RESET_PERF = 0x08;           // 重置性能统计
     private const byte CMD_MACRO_PLAY = 0x09;           // 播放宏（参数：宏ID）
     private const byte CMD_MACRO_STOP = 0x0A;           // 停止宏（参数：宏ID，0xFF=停止所有）
+    private const byte CMD_SET_PERF_ENABLE = 0x0B;      // 设置性能监控开关（参数：1=开启，0=关闭）
+    private const byte CMD_SET_JOYSTICK_DZ_RT = 0x0C;   // 实时设置摇杆死区（参数：2字节小端，不写Flash）
 
     // 配置魔数
     private const uint CONFIG_MAGIC = 0x5A5A5A5A;
@@ -53,7 +57,7 @@ public class DeviceService : IDeviceService
     private const int HID_TIMEOUT_MS = 5000;
 
     // 配置结构体大小
-    private const int CONFIG_SIZE = 146;
+    private const int CONFIG_SIZE = 1330;  // 与固件 device_config_t 一致（含 macro_data 1184 字节）
 
     // 每个块的大小
     private const int BLOCK_SIZE = 62;
@@ -67,7 +71,7 @@ public class DeviceService : IDeviceService
     private const int OFFSET_SEQ = 11;
     private const int OFFSET_KEYMAP = 14;
     private const int OFFSET_FN_KEYMAP = 78;
-    private const int OFFSET_CRC32 = 142;
+    private const int OFFSET_CRC32 = 1326;  // 固件中 crc32 在 macro_data(1184字节) 之后
 
     #endregion
 
@@ -247,6 +251,16 @@ public class DeviceService : IDeviceService
         // 只返回配置接口的设备（UsagePage = 0xFF00 Vendor Defined）
         // 过滤掉键盘、鼠标、消费者控制、游戏手柄等其他集合
         var configDevices = allDevices.Where(d => d.UsagePage == 0xFF00).ToList();
+
+        // 独占访问模式下，已连接的设备无法被 FindDevicesAsync 重新打开读取信息
+        // 因此需要将当前已连接的设备手动加入列表，确保 UI 能显示
+        lock (_stateLock)
+        {
+            if (_currentDevice != null && !configDevices.Any(d => d.DevicePath == _currentDevice.DevicePath))
+            {
+                configDevices.Insert(0, _currentDevice);
+            }
+        }
 
         return configDevices;
     }
@@ -493,26 +507,34 @@ public class DeviceService : IDeviceService
             Array.Copy(config.FnKeymap, 0, data, OFFSET_FN_KEYMAP, len);
         }
 
-        // CRC32（暂时不计算，固件端会处理）
-        BitConverter.GetBytes((uint)0).CopyTo(data, OFFSET_CRC32);
+        // CRC32（与固件端 crc32_calc 算法一致：标准 IEEE 802.3 CRC32）
+        uint crc = Crc32Calculate(data, 0, OFFSET_CRC32);
+        BitConverter.GetBytes(crc).CopyTo(data, OFFSET_CRC32);
 
         return data;
     }
 
     /// <summary>
-    /// 写入配置到设备（分块写入 + 应用命令）
-    /// 注意：写入功能当前正在调试中
+    /// 计算 CRC32（标准 IEEE 802.3，多项式 0xEDB88320 反转）
+    /// 与固件端 crc32_calc 算法一致
     /// </summary>
-    /// <summary>
-    /// 写入配置到设备（分块写入 + 应用命令 + 重试重连容错）
-    /// 由于RP2350写Flash时CPU会挂起，可能导致USB句柄失效
-    /// 采用重试+重连机制确保写入可靠
-    /// </summary>
-    /// <summary>
-    /// 写入配置到设备（分块写入 + 应用命令 + 重试重连容错）
-    /// 由于RP2350写Flash时CPU会挂起，可能导致USB句柄失效
-    /// 采用重试+重连机制确保写入可靠
-    /// </summary>
+    private static uint Crc32Calculate(byte[] data, int offset, int length)
+    {
+        uint crc = 0xFFFFFFFF;
+        for (int i = offset; i < offset + length && i < data.Length; i++)
+        {
+            crc ^= data[i];
+            for (int j = 0; j < 8; j++)
+            {
+                if ((crc & 1) != 0)
+                    crc = (crc >> 1) ^ 0xEDB88320u;
+                else
+                    crc >>= 1;
+            }
+        }
+        return ~crc;
+    }
+
     /// <summary>
     /// 写入配置到设备（分块写入 + 应用命令 + 重试重连容错）
     /// 由于RP2350写Flash时CPU会挂起，可能导致USB句柄失效
@@ -531,6 +553,8 @@ public class DeviceService : IDeviceService
         try
         {
             // 写入冷却：防止写入太频繁
+            // 注意：_lastWriteTime 的读写由 _writeLock（SemaphoreSlim）保证串行化，
+            // WriteConfigToDeviceAsync 是唯一访问 _lastWriteTime 的方法，不会并发
             var timeSinceLastWrite = DateTime.Now - _lastWriteTime;
             if (timeSinceLastWrite.TotalMilliseconds < MinWriteIntervalMs)
             {
@@ -716,7 +740,12 @@ public class DeviceService : IDeviceService
     {
         try
         {
-            string devicePath = _currentDevice?.DevicePath ?? "";
+            // 在锁内读取设备路径，防止与 Disconnect() 竞态
+            string devicePath;
+            lock (_stateLock)
+            {
+                devicePath = _currentDevice?.DevicePath ?? "";
+            }
             if (string.IsNullOrEmpty(devicePath))
             {
                 Log("WARNING", "重连失败：没有设备路径");
@@ -742,8 +771,11 @@ public class DeviceService : IDeviceService
             {
                 // 重新打开失败，标记为断开连接
                 Log("ERROR", "重连失败：无法打开设备");
-                _currentDevice = null;
-                _currentConfig = null;
+                lock (_stateLock)
+                {
+                    _currentDevice = null;
+                    _currentConfig = null;
+                }
                 FirmwareVersion = null;
                 DeviceConnectionChanged?.Invoke(this, false);
                 return false;
@@ -755,8 +787,11 @@ public class DeviceService : IDeviceService
         catch (Exception ex)
         {
             Log("ERROR", $"重连异常: {ex.GetType().Name} - {ex.Message}");
-            _currentDevice = null;
-            _currentConfig = null;
+            lock (_stateLock)
+            {
+                _currentDevice = null;
+                _currentConfig = null;
+            }
             FirmwareVersion = null;
             DeviceConnectionChanged?.Invoke(this, false);
             return false;
@@ -809,19 +844,34 @@ public class DeviceService : IDeviceService
         }
     }
 
+    private async Task<bool> SendControlCommandAsync(byte command, ushort param)
+    {
+        try
+        {
+            byte[] data = new byte[3] { command, (byte)(param & 0xFF), (byte)((param >> 8) & 0xFF) };
+            return await SendFeatureReportWithTimeoutAsync(REPORT_ID_CONTROL, data);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>
     /// 带超时的 Feature 报告发送
     /// </summary>
     private async Task<bool> SendFeatureReportWithTimeoutAsync(byte reportId, byte[] data)
     {
-        var task = _hidDriver.SendFeatureReportAsync(reportId, data);
-        var completed = await Task.WhenAny(task, Task.Delay(HID_TIMEOUT_MS));
-        if (completed == task)
+        using var cts = new CancellationTokenSource(HID_TIMEOUT_MS);
+        try
         {
-            return await task;
+            return await _hidDriver.SendFeatureReportAsync(reportId, data, cts.Token);
         }
-        Log("ERROR", $"发送 Feature 报告超时: Report ID=0x{reportId:X2}");
-        return false;
+        catch (OperationCanceledException)
+        {
+            Log("ERROR", $"发送 Feature 报告超时: Report ID=0x{reportId:X2}");
+            return false;
+        }
     }
 
     /// <summary>
@@ -829,14 +879,16 @@ public class DeviceService : IDeviceService
     /// </summary>
     private async Task<byte[]?> GetFeatureReportWithTimeoutAsync(byte reportId)
     {
-        var task = _hidDriver.GetFeatureReportAsync(reportId);
-        var completed = await Task.WhenAny(task, Task.Delay(HID_TIMEOUT_MS));
-        if (completed == task)
+        using var cts = new CancellationTokenSource(HID_TIMEOUT_MS);
+        try
         {
-            return await task;
+            return await _hidDriver.GetFeatureReportAsync(reportId, cts.Token);
         }
-        Log("ERROR", $"读取 Feature 报告超时: Report ID=0x{reportId:X2}");
-        return null;
+        catch (OperationCanceledException)
+        {
+            Log("ERROR", $"读取 Feature 报告超时: Report ID=0x{reportId:X2}");
+            return null;
+        }
     }
 
     /// <summary>
@@ -1386,6 +1438,67 @@ public class DeviceService : IDeviceService
     }
 
     /// <summary>
+    /// 获取实时按键状态（64位bitmap，bit=1表示按下）
+    /// </summary>
+    public async Task<ulong?> GetKeyStateAsync(CancellationToken cancellationToken = default)
+    {
+        if (!IsConnected)
+            return null;
+
+        try
+        {
+            byte[]? data = await _hidDriver.GetFeatureReportAsync(REPORT_ID_KEY_STATE);
+            if (data == null || data.Length < 8)
+            {
+                return null;
+            }
+
+            // 小端序：data[0]是低字节，对应键0-7
+            ulong keys = 0;
+            for (int i = 0; i < 8; i++)
+            {
+                keys |= ((ulong)data[i]) << (i * 8);
+            }
+
+            return keys;
+        }
+        catch (Exception ex)
+        {
+            Log("ERROR", $"读取按键状态异常: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 获取实时摇杆状态
+    /// </summary>
+    public async Task<(sbyte X, sbyte Y, bool Button)?> GetJoystickStateAsync(CancellationToken cancellationToken = default)
+    {
+        if (!IsConnected)
+            return null;
+
+        try
+        {
+            byte[]? data = await _hidDriver.GetFeatureReportAsync(REPORT_ID_JOYSTICK_STATE);
+            if (data == null || data.Length < 3)
+            {
+                return null;
+            }
+
+            sbyte x = (sbyte)data[0];
+            sbyte y = (sbyte)data[1];
+            bool btn = data[2] != 0;
+
+            return (x, y, btn);
+        }
+        catch (Exception ex)
+        {
+            Log("ERROR", $"读取摇杆状态异常: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
     /// 重置性能统计
     /// </summary>
     public async Task<bool> ResetPerfStatsAsync(CancellationToken cancellationToken = default)
@@ -1409,6 +1522,35 @@ public class DeviceService : IDeviceService
         catch (Exception ex)
         {
             Log("ERROR", $"重置性能统计异常: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 设置性能监控开关
+    /// </summary>
+    public async Task<bool> SetPerfMonitorEnabledAsync(bool enabled, CancellationToken cancellationToken = default)
+    {
+        if (!IsConnected)
+            return false;
+
+        try
+        {
+            byte param = enabled ? (byte)1 : (byte)0;
+            bool result = await SendControlCommandAsync(CMD_SET_PERF_ENABLE, param);
+            if (result)
+            {
+                Log("INFO", $"性能监控{(enabled ? "开启" : "关闭")}成功");
+            }
+            else
+            {
+                Log("ERROR", $"性能监控{(enabled ? "开启" : "关闭")}失败");
+            }
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Log("ERROR", $"设置性能监控异常: {ex.Message}");
             return false;
         }
     }
@@ -1460,6 +1602,30 @@ public class DeviceService : IDeviceService
 
         _currentConfig.JoystickDeadzone = deadzone;
         return await WriteConfigToDeviceAsync(_currentConfig);
+    }
+
+    /// <summary>
+    /// 实时设置摇杆死区（不写Flash，立即生效）
+    /// </summary>
+    public async Task<bool> SetJoystickDeadzoneRealtimeAsync(ushort deadzone)
+    {
+        if (!IsConnected)
+            return false;
+
+        try
+        {
+            bool result = await SendControlCommandAsync(CMD_SET_JOYSTICK_DZ_RT, deadzone);
+            if (result && _currentConfig != null)
+            {
+                _currentConfig.JoystickDeadzone = deadzone;
+            }
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Log("ERROR", $"实时设置摇杆死区异常: {ex.Message}");
+            return false;
+        }
     }
 
     /// <summary>
@@ -1540,18 +1706,50 @@ public class DeviceService : IDeviceService
     {
         try
         {
+            // 验证文件存在
+            if (!File.Exists(filePath))
+            {
+                Log("ERROR", $"导入配置失败：文件不存在: {filePath}");
+                return false;
+            }
+
+            // 验证扩展名
+            string ext = Path.GetExtension(filePath).ToLowerInvariant();
+            if (ext != ".bin" && ext != ".json" && ext != ".hidcfg")
+            {
+                Log("ERROR", $"导入配置失败：不支持的文件扩展名: {ext}");
+                return false;
+            }
+
+            // 验证文件大小合理性（最大 1MB）
+            var fileInfo = new FileInfo(filePath);
+            if (fileInfo.Length > 1024 * 1024)
+            {
+                Log("ERROR", $"导入配置失败：文件过大: {fileInfo.Length} 字节");
+                return false;
+            }
+
             byte[] data = await File.ReadAllBytesAsync(filePath);
             if (data.Length < CONFIG_SIZE)
+            {
+                Log("ERROR", $"导入配置失败：文件大小不足: {data.Length} < {CONFIG_SIZE}");
                 return false;
+            }
 
             var config = ParseConfig(data);
+            if (config == null)
+            {
+                Log("ERROR", "导入配置失败：解析配置数据失败");
+                return false;
+            }
             _currentConfig = config;
 
             // 写入到设备
             return await WriteConfigToDeviceAsync(config);
         }
-        catch
+        catch (Exception ex)
         {
+            Log("ERROR", $"导入配置异常: {ex.Message}");
             return false;
         }
     }
@@ -1697,22 +1895,41 @@ public class DeviceService : IDeviceService
             if (IsConnected)
                 return true; // 已经连接了
 
-            // 搜索设备
-            var devices = await _hidDriver.FindDevicesAsync(DeviceVendorId, DeviceProductId);
+            // 重试机制：设备插入后驱动可能需要时间初始化，最多重试 5 次
+            const int maxRetries = 5;
+            for (int attempt = 0; attempt < maxRetries; attempt++)
+            {
+                if (IsConnected)
+                    return true;
 
-            // 过滤：只保留 Vendor 配置接口（UsagePage == 0xFF00）
-            var targetDevice = devices.FirstOrDefault(d => d.UsagePage == 0xFF00);
+                // 搜索设备
+                var devices = await _hidDriver.FindDevicesAsync(DeviceVendorId, DeviceProductId);
 
-            if (targetDevice == null)
-                return false; // 没找到设备
+                // 过滤：只保留 Vendor 配置接口（UsagePage == 0xFF00）
+                var targetDevice = devices.FirstOrDefault(d => d.UsagePage == 0xFF00);
 
-            // 连接设备
-            bool result = await ConnectAsync(targetDevice);
-            return result;
+                if (targetDevice != null)
+                {
+                    // 连接设备
+                    bool result = await ConnectAsync(targetDevice);
+                    if (result)
+                        return true;
+                }
+
+                // 没找到设备或连接失败，等待后重试（最后一次不等待）
+                if (attempt < maxRetries - 1)
+                {
+                    Log("INFO", $"自动连接第 {attempt + 1}/{maxRetries} 次未找到设备，500ms 后重试");
+                    await Task.Delay(500);
+                }
+            }
+
+            Log("WARNING", $"自动连接失败：重试 {maxRetries} 次后仍未找到设备");
+            return false;
         }
         catch (Exception ex)
         {
-            Log("ERROR", $"自动连接失败: {ex.Message}");
+            Log("ERROR", $"自动连接异常: {ex.Message}");
             return false;
         }
         finally

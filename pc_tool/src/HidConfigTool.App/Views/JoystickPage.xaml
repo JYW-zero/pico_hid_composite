@@ -22,7 +22,27 @@
             <!-- 死区设置卡片 -->
             <Border Style="{StaticResource CardStyle}">
                 <StackPanel>
-                    <TextBlock Text="死区设置" Style="{StaticResource CardTitleStyle}" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                        <TextBlock Text="死区设置" Style="{StaticResource CardTitleStyle}" Margin="0" />
+                        <Button Command="{Binding SaveConfigCommand}"
+                                IsEnabled="{Binding IsDeviceConnected}"
+                                Padding="12,5"
+                                FontSize="11"
+                                HorizontalAlignment="Right"
+                                Margin="auto,0,0,0">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
+                                    <Setter Property="Content" Value="保存到Flash" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsSaving}" Value="True">
+                                            <Setter Property="IsEnabled" Value="False" />
+                                            <Setter Property="Content" Value="保存中..." />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                    </StackPanel>
 
                     <Grid Margin="0,0,0,12">
                         <Grid.ColumnDefinitions>
@@ -50,9 +70,163 @@
                             Maximum="500"
                             TickFrequency="10" />
 
-                    <TextBlock Text="死区范围内的摇杆输入将被忽略，可有效防止摇杆漂移。"
+                    <TextBlock Text="拖动滑块实时生效（不写Flash），满意后点击保存到Flash按钮持久化。"
                                Style="{StaticResource HintStyle}"
                                Margin="0,12,0,0" />
+
+                    <TextBlock Text="{Binding StatusMessage}"
+                               FontSize="11"
+                               Foreground="{StaticResource AccentBrush}"
+                               Margin="0,8,0,0"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Border>
+
+            <!-- 实时坐标图卡片 -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                        <TextBlock Text="实时坐标" Style="{StaticResource CardTitleStyle}" Margin="0" />
+                        <TextBlock Text="（拨动摇杆查看实时位置）"
+                                   FontSize="11"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   VerticalAlignment="Center"
+                                   Margin="10,0,0,0" />
+                    </StackPanel>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- 坐标图 -->
+                        <Canvas Grid.Column="0" Width="220" Height="220">
+                            <!-- 背景圆 -->
+                            <Ellipse Width="220" Height="220"
+                                     Stroke="{StaticResource BorderBrush}"
+                                     StrokeThickness="1"
+                                     Fill="{StaticResource InputBackgroundBrush}" />
+
+                            <!-- 十字线 -->
+                            <Line X1="110" Y1="10" X2="110" Y2="210"
+                                  Stroke="{StaticResource BorderBrush}"
+                                  StrokeThickness="1"
+                                  StrokeDashArray="4,4" />
+                            <Line X1="10" Y1="110" X2="210" Y2="110"
+                                  Stroke="{StaticResource BorderBrush}"
+                                  StrokeThickness="1"
+                                  StrokeDashArray="4,4" />
+
+                            <!-- 死区圆 -->
+                            <Ellipse Width="{Binding DeadzoneCircleWidth}"
+                                     Height="{Binding DeadzoneCircleWidth}"
+                                     Stroke="{StaticResource AccentBrush}"
+                                     StrokeThickness="1"
+                                     StrokeDashArray="2,2"
+                                     Opacity="0.6"
+                                     Canvas.Left="{Binding DeadzoneCircleLeft}"
+                                     Canvas.Top="{Binding DeadzoneCircleTop}" />
+
+                            <!-- 摇杆位置点 -->
+                            <Ellipse Width="16" Height="16"
+                                     Fill="{StaticResource AccentBrush}"
+                                     Canvas.Left="{Binding DotLeft}"
+                                     Canvas.Top="{Binding DotTop}" />
+                        </Canvas>
+
+                        <!-- 数值显示 -->
+                        <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                            <Grid Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0"
+                                           Text="X 轴"
+                                           FontSize="13"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           VerticalAlignment="Center" />
+                                <Border Grid.Column="1"
+                                        Background="{StaticResource InputBackgroundBrush}"
+                                        CornerRadius="4"
+                                        Padding="8,4">
+                                    <TextBlock Text="{Binding JoystickX, StringFormat={}{0:F0}}"
+                                               FontSize="13"
+                                               Foreground="{StaticResource AccentBrush}"
+                                               FontFamily="Consolas"
+                                               FontWeight="SemiBold"
+                                               MinWidth="40"
+                                               TextAlignment="Center" />
+                                </Border>
+                            </Grid>
+
+                            <Grid Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0"
+                                           Text="Y 轴"
+                                           FontSize="13"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           VerticalAlignment="Center" />
+                                <Border Grid.Column="1"
+                                        Background="{StaticResource InputBackgroundBrush}"
+                                        CornerRadius="4"
+                                        Padding="8,4">
+                                    <TextBlock Text="{Binding JoystickY, StringFormat={}{0:F0}}"
+                                               FontSize="13"
+                                               Foreground="{StaticResource AccentBrush}"
+                                               FontFamily="Consolas"
+                                               FontWeight="SemiBold"
+                                               MinWidth="40"
+                                               TextAlignment="Center" />
+                                </Border>
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0"
+                                           Text="按键"
+                                           FontSize="13"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           VerticalAlignment="Center" />
+                                <Border Grid.Column="1"
+                                        Background="{StaticResource InputBackgroundBrush}"
+                                        CornerRadius="4"
+                                        Padding="8,4"
+                                        MinWidth="60">
+                                    <TextBlock FontSize="13"
+                                               FontWeight="SemiBold"
+                                               TextAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="松开" />
+                                                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding JoystickButton}" Value="True">
+                                                        <Setter Property="Text" Value="按下" />
+                                                        <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Border>
+                            </Grid>
+
+                            <TextBlock Text="死区圆内的输入将被忽略"
+                                       FontSize="11"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       Margin="0,16,0,0"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
                 </StackPanel>
             </Border>
 

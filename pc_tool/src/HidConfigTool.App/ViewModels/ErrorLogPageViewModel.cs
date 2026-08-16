@@ -13,9 +13,10 @@ namespace HidConfigTool.App.ViewModels;
 /// <summary>
 /// 错误日志页面视图模型
 /// </summary>
-public partial class ErrorLogPageViewModel : ObservableObject
+public partial class ErrorLogPageViewModel : ObservableObject, IDisposable
 {
     private readonly IDeviceService _deviceService;
+    private bool _disposed;
 
     // 所有日志的完整列表（用于筛选）
     private List<ErrorLogEntry> _allLogs = new();
@@ -203,5 +204,15 @@ public partial class ErrorLogPageViewModel : ObservableObject
         {
             _ = RefreshAsync();
         }
+    }
+
+    /// <summary>
+    /// 释放资源，取消事件订阅，防止内存泄漏
+    /// </summary>
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _deviceService.DeviceConnectionChanged -= OnDeviceConnectionChanged;
     }
 }

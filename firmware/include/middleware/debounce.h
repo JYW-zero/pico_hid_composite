@@ -10,13 +10,15 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-/* 64键消抖状态结构体 */
+/* 64键消抖状态结构体
+ * 逐位独立消抖：每个按键有独立的计数器，避免多键同按时已稳定键被延迟
+ */
 typedef struct
 {
     uint64_t last_raw;       /* 上次原始读数 */
     uint64_t stable_state;   /* 稳定状态输出 */
-    uint8_t debounce_count;  /* 消抖计数器 */
-    uint8_t debounce_threshold; /* 消抖阈值(采样次数) */
+    uint8_t  count[64];      /* 每键独立消抖计数器 */
+    uint8_t  debounce_threshold; /* 消抖阈值(采样次数) */
 } debounce_64key_t;
 
 /* 初始化消抖实例 */

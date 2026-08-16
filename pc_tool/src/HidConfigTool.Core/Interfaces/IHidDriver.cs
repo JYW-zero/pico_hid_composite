@@ -1,4 +1,4 @@
-﻿namespace HidConfigTool.Core.Interfaces;
+namespace HidConfigTool.Core.Interfaces;
 
 /// <summary>
 /// HID 驱动接口
@@ -41,9 +41,19 @@ public interface IHidDriver : IDisposable
     Task<bool> SendFeatureReportAsync(byte reportId, byte[] data);
 
     /// <summary>
+    /// 发送 Feature 报告（支持取消）
+    /// </summary>
+    Task<bool> SendFeatureReportAsync(byte reportId, byte[] data, CancellationToken cancellationToken);
+
+    /// <summary>
     /// 读取 Feature 报告
     /// </summary>
     Task<byte[]?> GetFeatureReportAsync(byte reportId);
+
+    /// <summary>
+    /// 读取 Feature 报告（支持取消）
+    /// </summary>
+    Task<byte[]?> GetFeatureReportAsync(byte reportId, CancellationToken cancellationToken);
 }
 
 /// <summary>

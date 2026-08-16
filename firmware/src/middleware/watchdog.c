@@ -107,6 +107,16 @@ void watchdog_tick(void)
         return;
     }
 
+    /* USB 挂起时系统处于休眠状态，跳过逻辑超时检查
+     * 只喂硬件看门狗，防止休眠期间误触发复位
+     */
+    extern bool tud_suspended(void);
+    if (tud_suspended())
+    {
+        watchdog_update();
+        return;
+    }
+
     uint32_t now = time_us_32();
 
     /* 检查每一层是否超时 */

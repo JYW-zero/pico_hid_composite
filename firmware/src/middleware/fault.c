@@ -139,10 +139,47 @@ void fault_record(fault_level_e level, const char *module, const char *msg)
     /* Core1中发生的错误只输出串口，由Core0统一处理Flash写入 */
     if (level >= FAULT_LEVEL_ERROR && get_core_num() == 0)
     {
+        /* 全局限频：ERROR级别最多每100ms写一条Flash，防止频繁错误导致写入风暴
+         * FATAL级别不限频，必须立即记录
+         */
+        static uint32_t s_last_flash_write_ms = 0;
+        uint32_t now_ms = (uint32_t)to_ms_since_boot(get_absolute_time());
+
+        if (level < FAULT_LEVEL_FATAL && (now_ms - s_last_flash_write_ms) < 100U)
+        {
+            /* 限频：跳过Flash写入，只输出串口 */
+            return;
+        }
+        s_last_flash_write_ms = now_ms;
+
         if (s_write_index == 0 && s_log_count >= FAULT_LOG_MAX_COUNT)
         {
+            /* 写满后需要擦除整个扇区。为避免瞬间丢失全部历史，
+             * 先将最近一半日志读取到RAM，擦除后重新写入
+             */
+            const fault_log_entry_t* flash_logs = (const fault_log_entry_t*)FAULT_LOG_FLASH_ADDR;
+            fault_log_entry_t recent_logs[FAULT_LOG_MAX_COUNT / 2];
+            uint32_t keep_count = FAULT_LOG_MAX_COUNT / 2;
+
+            /* 读取最近的keep_count条日志（从末尾向前） */
+            for (uint32_t i = 0; i < keep_count; i++)
+            {
+                uint32_t src_idx = (FAULT_LOG_MAX_COUNT - keep_count) + i;
+                memcpy(&recent_logs[i], &flash_logs[src_idx], sizeof(fault_log_entry_t));
+            }
+
+            /* 擦除整个扇区 */
             erase_log_flash();
-            s_log_count = 0;
+
+            /* 重新写入保留的历史日志 */
+            for (uint32_t i = 0; i < keep_count; i++)
+            {
+                write_log_to_flash(i, &recent_logs[i]);
+            }
+
+            /* 更新状态：从keep_count位置继续写 */
+            s_write_index = keep_count;
+            s_log_count = keep_count;
         }
 
         write_log_to_flash(s_write_index, &entry);

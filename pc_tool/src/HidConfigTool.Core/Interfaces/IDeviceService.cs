@@ -87,6 +87,11 @@ public interface IDeviceService : IDisposable
     Task<bool> SetJoystickDeadzoneAsync(ushort deadzone);
 
     /// <summary>
+    /// 实时设置摇杆死区（不写Flash，立即生效）
+    /// </summary>
+    Task<bool> SetJoystickDeadzoneRealtimeAsync(ushort deadzone);
+
+    /// <summary>
     /// 设置编码器方向反转
     /// </summary>
     Task<bool> SetEncoderReverseAsync(bool reverse);
@@ -198,11 +203,33 @@ public interface IDeviceService : IDisposable
     Task<PerfTaskStat?> GetPerfTaskStatAsync(byte index, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 获取实时按键状态（64位bitmap，bit=1表示按下）
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>按键状态bitmap，失败返回null</returns>
+    Task<ulong?> GetKeyStateAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 获取实时摇杆状态
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>摇杆状态(x, y, btn)，失败返回null</returns>
+    Task<(sbyte X, sbyte Y, bool Button)?> GetJoystickStateAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 重置性能统计
     /// </summary>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>true=成功，false=失败</returns>
     Task<bool> ResetPerfStatsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 设置性能监控开关
+    /// </summary>
+    /// <param name="enabled">true=开启，false=关闭</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>true=成功，false=失败</returns>
+    Task<bool> SetPerfMonitorEnabledAsync(bool enabled, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 重启设备

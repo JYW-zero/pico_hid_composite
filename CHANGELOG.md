@@ -94,6 +94,36 @@
 - 上位机解决方案从 4 个项目减为 3 个（移除 Drivers）
 - DeviceConfig 模型扩展 5 个新字段
 
+### Added（Flash 安全写入修复）
+- 新增 flash_service 模块，封装 Pico SDK 官方 flash_safe_execute() 双核同步机制
+- Core1 启动时调用 flash_service_core1_init()，注册为可被锁定的"受害者"
+- 恢复所有自动保存功能：DPI切换保存、key_stats每30分钟保存、宏延迟保存
+
+### Fixed（Flash 安全写入修复）
+- 修复 Flash 写入导致系统频繁重启/卡死的根本问题（双核同步缺失）
+- 修复 flash_service 无限递归（错误处理中调用 fault_record 又写 Flash）
+- 修复 keypad_spi 超时误报（写 Flash 期间 Core1 被暂停约 50ms，超时从 1ms 改为 100ms）
+- 修复 Core1 写 Flash 死锁（fault_record 添加 get_core_num()==0 检查，只有 Core0 写 Flash）
+- 修复 fault 模块 WARN 级别也写 Flash 的问题（改为只在 ERROR/FATAL 级别写入）
+
+### Changed（Flash 安全写入修复）
+- perf_monitor scheduler 超时阈值从 500us 改为 60ms（写 Flash 时约 50ms 是正常的）
+- key_stats 自动保存间隔从 5 分钟改为 30 分钟（减少 Flash 写入次数）
+- 删除所有调试 print 输出（core1_scanner、main、macro、key_stats、flash_service）
+
+### Added（全功能开发）
+- 固件：物理按键触发宏（按下触发、松开停止，触发键不作为普通按键发送）
+- 固件：新增宏动作类型 KEY_PRESS（按键点击）和 TEXT_CHAR（文本输入，ASCII自动转HID）
+- 固件：低功耗模式集成（Sleep/Dormant模式，USB挂起自动休眠，按键活动唤醒）
+- 上位机：设置页面双击配置文件重命名
+- 上位机：浅色主题（完整主题切换系统，持久化保存）
+- 上位机：帮助文档窗口（快速开始、各功能说明、常见问题、技术支持）
+- 上位机：多语言支持基础框架（中英文资源文件 + LanguageManager + 设置页切换）
+
+### Changed（全功能开发）
+- power_manager 模块集成到主循环（初始化、tick、USB挂起/恢复回调、活动通知）
+- SettingsPage 主题/语言 ComboBox 绑定到 ViewModel 属性
+
 ---
 
 ## [0.1.0] - 2026-08-07

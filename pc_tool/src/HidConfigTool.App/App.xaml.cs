@@ -46,6 +46,16 @@ public partial class App : Application
 
             Log("依赖注入构建完成");
 
+            // 加载主题设置
+            var themeManager = Host.Services.GetRequiredService<ThemeManager>();
+            themeManager.LoadTheme();
+            Log("主题加载完成");
+
+            // 初始化语言设置
+            var languageManager = Host.Services.GetRequiredService<LanguageManager>();
+            languageManager.Initialize();
+            Log("语言初始化完成");
+
             // 显示主窗口
             var mainWindow = Host.Services.GetRequiredService<MainWindow>();
             Log("主窗口创建成功");
@@ -98,6 +108,12 @@ public partial class App : Application
         services.AddSingleton<MacroRecorder>();
         Log("注册: MacroRecorder");
 
+        services.AddSingleton<ThemeManager>();
+        Log("注册: ThemeManager");
+
+        services.AddSingleton<LanguageManager>();
+        Log("注册: LanguageManager");
+
         // 视图模型
         services.AddSingleton<MainViewModel>();
         Log("注册: MainViewModel");
@@ -107,6 +123,9 @@ public partial class App : Application
 
         services.AddTransient<KeyPageViewModel>();
         Log("注册: KeyPageViewModel");
+
+        services.AddTransient<KeyTestPageViewModel>();
+        Log("注册: KeyTestPageViewModel");
 
         services.AddTransient<MousePageViewModel>();
         Log("注册: MousePageViewModel");
@@ -141,6 +160,12 @@ public partial class App : Application
 
         services.AddTransient<KeyPage>();
         Log("注册: KeyPage");
+
+        services.AddTransient<KeyTestPage>();
+        Log("注册: KeyTestPage");
+
+        services.AddTransient<KeyManagementPage>();
+        Log("注册: KeyManagementPage");
 
         services.AddTransient<MousePage>();
         Log("注册: MousePage");

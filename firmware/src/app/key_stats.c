@@ -14,6 +14,28 @@
 #include <string.h>
 #include <stdio.h>
 
+/* ==================== CRC32 实现 ==================== */
+
+static const uint32_t s_crc32_table[16] =
+{
+    0x00000000u, 0x1DB71064u, 0x3B6E20C8u, 0x26D930ACu,
+    0x76DC4190u, 0x6B6B51F4u, 0x4DB26158u, 0x5005713Cu,
+    0xEDB88320u, 0xF00F9344u, 0xD6D6A3E8u, 0xCB61B38Cu,
+    0x9B64C2B0u, 0x86D3D2D4u, 0xA00AE278u, 0xBDBDF21Cu
+};
+
+static uint32_t key_stats_crc32(const uint8_t* data, uint32_t len)
+{
+    uint32_t crc = 0xFFFFFFFFu;
+    for (uint32_t i = 0; i < len; i++)
+    {
+        uint8_t byte = data[i];
+        crc = (crc >> 4) ^ s_crc32_table[(crc & 0x0Fu) ^ (byte & 0x0Fu)];
+        crc = (crc >> 4) ^ s_crc32_table[(crc & 0x0Fu) ^ (byte >> 4)];
+    }
+    return crc ^ 0xFFFFFFFFu;
+}
+
 /* ==================== 静态变量 ==================== */
 
 static uint32_t s_counts[KEY_STATS_MAX_KEYS];  /* 当前按键计数 */
@@ -157,6 +179,11 @@ void key_stats_save_to_flash(void)
     record.total_keystrokes = s_total;
     memcpy(record.counts, s_counts, sizeof(s_counts));
 
+    /* 计算CRC32（除crc32字段外的所有内容） */
+    uint32_t crc = key_stats_crc32((const uint8_t*)&record,
+                                   sizeof(key_stats_record_t) - sizeof(uint32_t));
+    record.crc32 = crc;
+
     /* 写入Flash */
     write_record_to_flash(s_next_save_index, &record);
 
@@ -175,13 +202,24 @@ bool key_stats_load_from_flash(void)
 {
     const key_stats_record_t* records = (const key_stats_record_t*)KEY_STATS_FLASH_ADDR;
 
-    /* 找到最后一条有效记录 */
+    /* 找到最后一条有效记录（magic + CRC双重校验） */
     int last_index = -1;
     for (uint32_t i = 0; i < KEY_STATS_MAX_RECORDS; i++)
     {
         if (records[i].magic == KEY_STATS_MAGIC)
         {
-            last_index = (int)i;
+            /* 验证CRC32 */
+            uint32_t calc_crc = key_stats_crc32((const uint8_t*)&records[i],
+                                                 sizeof(key_stats_record_t) - sizeof(uint32_t));
+            if (calc_crc == records[i].crc32)
+            {
+                last_index = (int)i;
+            }
+            else
+            {
+                /* CRC不匹配，记录损坏，停止查找（后续记录也不可信） */
+                break;
+            }
         }
         else
         {
@@ -219,7 +257,7 @@ void key_stats_tick(void)
         last_tick_ms = now;
     }
 
-    /* 自动保存：每隔5分钟保存一次（使用安全写入服务，双核同步） */
+    /* 自动保存：每隔30分钟保存一次（使用安全写入服务，双核同步） */
     if (now - s_last_save_ms >= KEY_STATS_AUTO_SAVE_INTERVAL_MS)
     {
         if (s_total > 0)
