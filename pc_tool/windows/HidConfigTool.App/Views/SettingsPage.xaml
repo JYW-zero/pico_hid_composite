@@ -22,26 +22,54 @@
             <!-- 常规设置 -->
             <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
                 <StackPanel>
-                    <TextBlock Text="常规设置" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,16" />
-                    <CheckBox Content="最小化到系统托盘"
-                              IsChecked="{Binding MinimizeToTray}"
-                              Style="{StaticResource ToggleSwitchStyle}"
-                              Margin="0,0,0,14" />
-                    <CheckBox Content="开机自动启动"
-                              IsChecked="{Binding AutoStart}"
-                              Style="{StaticResource ToggleSwitchStyle}"
-                              Margin="0,0,0,14" />
-                    <CheckBox Content="启动时检查更新"
-                              IsChecked="{Binding CheckUpdateOnStart}"
-                              Style="{StaticResource ToggleSwitchStyle}" />
+                    <TextBlock Text="常规设置" Style="{StaticResource SectionTitleStyle}" />
+
+                    <!-- 最小化到系统托盘 -->
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="最小化到系统托盘" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" />
+                            <TextBlock Text="关闭窗口时最小化到托盘" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <CheckBox Grid.Column="1" IsChecked="{Binding MinimizeToTray}" Style="{StaticResource ToggleSwitchStyle}" VerticalAlignment="Center" />
+                    </Grid>
+
+                    <!-- 开机自动启动 -->
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="开机自动启动" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" />
+                            <TextBlock Text="系统启动时自动运行" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <CheckBox Grid.Column="1" IsChecked="{Binding AutoStart}" Style="{StaticResource ToggleSwitchStyle}" VerticalAlignment="Center" />
+                    </Grid>
+
+                    <!-- 启动时检查更新 -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="启动时检查更新" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" />
+                            <TextBlock Text="应用启动时自动检查新版本" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <CheckBox Grid.Column="1" IsChecked="{Binding CheckUpdateOnStart}" Style="{StaticResource ToggleSwitchStyle}" VerticalAlignment="Center" />
+                    </Grid>
                 </StackPanel>
             </Border>
 
             <!-- 配置管理 -->
             <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
                 <StackPanel>
-                    <TextBlock Text="配置管理" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,16" />
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                    <TextBlock Text="配置管理" Style="{StaticResource SectionTitleStyle}" />
+                    <StackPanel Orientation="Horizontal">
                         <Button Command="{Binding ExportConfigCommand}" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,10,0">
                             <StackPanel Orientation="Horizontal">
                                 <Path Data="M12 3l5 5h-3v6h-4V8H7l5-5zM5 16h14v3H5v-3z"
@@ -67,14 +95,15 @@
                             </StackPanel>
                         </Button>
                     </StackPanel>
-                    <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource HintStyle}" />
+                    <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource HintStyle}" Margin="0,12,0,0" />
                 </StackPanel>
             </Border>
 
             <!-- 配置文件管理 -->
             <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
                 <StackPanel>
-                    <TextBlock Text="配置文件管理" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,16" />
+                    <TextBlock Text="配置文件" Style="{StaticResource SectionTitleStyle}" />
+                    <TextBlock Text="当前配置文件" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
                     <ComboBox x:Name="ProfileComboBox"
                               ItemsSource="{Binding Profiles}"
                               SelectedItem="{Binding CurrentProfile}"
@@ -92,17 +121,29 @@
             <!-- 应用感知 -->
             <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
                 <StackPanel>
-                    <TextBlock Text="应用感知" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,16" />
-                    <CheckBox Content="启用应用感知"
-                              IsChecked="{Binding AppAwarenessEnabled}"
-                              Style="{StaticResource ToggleSwitchStyle}"
-                              Margin="0,0,0,16" />
+                    <TextBlock Text="应用感知" Style="{StaticResource SectionTitleStyle}" />
+
+                    <!-- 启用应用感知 -->
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="启用应用感知" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" />
+                            <TextBlock Text="根据前台应用自动切换配置" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <CheckBox Grid.Column="1" IsChecked="{Binding AppAwarenessEnabled}" Style="{StaticResource ToggleSwitchStyle}" VerticalAlignment="Center" />
+                    </Grid>
+
+                    <!-- 当前前台应用 -->
                     <Border Background="{StaticResource InputBackgroundBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,16">
                         <StackPanel>
                             <TextBlock Text="当前前台应用" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,0,0,4" />
                             <TextBlock Text="{Binding CurrentForegroundApp}" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" FontFamily="Consolas" />
                         </StackPanel>
                     </Border>
+
                     <TextBlock Text="应用规则" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,8" />
                     <ListBox ItemsSource="{Binding AppAwarenessRules}" Height="120" Margin="0,0,0,12">
                         <ListBox.ItemTemplate>
@@ -129,7 +170,7 @@
             <!-- 固件升级 -->
             <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
                 <StackPanel>
-                    <TextBlock Text="固件升级" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,16" />
+                    <TextBlock Text="固件升级" Style="{StaticResource SectionTitleStyle}" />
                     <Grid Margin="0,0,0,16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -179,24 +220,46 @@
             <!-- 外观设置 -->
             <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
                 <StackPanel>
-                    <TextBlock Text="外观设置" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,16" />
-                    <TextBlock Text="主题" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
-                    <ComboBox SelectedItem="{Binding Theme}" Margin="0,0,0,16">
-                        <ComboBoxItem Content="深色" />
-                        <ComboBoxItem Content="浅色" />
-                    </ComboBox>
-                    <TextBlock Text="语言" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
-                    <ComboBox SelectedItem="{Binding Language}">
-                        <ComboBoxItem Content="简体中文" />
-                        <ComboBoxItem Content="English" />
-                    </ComboBox>
+                    <TextBlock Text="外观设置" Style="{StaticResource SectionTitleStyle}" />
+
+                    <!-- 主题 -->
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="主题" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" />
+                            <TextBlock Text="选择应用外观主题" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <ComboBox Grid.Column="1" SelectedItem="{Binding Theme}" Width="120">
+                            <ComboBoxItem Content="深色" />
+                            <ComboBoxItem Content="浅色" />
+                        </ComboBox>
+                    </Grid>
+
+                    <!-- 语言 -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="语言" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" />
+                            <TextBlock Text="选择应用显示语言" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <ComboBox Grid.Column="1" SelectedItem="{Binding Language}" Width="120">
+                            <ComboBoxItem Content="简体中文" />
+                            <ComboBoxItem Content="English" />
+                        </ComboBox>
+                    </Grid>
                 </StackPanel>
             </Border>
 
             <!-- 关于 -->
             <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
                 <StackPanel>
-                    <TextBlock Text="关于" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,16" />
+                    <TextBlock Text="关于" Style="{StaticResource SectionTitleStyle}" />
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="100" />
