@@ -28,6 +28,11 @@ public interface IDeviceService : IDisposable
     DeviceConfig? CurrentConfig { get; }
 
     /// <summary>
+    /// 设备断开时自动导出错误日志
+    /// </summary>
+    bool AutoExportErrorLog { get; set; }
+
+    /// <summary>
     /// 操作状态变化事件（用于UI显示状态提示）
     /// 参数：状态消息
     /// </summary>

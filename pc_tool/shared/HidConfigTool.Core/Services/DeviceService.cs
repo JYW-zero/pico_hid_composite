@@ -87,6 +87,8 @@ public class DeviceService : IDeviceService
     private HidDeviceInfo? _currentDevice;
     private DeviceConfig? _currentConfig;
     private bool _disposed;
+    private bool _autoExportErrorLog = true;
+    private IReadOnlyList<ErrorLogEntry>? _lastErrorLogs;
 
     /// <summary>
     /// 写入操作锁，防止并发调用
@@ -153,6 +155,15 @@ public class DeviceService : IDeviceService
     public string? DeviceName => _currentDevice?.ProductName;
     public string? FirmwareVersion { get; private set; }
     public DeviceConfig? CurrentConfig => _currentConfig;
+
+    /// <summary>
+    /// 设备断开时自动导出错误日志
+    /// </summary>
+    public bool AutoExportErrorLog
+    {
+        get => _autoExportErrorLog;
+        set => _autoExportErrorLog = value;
+    }
 
     /// <summary>
     /// 设备 VID
@@ -342,6 +353,48 @@ public class DeviceService : IDeviceService
     /// <summary>
     /// 断开连接
     /// </summary>
+    /// <summary>
+    /// 自动导出错误日志到本地文件（设备断开时调用）
+    /// </summary>
+    private async Task AutoExportLogsAsync()
+    {
+        if (!_autoExportErrorLog || _lastErrorLogs == null || _lastErrorLogs.Count == 0)
+            return;
+
+        try
+        {
+            string logDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "HIDConfigTool", "ErrorLogs");
+            Directory.CreateDirectory(logDir);
+
+            string fileName = $"error_log_{DateTime.Now:yyyyMMdd_HHmmss}.txt";
+            string filePath = Path.Combine(logDir, fileName);
+
+            var lines = new List<string>
+            {
+                "========================================",
+                "  Pico HID 复合设备 - 自动导出错误日志",
+                $"  导出时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
+                $"  日志条数: {_lastErrorLogs.Count}",
+                "========================================",
+                ""
+            };
+
+            foreach (var log in _lastErrorLogs.Reverse())
+            {
+                lines.Add($"[{log.TimeFormatted}] [{log.LevelName}] [{log.Module}] {log.Message}");
+            }
+
+            await File.WriteAllLinesAsync(filePath, lines);
+            Log("INFO", $"错误日志已自动导出: {filePath}");
+        }
+        catch (Exception ex)
+        {
+            Log("ERROR", $"自动导出错误日志失败: {ex.Message}");
+        }
+    }
+
     public void Disconnect()
     {
         bool hadDevice;
@@ -357,6 +410,9 @@ public class DeviceService : IDeviceService
 
         if (hadDevice)
         {
+            // 设备断开前自动导出错误日志
+            _ = AutoExportLogsAsync();
+
             try
             {
                 _hidDriver.Close();
@@ -1380,7 +1436,8 @@ public class DeviceService : IDeviceService
             }
 
             Log("INFO", $"获取所有错误日志成功，共 {logs.Count} 条");
-            return logs.AsReadOnly();
+            _lastErrorLogs = logs.AsReadOnly();
+            return _lastErrorLogs;
         }
         catch (Exception ex)
         {

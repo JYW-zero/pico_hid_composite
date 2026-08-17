@@ -63,6 +63,12 @@ public partial class ErrorLogPageViewModel : ObservableObject, IDisposable
     private int _currentFilter = 0;
 
     /// <summary>
+    /// 设备断开时自动导出日志
+    /// </summary>
+    [ObservableProperty]
+    private bool _autoExportEnabled;
+
+    /// <summary>
     /// 构造函数
     /// </summary>
     public ErrorLogPageViewModel(IDeviceService deviceService, IDialogService dialogService, IFileDialogService fileDialogService)
@@ -73,6 +79,7 @@ public partial class ErrorLogPageViewModel : ObservableObject, IDisposable
         _deviceService.DeviceConnectionChanged += OnDeviceConnectionChanged;
 
         IsDeviceConnected = _deviceService.IsConnected;
+        AutoExportEnabled = _deviceService.AutoExportErrorLog;
     }
 
     /// <summary>
@@ -161,6 +168,14 @@ public partial class ErrorLogPageViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
+    /// 自动导出开关变化时同步到设备服务
+    /// </summary>
+    partial void OnAutoExportEnabledChanged(bool value)
+    {
+        _deviceService.AutoExportErrorLog = value;
+    }
+
+    /// <summary>
     /// 清除日志命令
     /// </summary>
     [RelayCommand]
@@ -232,15 +247,7 @@ public partial class ErrorLogPageViewModel : ObservableObject, IDisposable
             for (int i = _allLogs.Count - 1; i >= 0; i--)
             {
                 var log = _allLogs[i];
-                string levelStr = log.Level switch
-                {
-                    0 => "INFO",
-                    1 => "WARN",
-                    2 => "ERROR",
-                    3 => "FATAL",
-                    _ => "UNKNOWN"
-                };
-                lines.Add($"[{levelStr}] [{log.Module}] {log.Message}");
+                lines.Add($"[{log.TimeFormatted}] [{log.LevelName}] [{log.Module}] {log.Message}");
             }
 
             File.WriteAllLines(filePath, lines);

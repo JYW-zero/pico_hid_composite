@@ -143,6 +143,12 @@
                             FontSize="12"
                             MinWidth="70"
                             Style="{StaticResource SecondaryButtonStyle}" />
+                    <CheckBox Content="断开自动导出"
+                              IsChecked="{Binding AutoExportEnabled}"
+                              VerticalAlignment="Center"
+                              Margin="16,0,0,0"
+                              FontSize="12"
+                              Foreground="{StaticResource TextSecondaryBrush}" />
                 </StackPanel>
             </Grid>
         </Grid>
