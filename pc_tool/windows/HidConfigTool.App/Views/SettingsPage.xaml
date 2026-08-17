@@ -10,22 +10,22 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="../Themes/DarkTheme.xaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- 设置项分隔线 -->
+            <Style x:Key="SettingSeparator" TargetType="Rectangle">
+                <Setter Property="Height" Value="1" />
+                <Setter Property="Fill" Value="{StaticResource BorderBrush}" />
+                <Setter Property="Margin" Value="0,12,0,12" />
+            </Style>
+
+            <!-- 分组标题 -->
+            <Style x:Key="GroupTitleStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{StaticResource TextTertiaryBrush}" />
+                <Setter Property="Margin" Value="4,0,0,8" />
+            </Style>
         </ResourceDictionary>
-
-        <!-- 设置项分隔线 -->
-        <Style x:Key="SettingSeparator" TargetType="Rectangle">
-            <Setter Property="Height" Value="1" />
-            <Setter Property="Fill" Value="{StaticResource BorderBrush}" />
-            <Setter Property="Margin" Value="0,12,0,12" />
-        </Style>
-
-        <!-- 分组标题 -->
-        <Style x:Key="GroupTitleStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{StaticResource TextTertiaryBrush}" />
-            <Setter Property="Margin" Value="4,0,0,8" />
-        </Style>
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
