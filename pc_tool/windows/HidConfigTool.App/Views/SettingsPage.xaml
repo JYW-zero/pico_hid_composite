@@ -3,6 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:vm="clr-namespace:HidConfigTool.ViewModels;assembly=HidConfigTool.ViewModels"
+             xmlns:conv="clr-namespace:HidConfigTool.App.Converters"
              mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
     <UserControl.Resources>
@@ -11,280 +13,401 @@
                 <ResourceDictionary Source="../Themes/DarkTheme.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- 设置项分隔线 -->
-            <Style x:Key="SettingSeparator" TargetType="Rectangle">
-                <Setter Property="Height" Value="1" />
-                <Setter Property="Fill" Value="{StaticResource BorderBrush}" />
-                <Setter Property="Margin" Value="0,12,0,12" />
-            </Style>
+            <BooleanToVisibilityConverter x:Key="BoolToVis" />
+            <conv:EnumToVisConverter x:Key="EnumToVisConverter" />
+            <conv:InvertBoolConverter x:Key="InvertBoolConverter" />
 
-            <!-- 分组标题 -->
-            <Style x:Key="GroupTitleStyle" TargetType="TextBlock">
-                <Setter Property="FontSize" Value="12" />
-                <Setter Property="FontWeight" Value="SemiBold" />
-                <Setter Property="Foreground" Value="{StaticResource TextTertiaryBrush}" />
-                <Setter Property="Margin" Value="4,0,0,8" />
+            <!-- 设置项按钮样式 -->
+            <Style x:Key="SettingItemButton" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="Padding" Value="16,14" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="border" Property="Background" Value="{StaticResource HoverBackgroundBrush}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
-        <StackPanel Margin="0,0,16,0">
-            <!-- 页面标题 -->
+    <Grid>
+        <!-- ==================== 主页面：设置项列表 ==================== -->
+        <StackPanel Visibility="{Binding IsInSubPage, Converter={StaticResource BoolToVis}, ConverterParameter=Inverse}">
             <TextBlock Text="设置" Style="{StaticResource PageTitleStyle}" />
-            <TextBlock Text="配置应用行为、外观和设备管理选项" Style="{StaticResource PageSubtitleStyle}" Margin="0,0,0,24" />
+            <TextBlock Text="配置应用行为、外观和设备管理选项" Style="{StaticResource PageSubtitleStyle}" Margin="0,0,0,20" />
 
-            <!-- ========== 通用 ========== -->
-            <TextBlock Text="通用" Style="{StaticResource GroupTitleStyle}" />
-
-            <!-- 最小化到系统托盘 -->
-            <Grid Margin="0,0,0,4">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                    <TextBlock Text="最小化到系统托盘" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" />
-                    <TextBlock Text="关闭窗口时最小化到托盘" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0" />
-                </StackPanel>
-                <CheckBox Grid.Column="1" IsChecked="{Binding MinimizeToTray}" Style="{StaticResource ToggleSwitchStyle}" VerticalAlignment="Center" />
-            </Grid>
-            <Rectangle Style="{StaticResource SettingSeparator}" />
-
-            <!-- 开机自动启动 -->
-            <Grid Margin="0,0,0,4">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                    <TextBlock Text="开机自动启动" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" />
-                    <TextBlock Text="系统启动时自动运行" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0" />
-                </StackPanel>
-                <CheckBox Grid.Column="1" IsChecked="{Binding AutoStart}" Style="{StaticResource ToggleSwitchStyle}" VerticalAlignment="Center" />
-            </Grid>
-            <Rectangle Style="{StaticResource SettingSeparator}" />
-
-            <!-- 启动时检查更新 -->
-            <Grid Margin="0,0,0,4">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                    <TextBlock Text="启动时检查更新" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" />
-                    <TextBlock Text="应用启动时自动检查新版本" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0" />
-                </StackPanel>
-                <CheckBox Grid.Column="1" IsChecked="{Binding CheckUpdateOnStart}" Style="{StaticResource ToggleSwitchStyle}" VerticalAlignment="Center" />
-            </Grid>
-
-            <!-- ========== 配置管理 ========== -->
-            <TextBlock Text="配置管理" Style="{StaticResource GroupTitleStyle}" Margin="4,24,0,8" />
-
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                <Button Command="{Binding ExportConfigCommand}" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,10,0">
-                    <StackPanel Orientation="Horizontal">
-                        <Path Data="M12 3l5 5h-3v6h-4V8H7l5-5zM5 16h14v3H5v-3z"
-                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                              Width="14" Height="14" Margin="0,0,8,0" />
-                        <TextBlock Text="导出配置" VerticalAlignment="Center" />
+            <!-- 通用 -->
+            <Button Style="{StaticResource SettingItemButton}" Command="{Binding NavigateToSectionCommand}" CommandParameter="{x:Static vm:SettingsPageViewModel+SettingsSection.General}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Path Grid.Column="0" Data="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97 0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65A.488.488 0 0 0 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.63c-.04.34-.07.67-.07 1 0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1.01c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.66z"
+                          Fill="{StaticResource TextSecondaryBrush}" Width="20" Height="20" Margin="0,0,14,0" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="通用" FontSize="15" Foreground="{StaticResource TextPrimaryBrush}" />
+                        <TextBlock Text="启动行为、系统托盘" FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0" />
                     </StackPanel>
-                </Button>
-                <Button Command="{Binding ImportConfigCommand}" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,10,0">
-                    <StackPanel Orientation="Horizontal">
-                        <Path Data="M12 21l-5-5h3V8h4v8h3l-5 5zM5 5h14v3H5V5z"
-                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                              Width="14" Height="14" Margin="0,0,8,0" />
-                        <TextBlock Text="导入配置" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-                <Button Command="{Binding ResetConfigCommand}" Style="{StaticResource DangerButtonStyle}">
-                    <StackPanel Orientation="Horizontal">
-                        <Path Data="M12 5V2L7 7l5 5V8a5 5 0 1 1-5 5H5a7 7 0 1 0 7-8z"
-                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                              Width="14" Height="14" Margin="0,0,8,0" />
-                        <TextBlock Text="恢复默认" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-            </StackPanel>
-            <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource HintStyle}" Margin="0,8,0,0" />
-
-            <!-- ========== 配置文件 ========== -->
-            <TextBlock Text="配置文件" Style="{StaticResource GroupTitleStyle}" Margin="4,24,0,8" />
-
-            <TextBlock Text="当前配置文件" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
-            <ComboBox x:Name="ProfileComboBox"
-                      ItemsSource="{Binding Profiles}"
-                      SelectedItem="{Binding CurrentProfile}"
-                      DisplayMemberPath="Name"
-                      MouseDoubleClick="ProfileComboBox_MouseDoubleClick"
-                      Margin="0,0,0,12" />
-            <StackPanel Orientation="Horizontal">
-                <Button Command="{Binding NewProfileCommand}" Content="新建" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,8,0" Padding="14,8" FontSize="12" />
-                <Button Command="{Binding RenameProfileCommand}" Content="重命名" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0" Padding="14,8" FontSize="12" />
-                <Button Command="{Binding DeleteProfileCommand}" Content="删除" Style="{StaticResource DangerButtonStyle}" Padding="14,8" FontSize="12" />
-            </StackPanel>
-
-            <!-- ========== 应用感知 ========== -->
-            <TextBlock Text="应用感知" Style="{StaticResource GroupTitleStyle}" Margin="4,24,0,8" />
-
-            <!-- 启用应用感知 -->
-            <Grid Margin="0,0,0,4">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                    <TextBlock Text="启用应用感知" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" />
-                    <TextBlock Text="根据前台应用自动切换配置" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0" />
-                </StackPanel>
-                <CheckBox Grid.Column="1" IsChecked="{Binding AppAwarenessEnabled}" Style="{StaticResource ToggleSwitchStyle}" VerticalAlignment="Center" />
-            </Grid>
-            <Rectangle Style="{StaticResource SettingSeparator}" />
-
-            <!-- 当前前台应用 -->
-            <Border Background="{StaticResource InputBackgroundBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,16">
-                <StackPanel>
-                    <TextBlock Text="当前前台应用" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,0,0,4" />
-                    <TextBlock Text="{Binding CurrentForegroundApp}" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" FontFamily="Consolas" />
-                </StackPanel>
-            </Border>
-
-            <TextBlock Text="应用规则" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,8" />
-            <ListBox ItemsSource="{Binding AppAwarenessRules}" Height="120" Margin="0,0,0,12">
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <Grid Margin="8,4">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="{Binding ProcessName}" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
-                            <Button Grid.Column="1" Style="{StaticResource IconButtonStyle}" Command="{Binding DataContext.RemoveAppRuleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" Padding="6">
-                                <Path Data="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L6 9z"
-                                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                      Width="12" Height="12" />
-                            </Button>
-                        </Grid>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-            <Button Command="{Binding AddAppRuleCommand}" Content="添加规则" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Padding="14,8" FontSize="12" />
-
-            <!-- ========== 固件升级 ========== -->
-            <TextBlock Text="固件升级" Style="{StaticResource GroupTitleStyle}" Margin="4,24,0,8" />
-
-            <Grid Margin="0,0,0,16">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0">
-                    <TextBlock Text="当前版本" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,0,0,4" />
-                    <TextBlock Text="{Binding CurrentFirmwareVersion}" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" FontFamily="Consolas" />
-                </StackPanel>
-                <StackPanel Grid.Column="1">
-                    <TextBlock Text="最新版本" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,0,0,4" />
-                    <TextBlock Text="{Binding LatestFirmwareVersion}" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" FontFamily="Consolas" />
-                </StackPanel>
-            </Grid>
-
-            <Button Command="{Binding CheckUpdateCommand}" Content="检查更新" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,0,0,16" Padding="14,8" FontSize="12" />
-
-            <TextBlock Text="固件文件" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
-            <Grid Margin="0,0,0,16">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBox Grid.Column="0" Text="{Binding FirmwareFilePath}" IsReadOnly="True" Margin="0,0,8,0" />
-                <Button Grid.Column="1" Command="{Binding SelectFirmwareFileCommand}" Content="选择文件" Style="{StaticResource SecondaryButtonStyle}" Padding="14,8" FontSize="12" />
-            </Grid>
-
-            <TextBlock Text="升级进度" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
-            <ProgressBar Value="{Binding UpdateProgress}" Minimum="0" Maximum="100" Margin="0,0,0,8" />
-            <TextBlock Text="{Binding UpdateStatus}" Style="{StaticResource HintStyle}" Margin="0,0,0,16" />
-
-            <Button Command="{Binding StartUpdateCommand}"
-                    IsEnabled="{Binding IsUpdating, Converter={StaticResource InvertBoolConverter}}"
-                    Style="{StaticResource PrimaryButtonStyle}"
-                    HorizontalAlignment="Left"
-                    Padding="16,10">
-                <StackPanel Orientation="Horizontal">
-                    <Path Data="M12 3l5 5h-3v6h-4V8H7l5-5zM5 16h14v3H5v-3z"
-                          Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                          Width="14" Height="14" Margin="0,0,8,0" />
-                    <TextBlock Text="开始升级" VerticalAlignment="Center" />
-                </StackPanel>
+                    <Path Grid.Column="2" Data="M0 0 L4 4 L8 0" Stroke="{StaticResource TextTertiaryBrush}" StrokeThickness="1.5" Width="8" Height="6" Stretch="Fill" VerticalAlignment="Center" Margin="8,0,0,0" />
+                </Grid>
             </Button>
 
-            <!-- ========== 外观 ========== -->
-            <TextBlock Text="外观" Style="{StaticResource GroupTitleStyle}" Margin="4,24,0,8" />
+            <!-- 配置管理 -->
+            <Button Style="{StaticResource SettingItemButton}" Command="{Binding NavigateToSectionCommand}" CommandParameter="{x:Static vm:SettingsPageViewModel+SettingsSection.ConfigManagement}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Path Grid.Column="0" Data="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"
+                          Fill="{StaticResource TextSecondaryBrush}" Width="20" Height="20" Margin="0,0,14,0" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="配置管理" FontSize="15" Foreground="{StaticResource TextPrimaryBrush}" />
+                        <TextBlock Text="导出、导入、恢复默认配置" FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0" />
+                    </StackPanel>
+                    <Path Grid.Column="2" Data="M0 0 L4 4 L8 0" Stroke="{StaticResource TextTertiaryBrush}" StrokeThickness="1.5" Width="8" Height="6" Stretch="Fill" VerticalAlignment="Center" Margin="8,0,0,0" />
+                </Grid>
+            </Button>
 
-            <!-- 主题 -->
-            <Grid Margin="0,0,0,4">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                    <TextBlock Text="主题" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" />
-                    <TextBlock Text="选择应用外观主题" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0" />
-                </StackPanel>
-                <ComboBox Grid.Column="1" SelectedItem="{Binding Theme}" Width="140">
-                    <ComboBoxItem Content="深色" />
-                    <ComboBoxItem Content="浅色" />
-                </ComboBox>
-            </Grid>
-            <Rectangle Style="{StaticResource SettingSeparator}" />
+            <!-- 配置文件 -->
+            <Button Style="{StaticResource SettingItemButton}" Command="{Binding NavigateToSectionCommand}" CommandParameter="{x:Static vm:SettingsPageViewModel+SettingsSection.Profiles}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Path Grid.Column="0" Data="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"
+                          Fill="{StaticResource TextSecondaryBrush}" Width="20" Height="20" Margin="0,0,14,0" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="配置文件" FontSize="15" Foreground="{StaticResource TextPrimaryBrush}" />
+                        <TextBlock Text="管理多个配置方案" FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0" />
+                    </StackPanel>
+                    <Path Grid.Column="2" Data="M0 0 L4 4 L8 0" Stroke="{StaticResource TextTertiaryBrush}" StrokeThickness="1.5" Width="8" Height="6" Stretch="Fill" VerticalAlignment="Center" Margin="8,0,0,0" />
+                </Grid>
+            </Button>
 
-            <!-- 语言 -->
-            <Grid Margin="0,0,0,4">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                    <TextBlock Text="语言" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" />
-                    <TextBlock Text="选择应用显示语言" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0" />
-                </StackPanel>
-                <ComboBox Grid.Column="1" SelectedItem="{Binding Language}" Width="140">
-                    <ComboBoxItem Content="简体中文" />
-                    <ComboBoxItem Content="English" />
-                </ComboBox>
-            </Grid>
+            <!-- 应用感知 -->
+            <Button Style="{StaticResource SettingItemButton}" Command="{Binding NavigateToSectionCommand}" CommandParameter="{x:Static vm:SettingsPageViewModel+SettingsSection.AppAwareness}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Path Grid.Column="0" Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"
+                          Fill="{StaticResource TextSecondaryBrush}" Width="20" Height="20" Margin="0,0,14,0" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="应用感知" FontSize="15" Foreground="{StaticResource TextPrimaryBrush}" />
+                        <TextBlock Text="根据前台应用自动切换配置" FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0" />
+                    </StackPanel>
+                    <Path Grid.Column="2" Data="M0 0 L4 4 L8 0" Stroke="{StaticResource TextTertiaryBrush}" StrokeThickness="1.5" Width="8" Height="6" Stretch="Fill" VerticalAlignment="Center" Margin="8,0,0,0" />
+                </Grid>
+            </Button>
 
-            <!-- ========== 关于 ========== -->
-            <TextBlock Text="关于" Style="{StaticResource GroupTitleStyle}" Margin="4,24,0,8" />
+            <!-- 固件升级 -->
+            <Button Style="{StaticResource SettingItemButton}" Command="{Binding NavigateToSectionCommand}" CommandParameter="{x:Static vm:SettingsPageViewModel+SettingsSection.FirmwareUpdate}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Path Grid.Column="0" Data="M12 16l4-4h-3V4h-2v8H8l4 4zm0 2c-4.41 0-8-3.59-8-8H2c0 5.52 4.48 10 10 10s10-4.48 10-10h-2c0 4.41-3.59 8-8 8z"
+                          Fill="{StaticResource TextSecondaryBrush}" Width="20" Height="20" Margin="0,0,14,0" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="固件升级" FontSize="15" Foreground="{StaticResource TextPrimaryBrush}" />
+                        <TextBlock Text="检查并更新设备固件" FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0" />
+                    </StackPanel>
+                    <Path Grid.Column="2" Data="M0 0 L4 4 L8 0" Stroke="{StaticResource TextTertiaryBrush}" StrokeThickness="1.5" Width="8" Height="6" Stretch="Fill" VerticalAlignment="Center" Margin="8,0,0,0" />
+                </Grid>
+            </Button>
 
-            <Grid Margin="0,0,0,16">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="100" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="版本" Style="{StaticResource LabelStyle}" />
-                <TextBlock Grid.Row="0" Grid.Column="1" Text="v0.1.0" Style="{StaticResource ValueStyle}" FontFamily="Consolas" />
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="作者" Style="{StaticResource LabelStyle}" />
-                <TextBlock Grid.Row="1" Grid.Column="1" Text="JYW" Style="{StaticResource ValueStyle}" />
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="邮箱" Style="{StaticResource LabelStyle}" />
-                <TextBlock Grid.Row="2" Grid.Column="1" Text="J.YW@outlook.com" Style="{StaticResource ValueStyle}" FontFamily="Consolas" />
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="技术栈" Style="{StaticResource LabelStyle}" />
-                <TextBlock Grid.Row="3" Grid.Column="1" Text="WPF + .NET 10" Style="{StaticResource ValueStyle}" />
-            </Grid>
-            <Button Content="打开帮助文档"
-                    Command="{Binding OpenHelpCommand}"
-                    Style="{StaticResource SecondaryButtonStyle}"
-                    HorizontalAlignment="Left"
-                    Padding="20,10" />
+            <!-- 外观 -->
+            <Button Style="{StaticResource SettingItemButton}" Command="{Binding NavigateToSectionCommand}" CommandParameter="{x:Static vm:SettingsPageViewModel+SettingsSection.Appearance}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Path Grid.Column="0" Data="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"
+                          Fill="{StaticResource TextSecondaryBrush}" Width="20" Height="20" Margin="0,0,14,0" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="外观" FontSize="15" Foreground="{StaticResource TextPrimaryBrush}" />
+                        <TextBlock Text="主题、语言" FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0" />
+                    </StackPanel>
+                    <Path Grid.Column="2" Data="M0 0 L4 4 L8 0" Stroke="{StaticResource TextTertiaryBrush}" StrokeThickness="1.5" Width="8" Height="6" Stretch="Fill" VerticalAlignment="Center" Margin="8,0,0,0" />
+                </Grid>
+            </Button>
 
-            <!-- 底部留白 -->
-            <Border Height="40" />
+            <!-- 关于 -->
+            <Button Style="{StaticResource SettingItemButton}" Command="{Binding NavigateToSectionCommand}" CommandParameter="{x:Static vm:SettingsPageViewModel+SettingsSection.About}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Path Grid.Column="0" Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
+                          Fill="{StaticResource TextSecondaryBrush}" Width="20" Height="20" Margin="0,0,14,0" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="关于" FontSize="15" Foreground="{StaticResource TextPrimaryBrush}" />
+                        <TextBlock Text="版本信息、帮助文档" FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0" />
+                    </StackPanel>
+                    <Path Grid.Column="2" Data="M0 0 L4 4 L8 0" Stroke="{StaticResource TextTertiaryBrush}" StrokeThickness="1.5" Width="8" Height="6" Stretch="Fill" VerticalAlignment="Center" Margin="8,0,0,0" />
+                </Grid>
+            </Button>
         </StackPanel>
-    </ScrollViewer>
+
+        <!-- ==================== 子页面：详细设置 ==================== -->
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                      Visibility="{Binding IsInSubPage, Converter={StaticResource BoolToVis}}">
+            <StackPanel Margin="0,0,16,0">
+                <!-- 返回按钮 + 标题 -->
+                <Button Command="{Binding NavigateBackCommand}" Style="{StaticResource SettingItemButton}" HorizontalAlignment="Left" Padding="8,8" Margin="0,0,0,16">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="M0 4 L4 0 L8 4" Stroke="{StaticResource TextPrimaryBrush}" StrokeThickness="1.5" Width="16" Height="10" Stretch="Fill" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBlock Text="返回设置" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <!-- 通用 -->
+                <StackPanel Visibility="{Binding CurrentSection, Converter={StaticResource EnumToVisConverter}, ConverterParameter=General}">
+                    <TextBlock Text="通用" Style="{StaticResource PageTitleStyle}" />
+                    <TextBlock Text="配置应用启动行为和系统托盘" Style="{StaticResource PageSubtitleStyle}" Margin="0,0,0,20" />
+
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="最小化到系统托盘" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" />
+                            <TextBlock Text="关闭窗口时最小化到托盘" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <CheckBox Grid.Column="1" IsChecked="{Binding MinimizeToTray}" Style="{StaticResource ToggleSwitchStyle}" VerticalAlignment="Center" />
+                    </Grid>
+
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="开机自动启动" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" />
+                            <TextBlock Text="系统启动时自动运行" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <CheckBox Grid.Column="1" IsChecked="{Binding AutoStart}" Style="{StaticResource ToggleSwitchStyle}" VerticalAlignment="Center" />
+                    </Grid>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="启动时检查更新" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" />
+                            <TextBlock Text="应用启动时自动检查新版本" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <CheckBox Grid.Column="1" IsChecked="{Binding CheckUpdateOnStart}" Style="{StaticResource ToggleSwitchStyle}" VerticalAlignment="Center" />
+                    </Grid>
+                </StackPanel>
+
+                <!-- 配置管理 -->
+                <StackPanel Visibility="{Binding CurrentSection, Converter={StaticResource EnumToVisConverter}, ConverterParameter=ConfigManagement}">
+                    <TextBlock Text="配置管理" Style="{StaticResource PageTitleStyle}" />
+                    <TextBlock Text="导出、导入或恢复设备配置" Style="{StaticResource PageSubtitleStyle}" Margin="0,0,0,20" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                        <Button Command="{Binding ExportConfigCommand}" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,10,0">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="M12 3l5 5h-3v6h-4V8H7l5-5zM5 16h14v3H5v-3z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="14" Height="14" Margin="0,0,8,0" />
+                                <TextBlock Text="导出配置" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding ImportConfigCommand}" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,10,0">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="M12 21l-5-5h3V8h4v8h3l-5 5zM5 5h14v3H5V5z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="14" Height="14" Margin="0,0,8,0" />
+                                <TextBlock Text="导入配置" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding ResetConfigCommand}" Style="{StaticResource DangerButtonStyle}">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="M12 5V2L7 7l5 5V8a5 5 0 1 1-5 5H5a7 7 0 1 0 7-8z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="14" Height="14" Margin="0,0,8,0" />
+                                <TextBlock Text="恢复默认" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                    <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource HintStyle}" />
+                </StackPanel>
+
+                <!-- 配置文件 -->
+                <StackPanel Visibility="{Binding CurrentSection, Converter={StaticResource EnumToVisConverter}, ConverterParameter=Profiles}">
+                    <TextBlock Text="配置文件" Style="{StaticResource PageTitleStyle}" />
+                    <TextBlock Text="管理多个配置方案，快速切换" Style="{StaticResource PageSubtitleStyle}" Margin="0,0,0,20" />
+
+                    <TextBlock Text="当前配置文件" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
+                    <ComboBox x:Name="ProfileComboBox" ItemsSource="{Binding Profiles}" SelectedItem="{Binding CurrentProfile}" DisplayMemberPath="Name" MouseDoubleClick="ProfileComboBox_MouseDoubleClick" Margin="0,0,0,16" />
+                    <StackPanel Orientation="Horizontal">
+                        <Button Command="{Binding NewProfileCommand}" Content="新建" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,8,0" Padding="14,8" FontSize="12" />
+                        <Button Command="{Binding RenameProfileCommand}" Content="重命名" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0" Padding="14,8" FontSize="12" />
+                        <Button Command="{Binding DeleteProfileCommand}" Content="删除" Style="{StaticResource DangerButtonStyle}" Padding="14,8" FontSize="12" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- 应用感知 -->
+                <StackPanel Visibility="{Binding CurrentSection, Converter={StaticResource EnumToVisConverter}, ConverterParameter=AppAwareness}">
+                    <TextBlock Text="应用感知" Style="{StaticResource PageTitleStyle}" />
+                    <TextBlock Text="根据前台应用自动切换配置" Style="{StaticResource PageSubtitleStyle}" Margin="0,0,0,20" />
+
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="启用应用感知" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" />
+                            <TextBlock Text="根据前台应用自动切换配置" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <CheckBox Grid.Column="1" IsChecked="{Binding AppAwarenessEnabled}" Style="{StaticResource ToggleSwitchStyle}" VerticalAlignment="Center" />
+                    </Grid>
+
+                    <Border Background="{StaticResource InputBackgroundBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="当前前台应用" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,0,0,4" />
+                            <TextBlock Text="{Binding CurrentForegroundApp}" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" FontFamily="Consolas" />
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="应用规则" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,8" />
+                    <ListBox ItemsSource="{Binding AppAwarenessRules}" Height="150" Margin="0,0,0,12">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="8,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding ProcessName}" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" Style="{StaticResource IconButtonStyle}" Command="{Binding DataContext.RemoveAppRuleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" Padding="6">
+                                        <Path Data="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L6 9z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="12" Height="12" />
+                                    </Button>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <Button Command="{Binding AddAppRuleCommand}" Content="添加规则" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Padding="14,8" FontSize="12" />
+                </StackPanel>
+
+                <!-- 固件升级 -->
+                <StackPanel Visibility="{Binding CurrentSection, Converter={StaticResource EnumToVisConverter}, ConverterParameter=FirmwareUpdate}">
+                    <TextBlock Text="固件升级" Style="{StaticResource PageTitleStyle}" />
+                    <TextBlock Text="检查并更新设备固件" Style="{StaticResource PageSubtitleStyle}" Margin="0,0,0,20" />
+
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="当前版本" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,0,0,4" />
+                            <TextBlock Text="{Binding CurrentFirmwareVersion}" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" FontFamily="Consolas" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="最新版本" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,0,0,4" />
+                            <TextBlock Text="{Binding LatestFirmwareVersion}" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" FontFamily="Consolas" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Button Command="{Binding CheckUpdateCommand}" Content="检查更新" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,0,0,16" Padding="14,8" FontSize="12" />
+
+                    <TextBlock Text="固件文件" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0" Text="{Binding FirmwareFilePath}" IsReadOnly="True" Margin="0,0,8,0" />
+                        <Button Grid.Column="1" Command="{Binding SelectFirmwareFileCommand}" Content="选择文件" Style="{StaticResource SecondaryButtonStyle}" Padding="14,8" FontSize="12" />
+                    </Grid>
+
+                    <TextBlock Text="升级进度" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
+                    <ProgressBar Value="{Binding UpdateProgress}" Minimum="0" Maximum="100" Margin="0,0,0,8" />
+                    <TextBlock Text="{Binding UpdateStatus}" Style="{StaticResource HintStyle}" Margin="0,0,0,16" />
+
+                    <Button Command="{Binding StartUpdateCommand}" IsEnabled="{Binding IsUpdating, Converter={StaticResource InvertBoolConverter}}" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Left" Padding="16,10">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="M12 3l5 5h-3v6h-4V8H7l5-5zM5 16h14v3H5v-3z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="14" Height="14" Margin="0,0,8,0" />
+                            <TextBlock Text="开始升级" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <!-- 外观 -->
+                <StackPanel Visibility="{Binding CurrentSection, Converter={StaticResource EnumToVisConverter}, ConverterParameter=Appearance}">
+                    <TextBlock Text="外观" Style="{StaticResource PageTitleStyle}" />
+                    <TextBlock Text="自定义应用外观和语言" Style="{StaticResource PageSubtitleStyle}" Margin="0,0,0,20" />
+
+                    <TextBlock Text="主题" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
+                    <ComboBox SelectedItem="{Binding Theme}" Margin="0,0,0,20">
+                        <ComboBoxItem Content="深色" />
+                        <ComboBoxItem Content="浅色" />
+                    </ComboBox>
+
+                    <TextBlock Text="语言" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
+                    <ComboBox SelectedItem="{Binding Language}">
+                        <ComboBoxItem Content="简体中文" />
+                        <ComboBoxItem Content="English" />
+                    </ComboBox>
+                </StackPanel>
+
+                <!-- 关于 -->
+                <StackPanel Visibility="{Binding CurrentSection, Converter={StaticResource EnumToVisConverter}, ConverterParameter=About}">
+                    <TextBlock Text="关于" Style="{StaticResource PageTitleStyle}" />
+                    <TextBlock Text="应用信息和帮助文档" Style="{StaticResource PageSubtitleStyle}" Margin="0,0,0,20" />
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="100" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="版本" Style="{StaticResource LabelStyle}" />
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="v0.1.0" Style="{StaticResource ValueStyle}" FontFamily="Consolas" />
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="作者" Style="{StaticResource LabelStyle}" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="JYW" Style="{StaticResource ValueStyle}" />
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="邮箱" Style="{StaticResource LabelStyle}" />
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="J.YW@outlook.com" Style="{StaticResource ValueStyle}" FontFamily="Consolas" />
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="技术栈" Style="{StaticResource LabelStyle}" />
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="WPF + .NET 10" Style="{StaticResource ValueStyle}" />
+                    </Grid>
+                    <Button Content="打开帮助文档" Command="{Binding OpenHelpCommand}" Style="{StaticResource SecondaryButtonStyle}" Margin="0,20,0,0" HorizontalAlignment="Left" Padding="20,10" />
+                </StackPanel>
+
+                <!-- 底部留白 -->
+                <Border Height="40" />
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
 </UserControl>

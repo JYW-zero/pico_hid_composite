@@ -31,8 +31,33 @@ public partial class AppAwarenessRuleItemViewModel : ObservableObject
 
 public partial class SettingsPageViewModel : ObservableObject
 {
+    /// <summary>
+    /// 设置页面分组
+    /// </summary>
+    public enum SettingsSection
+    {
+        General,
+        ConfigManagement,
+        Profiles,
+        AppAwareness,
+        FirmwareUpdate,
+        Appearance,
+        About
+    }
+
     private readonly ITrayIconService _trayIconManager;
     private readonly IDeviceService _deviceService;
+
+    /// <summary>
+    /// 当前选中的设置项（null=主页面）
+    /// </summary>
+    [ObservableProperty]
+    private SettingsSection? _currentSection;
+
+    /// <summary>
+    /// 是否在子页面
+    /// </summary>
+    public bool IsInSubPage => CurrentSection != null;
 
     [ObservableProperty]
     private bool _minimizeToTray;
@@ -193,6 +218,23 @@ public partial class SettingsPageViewModel : ObservableObject
     {
         string language = value == "English" ? LanguageConstants.English : LanguageConstants.Chinese;
         _languageManager.SetLanguage(language);
+    }
+
+    partial void OnCurrentSectionChanged(SettingsSection? value)
+    {
+        OnPropertyChanged(nameof(IsInSubPage));
+    }
+
+    [RelayCommand]
+    private void NavigateToSection(SettingsSection section)
+    {
+        CurrentSection = section;
+    }
+
+    [RelayCommand]
+    private void NavigateBack()
+    {
+        CurrentSection = null;
     }
 
     [RelayCommand]
