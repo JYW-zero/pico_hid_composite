@@ -593,13 +593,8 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
         case REPORT_ID_PERF_TASK:
         {
             if (bufsize >= 1) {
-                /* 配置锁定：拒绝修改读取索引（与FAULT_LOG保持一致） */
-                if (s_config_locked) {
-                    LOG_ERROR_PRINT("[SECURITY] ❌ 配置已锁定，拒绝修改性能监控索引\n");
-                    break;
-                }
+                /* 性能监控读取索引：仅用于读取，不修改配置，无需锁定 */
                 s_perf_task_index = buffer[0];
-                LOG_INFO_PRINT("[PERF] 设置任务读取索引: %d\n", s_perf_task_index);
             }
             break;
         }
