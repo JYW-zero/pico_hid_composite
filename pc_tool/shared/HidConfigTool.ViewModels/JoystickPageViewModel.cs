@@ -115,6 +115,11 @@ public partial class JoystickPageViewModel : ObservableObject, IDisposable
         // 从当前配置加载
         if (_deviceService.IsConnected && _deviceService.CurrentConfig != null)
         {
+            // 防御性修复：旧配置中死区可能为0（无效值），重置为默认100
+            if (_deviceService.CurrentConfig.JoystickDeadzone == 0)
+            {
+                _deviceService.CurrentConfig.JoystickDeadzone = 100;
+            }
             Deadzone = _deviceService.CurrentConfig.JoystickDeadzone;
             Sensitivity = _deviceService.CurrentConfig.JoystickSensitivity;
             InvertX = _deviceService.CurrentConfig.JoystickInvertX;
@@ -185,6 +190,7 @@ public partial class JoystickPageViewModel : ObservableObject, IDisposable
         if (_isInitialized && !_isApplyingRealtime)
         {
             _ = ApplyDeadzoneRealtimeAsync();
+            ScheduleConfigSave();  // 延迟保存到Flash
         }
     }
 
