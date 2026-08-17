@@ -236,6 +236,17 @@ uint8_t const desc_hid_config_report[] =
   0x95, 8,                 //   Report Count (8)
   0xB1, 0x02,              //   Feature (Data,Var,Abs)
 
+  // v3 配置扩展字段 Feature 报告 (Report ID 21, 12 字节)
+  // 包含: joystick_invert_x, joystick_invert_y, encoder_steps,
+  //       encoder_scroll_speed, joystick_sensitivity(2), reserved(6)
+  0x85, 21,                //   Report ID (21)
+  0x09, 0x12,              //   Usage (0x12) - 独立Usage
+  0x15, 0x00,              //   Logical Minimum (0)
+  0x26, 0xFF, 0x00,        //   Logical Maximum (255)
+  0x75, 0x08,              //   Report Size (8 bits)
+  0x95, 12,                //   Report Count (12)
+  0xB1, 0x02,              //   Feature (Data,Var,Abs)
+
   0xC0                     // End Collection
 };
 

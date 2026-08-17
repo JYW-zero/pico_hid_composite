@@ -417,6 +417,17 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_t
             return (reqlen > 8) ? 8 : reqlen;
         }
 
+        case REPORT_ID_CONFIG_EXT:
+        {
+            /* v3配置扩展字段：偏移1326+，共12字节 */
+            if (reqlen == 0) return 0;
+            memset(buffer, 0, reqlen);
+            uint8_t* ext_bytes = (uint8_t*)&g_tmp_config + 1326;
+            uint16_t copy_len = (reqlen < 12) ? reqlen : 12;
+            memcpy(buffer, ext_bytes, copy_len);
+            return (reqlen > 12) ? 12 : reqlen;
+        }
+
         default:
             return 0;
     }
@@ -589,6 +600,22 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
                 }
                 s_perf_task_index = buffer[0];
                 LOG_INFO_PRINT("[PERF] 设置任务读取索引: %d\n", s_perf_task_index);
+            }
+            break;
+        }
+
+        case REPORT_ID_CONFIG_EXT:
+        {
+            /* v3配置扩展字段写入：偏移1326+，共12字节 */
+            if (s_config_locked) {
+                LOG_ERROR_PRINT("[SECURITY] ❌ 配置已锁定，拒绝写入扩展字段\n");
+                break;
+            }
+            if (bufsize > 0 && buffer != NULL) {
+                uint8_t* ext_bytes = (uint8_t*)&g_tmp_config + 1326;
+                uint16_t copy_len = (bufsize < 12) ? bufsize : 12;
+                memcpy(ext_bytes, buffer, copy_len);
+                LOG_INFO_PRINT("[CONFIG] 收到配置扩展字段 (%d字节)\n", copy_len);
             }
             break;
         }

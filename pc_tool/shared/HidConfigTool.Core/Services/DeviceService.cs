@@ -35,6 +35,7 @@ public class DeviceService : IDeviceService
     private const byte REPORT_ID_FAULT_LOG = 0x12;      // 错误日志 - 读取日志
     private const byte REPORT_ID_KEY_STATE = 0x13;      // 实时按键状态 (64位bitmap)
     private const byte REPORT_ID_JOYSTICK_STATE = 0x14; // 实时摇杆状态
+    private const byte REPORT_ID_CONFIG_EXT = 0x15;     // v3配置扩展字段 (偏移1326+, 12字节)
 
     // 控制命令码
     private const byte CMD_SAVE_CONFIG = 0x01;
@@ -405,6 +406,17 @@ public class DeviceService : IDeviceService
                     Array.Copy(block2, 0, fullData, offset2, len2);
             }
 
+            // 读取v3扩展字段（偏移1326+，12字节）
+            byte[]? extBlock = await _hidDriver.GetFeatureReportAsync(REPORT_ID_CONFIG_EXT);
+            if (extBlock != null)
+            {
+                int extLen = Math.Min(extBlock.Length, 12);
+                if (extLen > 0 && OFFSET_JOY_INV_X + extLen <= CONFIG_SIZE)
+                {
+                    Array.Copy(extBlock, 0, fullData, OFFSET_JOY_INV_X, extLen);
+                }
+            }
+
             return ParseConfig(fullData);
         }
         catch
@@ -638,9 +650,17 @@ public class DeviceService : IDeviceService
                     bool ok1 = await _hidDriver.SendFeatureReportAsync(REPORT_ID_CONFIG_BLOCK1, block1);
                     bool ok2 = await _hidDriver.SendFeatureReportAsync(REPORT_ID_CONFIG_BLOCK2, block2);
 
-                    if (!ok0 || !ok1 || !ok2)
+                    // 发送v3扩展字段（偏移1326+，12字节）
+                    byte[] extBlock = new byte[12];
+                    if (data.Length >= OFFSET_JOY_INV_X + 12)
                     {
-                        string failBlocks = $"{(!ok0 ? "0 " : "")}{(!ok1 ? "1 " : "")}{(!ok2 ? "2 " : "")}".Trim();
+                        Array.Copy(data, OFFSET_JOY_INV_X, extBlock, 0, 12);
+                    }
+                    bool okExt = await _hidDriver.SendFeatureReportAsync(REPORT_ID_CONFIG_EXT, extBlock);
+
+                    if (!ok0 || !ok1 || !ok2 || !okExt)
+                    {
+                        string failBlocks = $"{(!ok0 ? "0 " : "")}{(!ok1 ? "1 " : "")}{(!ok2 ? "2 " : "")}{(!okExt ? "EXT " : "")}".Trim();
                         Log("WARNING", $"第 {attempt + 1} 次写入失败，块 {failBlocks} 写入失败");
 
                         // 写入块失败，重试前先重连

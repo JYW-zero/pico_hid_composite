@@ -47,6 +47,7 @@ enum
   REPORT_ID_FAULT_LOG = 18,      /* 错误日志 - 读取日志 */
   REPORT_ID_KEY_STATE = 19,      /* 实时按键状态 (64位bitmap) */
   REPORT_ID_JOYSTICK_STATE = 20, /* 实时摇杆状态 */
+  REPORT_ID_CONFIG_EXT = 21,     /* v3配置扩展字段 (偏移1326+, 12字节) */
   REPORT_ID_COUNT
 };
 
