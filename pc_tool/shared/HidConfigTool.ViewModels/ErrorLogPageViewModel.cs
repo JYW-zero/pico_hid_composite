@@ -232,24 +232,7 @@ public partial class ErrorLogPageViewModel : ObservableObject, IDisposable
 
         try
         {
-            var lines = new List<string>
-            {
-                "========================================",
-                "  Pico HID 复合设备 - 错误日志导出",
-                $"  导出时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
-                $"  总日志数: {_allLogs.Count}",
-                $"  总故障数: {TotalFaultCount}",
-                "========================================",
-                ""
-            };
-
-            // 倒序导出（最新的在上面）
-            for (int i = _allLogs.Count - 1; i >= 0; i--)
-            {
-                var log = _allLogs[i];
-                lines.Add($"[{log.TimeFormatted}] [{log.LevelName}] [{log.Module}] {log.Message}");
-            }
-
+            var lines = BuildExportLines();
             File.WriteAllLines(filePath, lines);
             _dialogService.ShowInfo($"日志已导出到:\n{filePath}", "导出成功");
         }
@@ -257,6 +240,50 @@ public partial class ErrorLogPageViewModel : ObservableObject, IDisposable
         {
             _dialogService.ShowError($"导出失败: {ex.Message}", "错误");
         }
+    }
+
+    /// <summary>
+    /// 打开自动导出目录
+    /// </summary>
+    [RelayCommand]
+    private void OpenExportFolder()
+    {
+        string folder = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "HidConfigTool", "ErrorLogs");
+
+        if (!Directory.Exists(folder))
+        {
+            Directory.CreateDirectory(folder);
+        }
+
+        _fileDialogService.OpenFolder(folder);
+    }
+
+    /// <summary>
+    /// 构建导出内容
+    /// </summary>
+    private List<string> BuildExportLines()
+    {
+        var lines = new List<string>
+        {
+            "========================================",
+            "  Pico HID 复合设备 - 错误日志导出",
+            $"  导出时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
+            $"  总日志数: {_allLogs.Count}",
+            $"  总故障数: {TotalFaultCount}",
+            "========================================",
+            ""
+        };
+
+        // 倒序导出（最新的在上面）
+        for (int i = _allLogs.Count - 1; i >= 0; i--)
+        {
+            var log = _allLogs[i];
+            lines.Add($"[{log.TimeFormatted}] [{log.LevelName}] [{log.Module}] {log.Message}");
+        }
+
+        return lines;
     }
 
     /// <summary>

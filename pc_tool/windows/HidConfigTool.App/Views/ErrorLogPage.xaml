@@ -149,6 +149,13 @@
                               Margin="16,0,0,0"
                               FontSize="12"
                               Foreground="{StaticResource TextSecondaryBrush}" />
+                    <Button Command="{Binding OpenExportFolderCommand}"
+                            Content="打开目录"
+                            Padding="16,9"
+                            Margin="8,0,0,0"
+                            FontSize="12"
+                            MinWidth="70"
+                            Style="{StaticResource SecondaryButtonStyle}" />
                 </StackPanel>
             </Grid>
         </Grid>
