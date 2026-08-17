@@ -103,7 +103,7 @@ jobs:
     # 6. 上传固件产物
     # --------------------------------------------------------
     - name: Upload firmware artifacts
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v7
       with:
         name: firmware-rp2350
         path: |
@@ -206,13 +206,13 @@ jobs:
     # 8. 上传产物
     # --------------------------------------------------------
     - name: Upload PC Tool (framework-dependent)
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v7
       with:
         name: pc-tool-windows-framework-dependent
         path: publish-framework-dependent/
 
     - name: Upload PC Tool (self-contained)
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v7
       with:
         name: pc-tool-windows-self-contained
         path: publish-self-contained/
