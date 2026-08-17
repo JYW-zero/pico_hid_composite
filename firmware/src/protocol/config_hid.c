@@ -497,8 +497,9 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
                     break;
                 }
 
-                /* 配置锁定：拒绝其他控制命令 */
-                if (s_config_locked) {
+                /* 配置锁定：拒绝其他控制命令
+                 * 例外：CMD_ENTER_DFU 和 CMD_REBOOT 本身有3次确认机制，不受锁定限制 */
+                if (s_config_locked && cmd != CMD_ENTER_DFU && cmd != CMD_REBOOT) {
                     LOG_ERROR_PRINT("[SECURITY] ❌ 配置已锁定，拒绝命令 0x%02X\n", cmd);
                     break;
                 }
