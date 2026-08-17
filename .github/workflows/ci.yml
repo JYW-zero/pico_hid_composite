@@ -117,7 +117,7 @@ jobs:
     # 7. 上传到 GitHub Releases（打 Tag 或发布时）
     # --------------------------------------------------------
     - name: Upload firmware to Release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
       with:
         files: |
@@ -239,7 +239,7 @@ jobs:
         }
 
     - name: Upload PC Tool to Release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
       with:
         files: |
