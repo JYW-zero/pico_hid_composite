@@ -14,24 +14,15 @@
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
-        <StackPanel>
+        <StackPanel Margin="0,0,16,0">
             <!-- 页面标题 -->
             <TextBlock Text="设置" Style="{StaticResource PageTitleStyle}" />
-            <TextBlock Text="配置应用行为、外观和设备管理选项" Style="{StaticResource PageSubtitleStyle}" />
+            <TextBlock Text="配置应用行为、外观和设备管理选项" Style="{StaticResource PageSubtitleStyle}" Margin="0,0,0,20" />
 
             <!-- 常规设置 -->
-            <Expander IsExpanded="True" Margin="0,0,0,12">
-                <Expander.Header>
-                    <StackPanel Orientation="Horizontal">
-                        <Path Data="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm8.5 1l2-1.5-2-3.5-2.4.8a8 8 0 0 0-1.7-1L16 3h-4l-.4 2.3a8 8 0 0 0-1.7 1L7.5 5.5l-2 3.5L7.5 11a8 8 0 0 0 0 2l-2 1.5 2 3.5 2.4-.8c.5.4 1.1.8 1.7 1L12 21h4l.4-2.3c.6-.2 1.2-.6 1.7-1l2.4.8 2-3.5-2-1.5c.2-.7.2-1.3 0-2z"
-                              Fill="{StaticResource AccentBrush}"
-                              Width="18"
-                              Height="18"
-                              Margin="0,0,10,0" />
-                        <TextBlock Text="常规设置" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" />
-                    </StackPanel>
-                </Expander.Header>
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
                 <StackPanel>
+                    <TextBlock Text="常规设置" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,16" />
                     <CheckBox Content="最小化到系统托盘"
                               IsChecked="{Binding MinimizeToTray}"
                               Style="{StaticResource ToggleSwitchStyle}"
@@ -44,21 +35,12 @@
                               IsChecked="{Binding CheckUpdateOnStart}"
                               Style="{StaticResource ToggleSwitchStyle}" />
                 </StackPanel>
-            </Expander>
+            </Border>
 
             <!-- 配置管理 -->
-            <Expander IsExpanded="True" Margin="0,0,0,12">
-                <Expander.Header>
-                    <StackPanel Orientation="Horizontal">
-                        <Path Data="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm0 2v14h14V6.414L16.586 4H15v4H9V4H5zm4 0v3h6V4H9zm-1 9h8v5H8v-5z"
-                              Fill="{StaticResource AccentBrush}"
-                              Width="18"
-                              Height="18"
-                              Margin="0,0,10,0" />
-                        <TextBlock Text="配置管理" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" />
-                    </StackPanel>
-                </Expander.Header>
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
                 <StackPanel>
+                    <TextBlock Text="配置管理" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,16" />
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                         <Button Command="{Binding ExportConfigCommand}" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,10,0">
                             <StackPanel Orientation="Horizontal">
@@ -87,19 +69,12 @@
                     </StackPanel>
                     <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource HintStyle}" />
                 </StackPanel>
-            </Expander>
+            </Border>
 
             <!-- 配置文件管理 -->
-            <Expander IsExpanded="False" Margin="0,0,0,12">
-                <Expander.Header>
-                    <StackPanel Orientation="Horizontal">
-                        <Path Data="M3 5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm2 0v12h14V7h-8.414L9 5H5z"
-                              Fill="{StaticResource AccentBrush}"
-                              Width="18" Height="18" Margin="0,0,10,0" />
-                        <TextBlock Text="配置文件管理" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" />
-                    </StackPanel>
-                </Expander.Header>
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
                 <StackPanel>
+                    <TextBlock Text="配置文件管理" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,16" />
                     <ComboBox x:Name="ProfileComboBox"
                               ItemsSource="{Binding Profiles}"
                               SelectedItem="{Binding CurrentProfile}"
@@ -112,24 +87,17 @@
                         <Button Command="{Binding DeleteProfileCommand}" Content="删除" Style="{StaticResource DangerButtonStyle}" Padding="14,8" FontSize="12" />
                     </StackPanel>
                 </StackPanel>
-            </Expander>
+            </Border>
 
             <!-- 应用感知 -->
-            <Expander IsExpanded="False" Margin="0,0,0,12">
-                <Expander.Header>
-                    <StackPanel Orientation="Horizontal">
-                        <Path Data="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm0 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm0 4a1 1 0 0 1 1 1v4a1 1 0 0 1-2 0v-4a1 1 0 0 1 1-1z"
-                              Fill="{StaticResource AccentBrush}"
-                              Width="18" Height="18" Margin="0,0,10,0" />
-                        <TextBlock Text="应用感知" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" />
-                    </StackPanel>
-                </Expander.Header>
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
                 <StackPanel>
+                    <TextBlock Text="应用感知" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,16" />
                     <CheckBox Content="启用应用感知"
                               IsChecked="{Binding AppAwarenessEnabled}"
                               Style="{StaticResource ToggleSwitchStyle}"
-                              Margin="0,0,0,12" />
-                    <Border Background="{StaticResource InputBackgroundBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                              Margin="0,0,0,16" />
+                    <Border Background="{StaticResource InputBackgroundBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,16">
                         <StackPanel>
                             <TextBlock Text="当前前台应用" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,0,0,4" />
                             <TextBlock Text="{Binding CurrentForegroundApp}" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" FontFamily="Consolas" />
@@ -156,19 +124,12 @@
                     </ListBox>
                     <Button Command="{Binding AddAppRuleCommand}" Content="添加规则" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Padding="14,8" FontSize="12" />
                 </StackPanel>
-            </Expander>
+            </Border>
 
             <!-- 固件升级 -->
-            <Expander IsExpanded="False" Margin="0,0,0,12">
-                <Expander.Header>
-                    <StackPanel Orientation="Horizontal">
-                        <Path Data="M9 3h6v2h3a2 2 0 0 1 2 2v3h2v2h-2v2h2v2h-2v3a2 2 0 0 1-2 2h-3v2H9v-2H6a2 2 0 0 1-2-2v-3H2v-2h2v-2H2V9h2V6a2 2 0 0 1 2-2h3V2zm0 4v10h6V7H9z"
-                              Fill="{StaticResource AccentBrush}"
-                              Width="18" Height="18" Margin="0,0,10,0" />
-                        <TextBlock Text="固件升级" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" />
-                    </StackPanel>
-                </Expander.Header>
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
                 <StackPanel>
+                    <TextBlock Text="固件升级" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,16" />
                     <Grid Margin="0,0,0,16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -213,19 +174,12 @@
                         </StackPanel>
                     </Button>
                 </StackPanel>
-            </Expander>
+            </Border>
 
             <!-- 外观设置 -->
-            <Expander IsExpanded="False" Margin="0,0,0,12">
-                <Expander.Header>
-                    <StackPanel Orientation="Horizontal">
-                        <Path Data="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm-1 3h2v6h-2V7zm0 8h2v2h-2v-2z"
-                              Fill="{StaticResource AccentBrush}"
-                              Width="18" Height="18" Margin="0,0,10,0" />
-                        <TextBlock Text="外观设置" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" />
-                    </StackPanel>
-                </Expander.Header>
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
                 <StackPanel>
+                    <TextBlock Text="外观设置" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,16" />
                     <TextBlock Text="主题" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
                     <ComboBox SelectedItem="{Binding Theme}" Margin="0,0,0,16">
                         <ComboBoxItem Content="深色" />
@@ -237,19 +191,12 @@
                         <ComboBoxItem Content="English" />
                     </ComboBox>
                 </StackPanel>
-            </Expander>
+            </Border>
 
             <!-- 关于 -->
-            <Expander IsExpanded="False" Margin="0">
-                <Expander.Header>
-                    <StackPanel Orientation="Horizontal">
-                        <Path Data="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm0 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm0 4a1 1 0 0 1 1 1v4a1 1 0 0 1-2 0v-4a1 1 0 0 1 1-1z"
-                              Fill="{StaticResource AccentBrush}"
-                              Width="18" Height="18" Margin="0,0,10,0" />
-                        <TextBlock Text="关于" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" />
-                    </StackPanel>
-                </Expander.Header>
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
                 <StackPanel>
+                    <TextBlock Text="关于" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,16" />
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="100" />
@@ -277,7 +224,7 @@
                             HorizontalAlignment="Left"
                             Padding="20,10" />
                 </StackPanel>
-            </Expander>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </UserControl>
