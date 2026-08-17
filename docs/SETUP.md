@@ -196,7 +196,7 @@ dotnet build
 | **上位机开发** | VS / Rider 打开 `pc_tool/HidConfigTool.slnx` |
 | **整体编译** | 根目录执行 `.\build.ps1 -Target All` |
 | **固件烧录** | `picotool load build\pico_hid_composite.uf2 -f` |
-| **上位机运行** | `dotnet run --project pc_tool/src/HidConfigTool.App` |
+| **上位机运行** | `dotnet run --project pc_tool/windows/HidConfigTool.App` |
 
 ---
 

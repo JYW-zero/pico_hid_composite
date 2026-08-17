@@ -1,0 +1,55 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:HidConfigTool.ViewModels"
+        x:Class="HidConfigTool.Desktop.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="{Binding WindowTitle}"
+        Width="1140" Height="720"
+        MinWidth="960" MinHeight="620"
+        WindowStartupLocation="CenterScreen">
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="200" />
+      <ColumnDefinition Width="*" />
+    </Grid.ColumnDefinitions>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="*" />
+      <RowDefinition Height="28" />
+    </Grid.RowDefinitions>
+
+    <!-- 侧边栏 -->
+    <Border Grid.Row="0" Grid.Column="0" Background="#2D2D30"
+            BorderBrush="#3F3F46" BorderThickness="0,0,1,0">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="16,16,16,20" Spacing="8">
+          <Border Width="22" Height="22" Background="#0078D4" CornerRadius="5">
+            <TextBlock Text="H" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <TextBlock Text="HID 配置" Foreground="White" VerticalAlignment="Center" FontWeight="Medium" />
+        </StackPanel>
+        <StackPanel Margin="8,0" Spacing="4">
+          <Button Content="设备" Command="{Binding NavigateToDeviceCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="按键" Command="{Binding NavigateToKeyManagementCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="鼠标" Command="{Binding NavigateToMouseCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="摇杆" Command="{Binding NavigateToJoystickCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="编码器" Command="{Binding NavigateToEncoderCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="宏" Command="{Binding NavigateToMacroCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="错误日志" Command="{Binding NavigateToErrorLogCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="性能监控" Command="{Binding NavigateToPerfMonitorCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="设置" Command="{Binding NavigateToSettingsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- 页面内容 -->
+    <ContentControl x:Name="PageContent" Grid.Row="0" Grid.Column="1" Margin="20" />
+
+    <!-- 状态栏 -->
+    <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Background="#252526" Padding="16,0">
+      <StackPanel Orientation="Horizontal" Spacing="16">
+        <TextBlock Text="{Binding StatusMessage}" Foreground="#CCCCCC" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding IsDeviceConnected, StringFormat='设备: {0}'}" Foreground="#CCCCCC" VerticalAlignment="Center" />
+      </StackPanel>
+    </Border>
+  </Grid>
+</Window>

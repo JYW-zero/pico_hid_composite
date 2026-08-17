@@ -1,4 +1,4 @@
-# 开发记录汇总
+﻿# 开发记录汇总
 
 本文件汇总了项目开发过程中的所有日志、问题记录和决策。
 
@@ -721,4 +721,65 @@
 ### 当前进度
 - 已完成：基础功能全部实现，上位机 UI 基本完成
 - 进行中：软件重启功能验证、整体测试优化
+- 待完成：工厂测试模式完善、低功耗模式、固件在线升级
+
+---
+
+## 2026-08-17 上位机架构重构（双UI共享核心层）
+
+### 背景
+项目新增了基于 Avalonia 的跨平台桌面端（朋友开发），与原 WPF 端并存但 ViewModel 大量重复。为实现"修改 UI 只改 UI 项目，接口驱动统一维护"，进行架构重构。
+
+### 完成的工作
+
+#### 1. 目录重组
+- 将原 `src/` 下的项目按职责移到 `shared/`、`windows/`、`desktop/`、`tests/`
+- 更新所有 .csproj 的 ProjectReference 和 .slnx 解决方案
+
+#### 2. 新建共享层
+- **HidConfigTool.Core**（net10.0）：数据模型、15个平台抽象接口、设备通信协议、跨平台类型（UiColor/UiPoint/UiConstants/HidKeyConverter）
+- **HidConfigTool.Hid**（net10.0）：基于 HidSharp 的跨平台 HID 驱动
+- **HidConfigTool.ViewModels**（net10.0）：14个共享 ViewModel，全部从 WPF 端迁移
+
+#### 3. 平台抽象接口（15个）
+IDialogService、ITimerService、IUiThreadService、IFileDialogService、IInputDialogService、IKeyPickerService、IHelpWindowService、ITrayIconService、IThemeService、ILanguageService、IOsdService、IAppAwarenessService、IConfigProfileService、IAutoStartService、IMacroRecorder
+
+#### 4. WPF 端适配
+- 实现全部15个平台接口（8个新服务 + 7个原有服务实现接口）
+- 添加 UiColorToBrushConverter、UiPointListToPointCollectionConverter
+- 14个 ViewModel 全部迁移到共享层，WPF 端只保留 UI
+- 编译通过：0错误0警告
+
+#### 5. Avalonia 端适配
+- 添加对共享 ViewModels 项目的引用
+- 删除11个重复的 ViewModel 副本
+- 实现全部15个平台接口（DialogService用自定义MessageBoxWindow，平台特定服务为基础实现）
+- 重写 MainWindow 适配共享层 CurrentPage 枚举导航模式
+- 适配所有 Page 的 XAML（ErrorLogPage/KeyPage/MacroPage/MousePage/PerfPage/SettingsPage/StatsPage）
+- 编译通过：0错误
+
+#### 6. 文档更新
+- 更新 README.md（项目结构、编译运行说明）
+- 新增 docs/BUILD.md（详细编译运行指南）
+- 更新 DEVLOG.md（本日志）
+
+### 验证结果
+- ✅ 整个解决方案编译通过（0错误）
+- ✅ 单元测试 75/75 通过
+- ✅ WPF 端运行正常
+- ✅ Avalonia 端运行正常，界面可显示，导航可切换
+
+### 架构说明
+- **Core/Hid/ViewModels** 是纯 .NET 类库，不引用任何 UI 框架
+- **WPF 和 Avalonia** 两个 UI 项目都只引用共享层，互不引用
+- 所有业务逻辑、设备通信、数据模型都在共享层
+- UI 只负责展示和用户交互，平台差异通过接口抽象
+
+### 待完善
+- Avalonia 端的平台特定服务（宏录制、应用感知、开机自启、托盘图标、OSD提示）目前为基础实现，后续可根据目标平台逐步完善
+- Avalonia 端的 HID 驱动使用 HidSharp，WPF 端使用原生 P/Invoke，是否统一待评估
+
+### 当前进度
+- 已完成：上位机架构重构，双UI共享核心层，编译测试通过
+- 进行中：Avalonia 端平台服务完善、整体测试
 - 待完成：工厂测试模式完善、低功耗模式、固件在线升级

@@ -149,7 +149,7 @@ make
 ### 上位机测试
 
 - 使用 xUnit 测试框架
-- 测试项目放在 `pc_tool/src/HidConfigTool.Tests/`
+- 测试项目放在 `pc_tool/tests/HidConfigTool.Tests/`
 
 ```bash
 # 运行单元测试

@@ -73,7 +73,7 @@ dotnet build
 ### 5. 运行上位机
 
 ```bash
-dotnet run --project pc_tool/src/HidConfigTool.App
+dotnet run --project pc_tool/windows/HidConfigTool.App
 ```
 
 ---
@@ -87,12 +87,18 @@ pico_hid_composite/
 │   ├── src/           # 源文件
 │   └── CMakeLists.txt
 │
-├── pc_tool/           # 🖥️ 上位机（C# / WPF）
+├── pc_tool/           # 🖥️ 上位机（C# / WPF + Avalonia）
 │   ├── HidConfigTool.slnx
-│   └── src/
-│       ├── HidConfigTool.App/      # UI 层
-│       ├── HidConfigTool.Core/     # 核心业务
-│       └── HidConfigTool.Drivers/  # HID 驱动
+│   ├── shared/         # 共享层
+│   │   ├── HidConfigTool.Core/      # 核心模型、接口、协议
+│   │   ├── HidConfigTool.Hid/       # HID 驱动封装
+│   │   └── HidConfigTool.ViewModels/ # 共享视图模型
+│   ├── windows/        # Windows 专用 UI (WPF)
+│   │   └── HidConfigTool.App/
+│   ├── desktop/        # 跨平台 UI (Avalonia)
+│   │   └── HidConfigTool.Desktop/
+│   └── tests/          # 单元测试
+│       └── HidConfigTool.Tests/
 │
 ├── docs/              # 📚 文档
 │   ├── QUICKSTART.md  # 本文档
