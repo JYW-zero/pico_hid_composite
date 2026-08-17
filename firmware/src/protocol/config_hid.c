@@ -499,7 +499,9 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
 
                 /* 配置锁定：拒绝其他控制命令
                  * 例外：CMD_ENTER_DFU 和 CMD_REBOOT 本身有3次确认机制，不受锁定限制 */
-                if (s_config_locked && cmd != CMD_ENTER_DFU && cmd != CMD_REBOOT) {
+                /* 配置锁定检查：DFU/Reboot有独立的3次确认机制，实时设置命令不写Flash，均豁免 */
+                if (s_config_locked && cmd != CMD_ENTER_DFU && cmd != CMD_REBOOT &&
+                    cmd != CMD_SET_JOYSTICK_DZ_RT && cmd != CMD_SET_PERF_ENABLE) {
                     LOG_ERROR_PRINT("[SECURITY] ❌ 配置已锁定，拒绝命令 0x%02X\n", cmd);
                     break;
                 }
@@ -702,11 +704,12 @@ void hid_config_task(void)
                 }
 
                 /* 验证 DPI 范围 */
-                if (g_tmp_config.dpi != 400 && g_tmp_config.dpi != 800 &&
-                    g_tmp_config.dpi != 1600 && g_tmp_config.dpi != 3200) {
-                    LOG_ERROR_PRINT("[CONFIG] ❌ 非法 DPI: %d\n", g_tmp_config.dpi);
+                /* 验证 DPI 范围（支持任意 DPI，100-6400，自动对齐到25的倍数） */
+                if (g_tmp_config.dpi < 100 || g_tmp_config.dpi > 6400) {
+                    LOG_ERROR_PRINT("[CONFIG] ❌ DPI 超出范围: %d (允许100-6400)\n", g_tmp_config.dpi);
                     break;
                 }
+                g_tmp_config.dpi = (g_tmp_config.dpi / 25) * 25;
 
                 /* 以当前 Flash 配置为基底，只覆盖配置块传输的字段（前142字节，不含 macro_data）
                  * 避免 macro_data 未传输部分写入垃圾数据
