@@ -579,13 +579,8 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
         case REPORT_ID_FAULT_LOG:
         {
             if (bufsize >= 1) {
-                /* 配置锁定：拒绝修改日志读取索引 */
-                if (s_config_locked) {
-                    LOG_ERROR_PRINT("[SECURITY] ❌ 配置已锁定，拒绝修改日志索引\n");
-                    break;
-                }
+                /* 错误日志读取索引：仅用于读取，不修改配置，无需锁定 */
                 s_fault_read_index = buffer[0];
-                LOG_INFO_PRINT("[FAULT] 设置日志读取索引: %d\n", s_fault_read_index);
             }
             break;
         }
