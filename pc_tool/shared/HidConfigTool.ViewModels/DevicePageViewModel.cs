@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HidConfigTool.Core.Interfaces;
@@ -12,6 +13,7 @@ public partial class DevicePageViewModel : ObservableObject, IDisposable
 {
     private readonly IDeviceService _deviceService;
     private readonly MainViewModel _mainViewModel;
+    private readonly SynchronizationContext? _uiContext;
     private bool _disposed;
 
     /// <summary>
@@ -58,6 +60,7 @@ public partial class DevicePageViewModel : ObservableObject, IDisposable
     {
         _deviceService = deviceService;
         _mainViewModel = mainViewModel;
+        _uiContext = SynchronizationContext.Current;
 
         // 订阅连接状态变化事件（自动连接/热插拔时更新UI）
         _deviceService.DeviceConnectionChanged += OnDeviceConnectionChanged;
@@ -95,16 +98,21 @@ public partial class DevicePageViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(DeviceName));
 
         // 连接状态变化后刷新设备列表（确保已连接设备显示在列表中）
-        await RefreshAsync();
+        // 延迟300ms确保设备完全枚举，并用UI上下文切回主线程修改ObservableCollection
+        await Task.Delay(300);
+        if (_uiContext != null)
+        {
+            _uiContext.Post(async _ => await RefreshAsync(), null);
+        }
+        else
+        {
+            await RefreshAsync();
+        }
     }
 
     [RelayCommand]
     private async Task RefreshAsync()
     {
-        if (IsRefreshing)
-            return;
-
-        IsRefreshing = true;
         Devices.Clear();
 
         try
@@ -127,10 +135,6 @@ public partial class DevicePageViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             StatusMessage = $"刷新失败: {ex.Message}";
-        }
-        finally
-        {
-            IsRefreshing = false;
         }
     }
 
