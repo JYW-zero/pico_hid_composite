@@ -1,0 +1,32 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HidConfigTool.ViewModels"
+             x:Class="HidConfigTool.Desktop.Views.Pages.StatsPage"
+             x:DataType="vm:StatsPageViewModel">
+  <DockPanel>
+    <StackPanel DockPanel.Dock="Top" Spacing="10">
+      <TextBlock Text="按键统计" FontSize="22" FontWeight="Bold" />
+      <StackPanel Orientation="Horizontal" Spacing="24">
+        <TextBlock Text="{Binding TotalKeystrokes, StringFormat='总按键: {0}'}" Foreground="#0078D4" />
+        <TextBlock Text="{Binding TodayKeystrokes, StringFormat='今日: {0}'}" />
+        <TextBlock Text="{Binding AverageKpm, StringFormat='平均: {0} KPM'}" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="清零" Command="{Binding ResetStatsCommand}" />
+      </StackPanel>
+      <TextBlock Text="{Binding IsLoading, StringFormat='状态: {0}'}" Foreground="#888888" />
+    </StackPanel>
+    <ListBox ItemsSource="{Binding TopKeys}" Margin="0,12,0,0">
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="vm:KeyStatItemViewModel">
+          <Grid ColumnDefinitions="60,*,80,80">
+            <TextBlock Text="{Binding Index}" />
+            <TextBlock Grid.Column="1" Text="{Binding KeyName}" />
+            <TextBlock Grid.Column="2" Text="{Binding Count}" />
+            <TextBlock Grid.Column="3" Text="{Binding Percentage}" />
+          </Grid>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+  </DockPanel>
+</UserControl>

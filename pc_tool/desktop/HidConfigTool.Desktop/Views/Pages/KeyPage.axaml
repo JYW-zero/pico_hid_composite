@@ -1,0 +1,32 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HidConfigTool.ViewModels"
+             x:Class="HidConfigTool.Desktop.Views.Pages.KeyPage"
+             x:DataType="vm:KeyPageViewModel">
+  <DockPanel>
+    <StackPanel DockPanel.Dock="Top" Spacing="10">
+      <TextBlock Text="按键映射" FontSize="22" FontWeight="Bold" />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="普通层" Command="{Binding SwitchLayerCommand}" CommandParameter="0" />
+        <Button Content="Fn 层" Command="{Binding SwitchLayerCommand}" CommandParameter="1" />
+        <Button Content="保存到设备" Command="{Binding SaveToDeviceCommand}" />
+        <Button Content="恢复默认" Command="{Binding ResetDefaultCommand}" />
+      </StackPanel>
+      <TextBlock Text="{Binding SelectedKey.KeyName, FallbackValue='点按键位进行映射'}" Foreground="#0078D4" />
+    </StackPanel>
+    <ItemsControl ItemsSource="{Binding Keys}" Margin="0,12,0,0">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <UniformGrid Rows="8" Columns="8" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:KeyItemViewModel">
+          <Button Margin="3" MinHeight="44" Command="{Binding $parent[UserControl].DataContext.EditKeyCommand}" CommandParameter="{Binding}">
+            <TextBlock Text="{Binding KeyName}" FontSize="11" TextWrapping="Wrap" />
+          </Button>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+  </DockPanel>
+</UserControl>

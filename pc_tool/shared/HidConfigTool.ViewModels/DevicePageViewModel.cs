@@ -1,0 +1,223 @@
+using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using HidConfigTool.Core.Interfaces;
+
+namespace HidConfigTool.ViewModels;
+
+/// <summary>
+/// 设备页面视图模型
+/// </summary>
+public partial class DevicePageViewModel : ObservableObject, IDisposable
+{
+    private readonly IDeviceService _deviceService;
+    private readonly MainViewModel _mainViewModel;
+    private bool _disposed;
+
+    /// <summary>
+    /// 设备列表
+    /// </summary>
+    public ObservableCollection<HidDeviceInfo> Devices { get; } = new();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanConnect))]
+    private HidDeviceInfo? _selectedDevice;
+
+    [ObservableProperty]
+    private bool _isRefreshing;
+
+    [ObservableProperty]
+    private bool _isConnecting;
+
+    [ObservableProperty]
+    private string _statusMessage = "未连接设备";
+
+    /// <summary>
+    /// 是否已连接
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanConnect))]
+    private bool _isConnected;
+
+    /// <summary>
+    /// 是否可以连接（选中了设备且未连接）
+    /// </summary>
+    public bool CanConnect => !IsConnected && SelectedDevice != null;
+
+    /// <summary>
+    /// 固件版本
+    /// </summary>
+    public string FirmwareVersion => _deviceService.FirmwareVersion ?? "—";
+
+    /// <summary>
+    /// 设备名称
+    /// </summary>
+    public string DeviceName => _deviceService.DeviceName ?? "—";
+
+    public DevicePageViewModel(IDeviceService deviceService, MainViewModel mainViewModel)
+    {
+        _deviceService = deviceService;
+        _mainViewModel = mainViewModel;
+
+        // 订阅连接状态变化事件（自动连接/热插拔时更新UI）
+        _deviceService.DeviceConnectionChanged += OnDeviceConnectionChanged;
+
+        // 如果已经连接，更新状态
+        if (_deviceService.IsConnected)
+        {
+            IsConnected = true;
+            StatusMessage = "已连接";
+            OnPropertyChanged(nameof(FirmwareVersion));
+            OnPropertyChanged(nameof(DeviceName));
+        }
+
+        // 页面加载时自动刷新设备列表
+        _ = RefreshAsync();
+    }
+
+    /// <summary>
+    /// 设备连接状态变化（由自动连接/热插拔触发）
+    /// </summary>
+    private async void OnDeviceConnectionChanged(object? sender, bool isConnected)
+    {
+        IsConnected = isConnected;
+        if (isConnected)
+        {
+            StatusMessage = "已连接";
+            _mainViewModel.NotifyDeviceConnected();
+        }
+        else
+        {
+            StatusMessage = "已断开连接";
+            _mainViewModel.NotifyDeviceDisconnected();
+        }
+        OnPropertyChanged(nameof(FirmwareVersion));
+        OnPropertyChanged(nameof(DeviceName));
+
+        // 连接状态变化后刷新设备列表（确保已连接设备显示在列表中）
+        await RefreshAsync();
+    }
+
+    [RelayCommand]
+    private async Task RefreshAsync()
+    {
+        if (IsRefreshing)
+            return;
+
+        IsRefreshing = true;
+        Devices.Clear();
+
+        try
+        {
+            var devices = await _deviceService.GetDevicesAsync();
+            foreach (var device in devices)
+            {
+                Devices.Add(device);
+            }
+
+            StatusMessage = $"发现 {devices.Count} 个设备";
+
+            // 如果有设备且当前未连接，自动连接第一个
+            if (devices.Count > 0 && !_deviceService.IsConnected)
+            {
+                SelectedDevice = devices[0];
+                await ConnectAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"刷新失败: {ex.Message}";
+        }
+        finally
+        {
+            IsRefreshing = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ConnectAsync()
+    {
+        if (SelectedDevice == null || IsConnecting)
+            return;
+
+        IsConnecting = true;
+        StatusMessage = "正在连接...";
+
+        try
+        {
+            bool result = await _deviceService.ConnectAsync(SelectedDevice);
+            if (result)
+            {
+                // ConnectAsync 内部会触发 DeviceConnectionChanged 事件，这里不需要重复设置
+                StatusMessage = "连接成功";
+            }
+            else
+            {
+                StatusMessage = "连接失败";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"连接失败: {ex.Message}";
+        }
+        finally
+        {
+            IsConnecting = false;
+        }
+    }
+
+    [RelayCommand]
+    private void Disconnect()
+    {
+        _deviceService.Disconnect();
+        // Disconnect 内部会触发 DeviceConnectionChanged 事件
+    }
+
+    [RelayCommand]
+    private async Task RebootAsync()
+    {
+        if (!IsConnected)
+            return;
+
+        StatusMessage = "正在重启设备...";
+        bool result = await _deviceService.RebootAsync();
+
+        if (result)
+        {
+            StatusMessage = "重启命令已发送，设备正在重启...";
+        }
+        else
+        {
+            StatusMessage = "重启失败";
+        }
+    }
+
+    [RelayCommand]
+    private async Task EnterBootselAsync()
+    {
+        if (!IsConnected)
+            return;
+
+        StatusMessage = "正在进入烧录模式...";
+        bool result = await _deviceService.EnterBootselAsync();
+
+        if (result)
+        {
+            StatusMessage = "设备已进入烧录模式";
+        }
+        else
+        {
+            StatusMessage = "进入烧录模式失败";
+        }
+    }
+
+    /// <summary>
+    /// 释放资源，取消事件订阅
+    /// </summary>
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _deviceService.DeviceConnectionChanged -= OnDeviceConnectionChanged;
+    }
+}

@@ -1,7 +1,8 @@
 <Solution>
-  <Project Path="src/HidConfigTool.App/HidConfigTool.App.csproj" />
-  <Project Path="src/HidConfigTool.Core/HidConfigTool.Core.csproj" />
-  <Project Path="src/HidConfigTool.Hid/HidConfigTool.Hid.csproj" />
-  <Project Path="src/HidConfigTool.Desktop/HidConfigTool.Desktop.csproj" />
-  <Project Path="src/HidConfigTool.Tests/HidConfigTool.Tests.csproj" />
+  <Project Path="shared/HidConfigTool.Core/HidConfigTool.Core.csproj" />
+  <Project Path="shared/HidConfigTool.Hid/HidConfigTool.Hid.csproj" />
+  <Project Path="shared/HidConfigTool.ViewModels/HidConfigTool.ViewModels.csproj" />
+  <Project Path="windows/HidConfigTool.App/HidConfigTool.App.csproj" />
+  <Project Path="desktop/HidConfigTool.Desktop/HidConfigTool.Desktop.csproj" />
+  <Project Path="tests/HidConfigTool.Tests/HidConfigTool.Tests.csproj" />
 </Solution>
