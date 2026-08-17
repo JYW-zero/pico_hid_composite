@@ -724,7 +724,12 @@
                         <ToggleButton x:Name="PART_DropDown"
                                       Focusable="False"
                                       IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
-                                      ClickMode="Press">
+                                      ClickMode="Press"
+                                      Background="{TemplateBinding Background}"
+                                      BorderThickness="0"
+                                      Padding="0"
+                                      HorizontalContentAlignment="Stretch"
+                                      VerticalContentAlignment="Stretch">
                             <ToggleButton.Template>
                                 <ControlTemplate TargetType="ToggleButton">
                                     <Border x:Name="border"
