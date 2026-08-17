@@ -275,12 +275,27 @@ public partial class KeyPageViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void ResetDefault()
+    private async Task ResetDefaultAsync()
     {
-        if (_dialogService.ShowConfirm("确定要恢复默认按键映射吗？", "确认重置"))
+        if (!_deviceService.IsConnected)
         {
-            // TODO: 加载默认映射
-            _dialogService.ShowInfo("功能开发中...", "提示");
+            _dialogService.ShowInfo("请先连接设备", "提示");
+            return;
+        }
+
+        if (_dialogService.ShowConfirm("确定要恢复默认按键映射吗？\n此操作将重置所有配置（包括按键映射、DPI、死区等）。", "确认重置"))
+        {
+            bool result = await _deviceService.ResetConfigAsync();
+            if (result)
+            {
+                LoadConfigFromDevice();
+                RefreshKeys();
+                _dialogService.ShowInfo("已恢复默认配置", "成功");
+            }
+            else
+            {
+                _dialogService.ShowInfo("恢复默认配置失败，请重试", "错误");
+            }
         }
     }
 

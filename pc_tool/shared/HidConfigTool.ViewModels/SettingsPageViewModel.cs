@@ -512,8 +512,10 @@ public partial class SettingsPageViewModel : ObservableObject
     [RelayCommand]
     private void OpenLogFolder()
     {
-        // TODO: 打开日志文件夹
-        _dialogService.ShowInfo("功能开发中...", "提示");
+        string logDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "HIDConfigTool", "Logs");
+        _fileDialogService.OpenFolder(logDir);
     }
 
     [RelayCommand]

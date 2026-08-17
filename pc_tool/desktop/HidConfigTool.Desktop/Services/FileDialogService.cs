@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using System.Diagnostics;
 using HidConfigTool.Core.Interfaces;
 
 namespace HidConfigTool.Desktop.Services;
@@ -44,6 +45,14 @@ public class FileDialogService : IFileDialogService
             DefaultExtension = defaultExt
         };
         return dialog.ShowAsync(window).GetAwaiter().GetResult();
+    }
+
+    public void OpenFolder(string path)
+    {
+        if (Directory.Exists(path))
+        {
+            Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
+        }
     }
 
     private List<FileDialogFilter> ParseFilter(string filter)
