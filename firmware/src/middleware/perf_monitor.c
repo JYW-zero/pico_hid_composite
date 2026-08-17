@@ -174,6 +174,12 @@ bool perf_get_task_stat(uint8_t index, perf_task_stat_t* out_stat)
         return false;
     }
 
+    // 未注册的任务（name为空）返回无效
+    if (s_tasks[index].name == NULL || s_tasks[index].name[0] == '\0')
+    {
+        return false;
+    }
+
     memcpy(out_stat, &s_tasks[index], sizeof(perf_task_stat_t));
     return true;
 }
