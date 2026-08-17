@@ -18,7 +18,7 @@
 
 /* ==================== 静态硬件配置，全局唯一，只读 ==================== */
 static keypad_spi_cfg_t s_keypad_cfg;
-static paw3395_cfg_t    s_paw3395_cfg;
+static optical_sensor_cfg_t    s_optical_sensor_cfg;
 static joystick_cfg_t   s_joystick_cfg;
 static encoder_cfg_t    s_encoder_cfg;
 
@@ -44,40 +44,40 @@ static void board_init_keypad(void)
     s_keypad_cfg.cs_delay_us = KEYPAD_SPI_CS_DELAY_US;
 }
 
-/* ==================== PAW3395光学传感器初始化 ==================== */
-static void board_init_paw3395(void)
+/* ==================== OPTICAL_SENSOR光学传感器初始化 ==================== */
+static void board_init_optical_sensor(void)
 {
     spi_inst_t *spi = spi1;
 
-    spi_init(spi, PAW3395_SPI_BAUDRATE_HZ);
+    spi_init(spi, OPTICAL_SENSOR_SPI_BAUDRATE_HZ);
     spi_set_format(spi, 8, SPI_CPOL_1, SPI_CPHA_1, SPI_MSB_FIRST);
 
-    gpio_set_function(PAW3395_SPI_SCK_PIN, GPIO_FUNC_SPI);
-    gpio_set_function(PAW3395_SPI_MOSI_PIN, GPIO_FUNC_SPI);
-    gpio_set_function(PAW3395_SPI_MISO_PIN, GPIO_FUNC_SPI);
+    gpio_set_function(OPTICAL_SENSOR_SPI_SCK_PIN, GPIO_FUNC_SPI);
+    gpio_set_function(OPTICAL_SENSOR_SPI_MOSI_PIN, GPIO_FUNC_SPI);
+    gpio_set_function(OPTICAL_SENSOR_SPI_MISO_PIN, GPIO_FUNC_SPI);
 
     /* CS引脚 */
-    gpio_init(PAW3395_SPI_CS_PIN);
-    gpio_set_dir(PAW3395_SPI_CS_PIN, GPIO_OUT);
-    gpio_put(PAW3395_SPI_CS_PIN, 1);
+    gpio_init(OPTICAL_SENSOR_SPI_CS_PIN);
+    gpio_set_dir(OPTICAL_SENSOR_SPI_CS_PIN, GPIO_OUT);
+    gpio_put(OPTICAL_SENSOR_SPI_CS_PIN, 1);
 
     /* MOT运动中断引脚：上拉输入 */
-    gpio_init(PAW3395_MOT_PIN);
-    gpio_set_dir(PAW3395_MOT_PIN, GPIO_IN);
-    gpio_pull_up(PAW3395_MOT_PIN);
+    gpio_init(OPTICAL_SENSOR_MOT_PIN);
+    gpio_set_dir(OPTICAL_SENSOR_MOT_PIN, GPIO_IN);
+    gpio_pull_up(OPTICAL_SENSOR_MOT_PIN);
 
     /* RST复位引脚：默认高电平 */
-    gpio_init(PAW3395_RST_PIN);
-    gpio_set_dir(PAW3395_RST_PIN, GPIO_OUT);
-    gpio_put(PAW3395_RST_PIN, 1);
+    gpio_init(OPTICAL_SENSOR_RST_PIN);
+    gpio_set_dir(OPTICAL_SENSOR_RST_PIN, GPIO_OUT);
+    gpio_put(OPTICAL_SENSOR_RST_PIN, 1);
 
-    s_paw3395_cfg.spi = spi;
-    s_paw3395_cfg.cs_pin = PAW3395_SPI_CS_PIN;
-    s_paw3395_cfg.mot_pin = PAW3395_MOT_PIN;
-    s_paw3395_cfg.rst_pin = PAW3395_RST_PIN;
-    s_paw3395_cfg.baud_hz = PAW3395_SPI_BAUDRATE_HZ;
-    s_paw3395_cfg.cs_delay_us = PAW3395_SPI_CS_DELAY_US;
-    s_paw3395_cfg.reg_delay_us = PAW3395_REG_DELAY_US;
+    s_optical_sensor_cfg.spi = spi;
+    s_optical_sensor_cfg.cs_pin = OPTICAL_SENSOR_SPI_CS_PIN;
+    s_optical_sensor_cfg.mot_pin = OPTICAL_SENSOR_MOT_PIN;
+    s_optical_sensor_cfg.rst_pin = OPTICAL_SENSOR_RST_PIN;
+    s_optical_sensor_cfg.baud_hz = OPTICAL_SENSOR_SPI_BAUDRATE_HZ;
+    s_optical_sensor_cfg.cs_delay_us = OPTICAL_SENSOR_SPI_CS_DELAY_US;
+    s_optical_sensor_cfg.reg_delay_us = OPTICAL_SENSOR_REG_DELAY_US;
 }
 
 /* ==================== PS2摇杆初始化 ==================== */
@@ -107,7 +107,7 @@ void bsp_init(void)
     config_init();
 
     board_init_keypad();
-    board_init_paw3395();
+    board_init_optical_sensor();
     board_init_joystick();
     board_init_encoder();
 
@@ -120,9 +120,9 @@ const keypad_spi_cfg_t* board_get_keypad_spi_cfg(void)
     return &s_keypad_cfg;
 }
 
-const paw3395_cfg_t* board_get_paw3395_cfg(void)
+const optical_sensor_cfg_t* board_get_optical_sensor_cfg(void)
 {
-    return &s_paw3395_cfg;
+    return &s_optical_sensor_cfg;
 }
 
 const joystick_cfg_t* board_get_joystick_cfg(void)

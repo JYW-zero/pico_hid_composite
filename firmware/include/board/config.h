@@ -80,7 +80,7 @@ typedef struct __attribute__((packed))
 {
     uint32_t magic;              /* 魔数 0x5A5A5A5A */
     uint16_t version;            /* 配置版本号 */
-    uint16_t dpi;                /* PAW3395 DPI值 */
+    uint16_t dpi;                /* OPTICAL_SENSOR DPI值 */
     uint16_t joystick_deadzone;  /* 摇杆死区（ADC原始值） */
     uint8_t  encoder_reverse;    /* 编码器方向：0=正常，1=反转 */
     uint16_t seq;                /* 配置序列号，每次写入加1，用于双备份判断最新 */

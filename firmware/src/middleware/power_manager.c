@@ -37,8 +37,8 @@ static uint32_t s_total_sleep_ms = 0;
 /* 配置 Dormant 模式的 GPIO 唤醒源 */
 static void configure_dormant_wakeup_pins(void)
 {
-    /* PAW3395 MOT 引脚：鼠标移动时触发（下降沿） */
-    gpio_set_dormant_irq_enabled(PAW3395_MOT_PIN, GPIO_IRQ_EDGE_FALL, true);
+    /* OPTICAL_SENSOR MOT 引脚：鼠标移动时触发（下降沿） */
+    gpio_set_dormant_irq_enabled(OPTICAL_SENSOR_MOT_PIN, GPIO_IRQ_EDGE_FALL, true);
     
     /* 编码器 A 相：旋转时触发 */
     gpio_set_dormant_irq_enabled(ENCODER_A_PIN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true);
@@ -52,7 +52,7 @@ static void configure_dormant_wakeup_pins(void)
     /* 注意：64 键 SPI 键盘的唤醒比较特殊
      * 因为 SPI 是主模式，CPU 休眠时不会主动读 SPI
      * 如果需要按键唤醒，需要硬件上有中断输出，或者用矩阵键盘的行列检测
-     * 暂时先用 PAW3395、编码器、摇杆作为唤醒源
+     * 暂时先用 OPTICAL_SENSOR、编码器、摇杆作为唤醒源
      * 键盘唤醒以后可以优化，比如用一个专用的中断引脚
      */
 }
@@ -60,7 +60,7 @@ static void configure_dormant_wakeup_pins(void)
 /* 清除 Dormant 模式的 GPIO 唤醒配置 */
 static void clear_dormant_wakeup_pins(void)
 {
-    gpio_set_dormant_irq_enabled(PAW3395_MOT_PIN, GPIO_IRQ_EDGE_FALL, false);
+    gpio_set_dormant_irq_enabled(OPTICAL_SENSOR_MOT_PIN, GPIO_IRQ_EDGE_FALL, false);
     gpio_set_dormant_irq_enabled(ENCODER_A_PIN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, false);
     gpio_set_dormant_irq_enabled(ENCODER_B_PIN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, false);
     gpio_set_dormant_irq_enabled(JOYSTICK_BTN_PIN, GPIO_IRQ_EDGE_FALL, false);

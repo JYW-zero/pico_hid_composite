@@ -123,7 +123,7 @@
                                     Background="{StaticResource InputBackgroundBrush}"
                                     CornerRadius="4"
                                     Padding="8,4">
-                                <TextBlock Text="{Binding CurrentDpi}"
+                                <TextBlock Text="{Binding CurrentDpi, StringFormat={}{0:F0}}"
                                            FontSize="12"
                                            Foreground="{StaticResource AccentBrush}"
                                            FontFamily="Consolas"

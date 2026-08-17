@@ -18,7 +18,7 @@
 #include "middleware/ipc.h"
 #include "hardware/watchdog.h"
 #include "pico/multicore.h"
-#include "device/paw3395.h"
+#include "device/optical_sensor.h"
 #include "pico/time.h"
 #include "pico/bootrom.h"
 
@@ -116,15 +116,15 @@ static volatile uint32_t s_last_dfu_ms = 0;
 #define DFU_WINDOW_MS             5000u
 
 /* DPI数值转枚举 */
-static paw3395_dpi_e dpi_val_to_enum(uint16_t dpi_val)
+static optical_sensor_dpi_e dpi_val_to_enum(uint16_t dpi_val)
 {
     switch (dpi_val)
     {
-        case 400:  return PAW3395_DPI_400;
-        case 800:  return PAW3395_DPI_800;
-        case 1600: return PAW3395_DPI_1600;
-        case 3200: return PAW3395_DPI_3200;
-        default:   return PAW3395_DPI_1600;
+        case 400:  return optical_sensor_DPI_400;
+        case 800:  return optical_sensor_DPI_800;
+        case 1600: return optical_sensor_DPI_1600;
+        case 3200: return optical_sensor_DPI_3200;
+        default:   return optical_sensor_DPI_1600;
     }
 }
 
@@ -735,14 +735,14 @@ void hid_config_task(void)
                     int save_ret = config_save(&merged);
                     if (save_ret == 0) {
                         LOG_INFO_PRINT("[CONFIG] ✅ 配置已保存到 Flash\n");
-                        const paw3395_cfg_t *paw_cfg = board_get_paw3395_cfg();
+                        const optical_sensor_cfg_t *paw_cfg = board_get_optical_sensor_cfg();
                         if (paw_cfg != NULL) {
                             int ret;
                             if (merged.dpi == 400 || merged.dpi == 800 || merged.dpi == 1600 || merged.dpi == 3200) {
-                                paw3395_dpi_e dpi_enum = dpi_val_to_enum(merged.dpi);
-                                ret = paw3395_set_dpi(paw_cfg, dpi_enum);
+                                optical_sensor_dpi_e dpi_enum = dpi_val_to_enum(merged.dpi);
+                                ret = optical_sensor_set_dpi(paw_cfg, dpi_enum);
                             } else {
-                                ret = paw3395_set_dpi_raw(paw_cfg, merged.dpi);
+                                ret = optical_sensor_set_dpi_raw(paw_cfg, merged.dpi);
                             }
                             if (ret == 0) LOG_INFO_PRINT("[CONFIG] ✅ DPI 已应用: %d\n", merged.dpi);
                             else LOG_ERROR_PRINT("[CONFIG] ❌ DPI 应用失败，错误码: %d\n", ret);

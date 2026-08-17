@@ -13,12 +13,13 @@ public partial class MousePageViewModel : ObservableObject
     private readonly IDeviceService _deviceService;
     private bool _isInitialized;
     private bool _isSaving;
+    private CancellationTokenSource? _dpiDebounceCts;
 
     [ObservableProperty]
     private int _currentDpiIndex = 1;
 
     [ObservableProperty]
-    private ushort _currentDpi = 800;
+    private double _currentDpi = 800;
 
     [ObservableProperty]
     private bool _accelerationEnabled;
@@ -35,7 +36,7 @@ public partial class MousePageViewModel : ObservableObject
     /// <summary>
     /// 当前 DPI 文本
     /// </summary>
-    public string CurrentDpiText => $"{CurrentDpi} DPI";
+    public string CurrentDpiText => $"{(int)CurrentDpi} DPI";
 
     public MousePageViewModel(IDeviceService deviceService)
     {
@@ -64,11 +65,14 @@ public partial class MousePageViewModel : ObservableObject
             return;
 
         int[] dpiValues = { 400, 800, 1600, 3200 };
-        ushort dpi = (ushort)dpiValues[index];
+        double dpi = dpiValues[index];
 
         // 先更新本地显示
         CurrentDpiIndex = index;
         CurrentDpi = dpi;
+
+        // 取消待处理的 debounce
+        _dpiDebounceCts?.Cancel();
 
         if (_deviceService.IsConnected)
         {
@@ -88,7 +92,7 @@ public partial class MousePageViewModel : ObservableObject
         }
     }
 
-    partial void OnCurrentDpiChanged(ushort value)
+    partial void OnCurrentDpiChanged(double value)
     {
         if (!_isInitialized || _isSaving) return;
 
@@ -99,7 +103,22 @@ public partial class MousePageViewModel : ObservableObject
 
         if (_deviceService.IsConnected)
         {
-            _ = SaveCustomDpiAsync(value);
+            // debounce: 延迟300ms写入，避免拖动滑块时频繁写Flash
+            _dpiDebounceCts?.Cancel();
+            _dpiDebounceCts = new CancellationTokenSource();
+            var token = _dpiDebounceCts.Token;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(300, token);
+                    if (!token.IsCancellationRequested)
+                    {
+                        await SaveCustomDpiAsync((ushort)value);
+                    }
+                }
+                catch (TaskCanceledException) { }
+            }, token);
         }
     }
 

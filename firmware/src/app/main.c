@@ -38,7 +38,7 @@
 #include "board/board.h"
 #include "board/config.h"
 #include "device/keypad_spi.h"
-#include "device/paw3395.h"
+#include "device/optical_sensor.h"
 #include "device/encoder.h"
 #include "device/joystick.h"
 #include "middleware/debounce.h"
@@ -93,8 +93,8 @@ static const keypad_spi_cfg_t *keypad_cfg;
 static debounce_64key_t keypad_debounce;
 static uint64_t g_stable_keys = 0xFFFFFFFFFFFFFFFFULL;
 
-/* ==================== PAW3395鼠标传感器相关 ==================== */
-static const paw3395_cfg_t *paw3395_cfg;
+/* ==================== OPTICAL_SENSOR鼠标传感器相关 ==================== */
+static const optical_sensor_cfg_t *optical_sensor_cfg;
 static int32_t g_mouse_dx = 0;  /* 累积的X位移（int32防止溢出） */
 static int32_t g_mouse_dy = 0;  /* 累积的Y位移（int32防止溢出） */
 static uint8_t g_mouse_buttons = 0; /* 鼠标按键位掩码 */
@@ -128,15 +128,15 @@ static const uint16_t s_dpi_list[] = {400, 800, 1600, 3200};
 #define DPI_COUNT (sizeof(s_dpi_list) / sizeof(s_dpi_list[0]))
 
 /* DPI数值转枚举 */
-static paw3395_dpi_e dpi_val_to_enum(uint16_t dpi_val)
+static optical_sensor_dpi_e dpi_val_to_enum(uint16_t dpi_val)
 {
     switch (dpi_val)
     {
-        case 400:  return PAW3395_DPI_400;
-        case 800:  return PAW3395_DPI_800;
-        case 1600: return PAW3395_DPI_1600;
-        case 3200: return PAW3395_DPI_3200;
-        default:   return PAW3395_DPI_1600; /* 默认1600 */
+        case 400:  return optical_sensor_DPI_400;
+        case 800:  return optical_sensor_DPI_800;
+        case 1600: return optical_sensor_DPI_1600;
+        case 3200: return optical_sensor_DPI_3200;
+        default:   return optical_sensor_DPI_1600; /* 默认1600 */
     }
 }
 
@@ -159,7 +159,7 @@ static void dpi_cycle_next(void)
     /* 切换到下一个档位 */
     idx = (idx + 1) % DPI_COUNT;
     uint16_t new_dpi_val = s_dpi_list[idx];
-    paw3395_dpi_e new_dpi_enum = dpi_val_to_enum(new_dpi_val);
+    optical_sensor_dpi_e new_dpi_enum = dpi_val_to_enum(new_dpi_val);
 
     /* 通过IPC发送给Core1执行DPI切换，避免Core0直接操作SPI1与Core1竞争 */
     uint32_t cmd = IPC_MAKE_CMD(IPC_CMD_SET_DPI, (uint32_t)new_dpi_enum);
@@ -305,16 +305,16 @@ int main(void)
   }
   printf("正常启动模式\n");
 
-  // 初始化PAW3395鼠标传感器
-  printf("初始化PAW3395光学传感器...\n");
-  paw3395_cfg = board_get_paw3395_cfg();
-  int paw_ret = paw3395_init(paw3395_cfg);
+  // 初始化OPTICAL_SENSOR鼠标传感器
+  printf("初始化OPTICAL_SENSOR光学传感器...\n");
+  optical_sensor_cfg = board_get_optical_sensor_cfg();
+  int paw_ret = optical_sensor_init(optical_sensor_cfg);
   if (paw_ret == 0)
   {
     uint8_t pid = 0, rid = 0;
-    paw3395_reg_read(paw3395_cfg, 0x00, &pid);
-    paw3395_reg_read(paw3395_cfg, 0x01, &rid);
-    printf("PAW3395初始化成功\n");
+    optical_sensor_reg_read(optical_sensor_cfg, 0x00, &pid);
+    optical_sensor_reg_read(optical_sensor_cfg, 0x01, &rid);
+    printf("OPTICAL_SENSOR初始化成功\n");
     printf("  产品ID: 0x%02X\n", pid);
     printf("  修订ID: 0x%02X\n", rid);
 
@@ -322,18 +322,18 @@ int main(void)
     uint16_t dpi_val = config_get()->dpi;
     if (dpi_val == 400 || dpi_val == 800 || dpi_val == 1600 || dpi_val == 3200)
     {
-        paw3395_dpi_e dpi_enum = dpi_val_to_enum(dpi_val);
-        paw3395_set_dpi(paw3395_cfg, dpi_enum);
+        optical_sensor_dpi_e dpi_enum = dpi_val_to_enum(dpi_val);
+        optical_sensor_set_dpi(optical_sensor_cfg, dpi_enum);
     }
     else
     {
-        paw3395_set_dpi_raw(paw3395_cfg, dpi_val);
+        optical_sensor_set_dpi_raw(optical_sensor_cfg, dpi_val);
     }
     printf("  DPI设置为: %d (从配置加载)\n", dpi_val);
   }
   else
   {
-    printf("PAW3395初始化失败，错误码: %d\n", paw_ret);
+    printf("OPTICAL_SENSOR初始化失败，错误码: %d\n", paw_ret);
   }
 
   // 初始化滚轮编码器

@@ -35,7 +35,7 @@ extern "C" {
 typedef enum
 {
     IPC_CMD_NOP     = 0x00,  /* 空操作，回ACK */
-    IPC_CMD_SET_DPI = 0x01,  /* 设置DPI，参数：paw3395_dpi_e值 */
+    IPC_CMD_SET_DPI = 0x01,  /* 设置DPI，参数：optical_sensor_dpi_e值 */
     IPC_CMD_SLEEP   = 0x02,  /* Core1进入休眠（WFE） */
     IPC_CMD_PAUSE   = 0x03,  /* 暂停扫描，进入等待循环 */
     IPC_CMD_RESUME  = 0x04,  /* 恢复扫描 */
