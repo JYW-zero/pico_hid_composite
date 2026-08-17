@@ -742,7 +742,7 @@
                                                   Margin="0,0,4,0"
                                                   RecognizesAccessKey="True" />
                                 <Path Grid.Column="1"
-                                      Data="M6 9l4 4 4-4"
+                                      Data="M0 0 L4 4 L8 0"
                                       Stroke="{StaticResource TextSecondaryBrush}"
                                       StrokeThickness="1.5"
                                       StrokeStartLineCap="Round"
@@ -750,8 +750,10 @@
                                       StrokeLineJoin="Round"
                                       VerticalAlignment="Center"
                                       HorizontalAlignment="Right"
-                                      Width="12"
-                                      Height="12"
+                                      Width="10"
+                                      Height="6"
+                                      Stretch="Fill"
+                                      Margin="0,0,8,0"
                                       x:Name="arrow" />
                             </Grid>
                         </Border>
@@ -901,19 +903,21 @@
                                                               VerticalAlignment="Center" />
                                             <Path Grid.Column="1"
                                                   x:Name="arrow"
-                                                  Data="M6 9l4 4 4-4"
+                                                  Data="M0 0 L4 4 L8 0"
                                                   Stroke="{StaticResource TextSecondaryBrush}"
                                                   StrokeThickness="1.5"
                                                   StrokeStartLineCap="Round"
                                                   StrokeEndLineCap="Round"
                                                   StrokeLineJoin="Round"
-                                                  Width="12"
-                                                  Height="12"
-                                                  VerticalAlignment="Center" />
+                                                  Width="10"
+                                                  Height="6"
+                                                  Stretch="Fill"
+                                                  VerticalAlignment="Center"
+                                                  Margin="8,0,0,0" />
                                         </Grid>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsChecked" Value="True">
-                                                <Setter TargetName="arrow" Property="Data" Value="M6 15l4-4 4 4" />
+                                                <Setter TargetName="arrow" Property="Data" Value="M0 4 L4 0 L8 4" />
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
