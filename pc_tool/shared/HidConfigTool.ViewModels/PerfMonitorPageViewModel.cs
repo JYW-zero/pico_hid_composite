@@ -52,12 +52,6 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
     private bool _isDeviceConnected;
 
     /// <summary>
-    /// 是否自动刷新
-    /// </summary>
-    [ObservableProperty]
-    private bool _autoRefresh = true;
-
-    /// <summary>
     /// 刷新间隔（秒）
     /// </summary>
     [ObservableProperty]
@@ -119,7 +113,8 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
         _refreshTimer.Interval = TimeSpan.FromSeconds(5);  // 5秒刷新，减少USB总线占用
         _refreshTimer.Tick += OnRefreshTimerTick;
 
-        if (AutoRefresh && IsDeviceConnected)
+        // 设备已连接且监控已开启时启动自动刷新
+        if (IsDeviceConnected && IsPerfMonitorEnabled)
         {
             _refreshTimer.Start();
         }
@@ -133,7 +128,7 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
         IsDeviceConnected = isConnected;
         SystemStat = null;
 
-        if (isConnected && AutoRefresh)
+        if (isConnected && IsPerfMonitorEnabled)
         {
             _refreshTimer.Start();
         }
@@ -276,12 +271,14 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
                 IsPerfMonitorEnabled = targetEnabled;
                 if (targetEnabled)
                 {
-                    // 开启后立即刷新一次数据
+                    // 开启后启动自动刷新并立即刷新一次
+                    _refreshTimer.Start();
                     await RefreshCoreAsync(isAutoRefresh: false);
                 }
                 else
                 {
-                    // 关闭时清空显示
+                    // 关闭时停止刷新并清空显示
+                    _refreshTimer.Stop();
                     SystemStat = null;
                     TaskStats.Clear();
                     CpuHistory.Clear();
@@ -350,22 +347,7 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// 切换自动刷新
-    /// </summary>
-    partial void OnAutoRefreshChanged(bool value)
-    {
-        if (value && IsDeviceConnected)
-        {
-            _refreshTimer.Start();
-        }
-        else
-        {
-            _refreshTimer.Stop();
-        }
-    }
-
-    /// <summary>
-    /// 刷新间隔变化
+    /// 刷新间隔变化时立即更新定时器
     /// </summary>
     partial void OnRefreshIntervalChanged(int value)
     {
