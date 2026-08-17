@@ -1,4 +1,4 @@
-# macOS 固件开发环境安装教程
+﻿# macOS 固件开发环境安装教程
 
 本文记录在 Apple Silicon Mac 上编译本项目固件时，实际安装过的软件和命令。  
 上位机（Windows WPF 配置软件）在 Mac 上无法运行，本文只覆盖 **固件编译和烧录**。
@@ -204,8 +204,8 @@ brew uninstall arm-none-eabi-gcc
 
 ## 9. 跨平台配置工具（C# / Avalonia）
 
-WPF 版 `pc_tool/src/HidConfigTool.App` 仍只能在 Windows 上运行。  
-跨平台版本在 `pc_tool/src/HidConfigTool.Desktop`，**同一套源码**，Mac / Windows 各自编译。
+WPF 版 `pc_tool/windows/HidConfigTool.App` 仍只能在 Windows 上运行。  
+跨平台版本在 `pc_tool/desktop/HidConfigTool.Desktop`，**共享核心层**，Mac / Windows 各自编译。
 
 先安装 .NET 10：
 
@@ -219,7 +219,7 @@ export PATH="/opt/homebrew/opt/dotnet/bin:$PATH"
 
 ```bash
 cd pc_tool
-dotnet run --project src/HidConfigTool.Desktop
+dotnet run --project desktop/HidConfigTool.Desktop
 ```
 
 Windows 上同样执行上面的 `dotnet run`（需安装 .NET 10 SDK）。  

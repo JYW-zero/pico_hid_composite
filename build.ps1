@@ -293,7 +293,7 @@ if ($Target -eq "PcTool" -or $Target -eq "All") {
             Write-Success "上位机编译成功!"
             
             # 显示主程序路径
-            $exePath = Join-Path $pcToolDir "src\HidConfigTool.App\bin\$Config\net10.0-windows10.0.19041.0\HidConfigTool.App.exe"
+            $exePath = Join-Path $pcToolDir "windows\HidConfigTool.App\bin\$Config\net10.0-windows10.0.19041.0\HidConfigTool.App.exe"
             if (Test-Path $exePath) {
                 Write-Host "      输出: $exePath"
             }

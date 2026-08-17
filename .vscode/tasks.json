@@ -80,7 +80,7 @@
             "args": [
                 "run",
                 "--project",
-                "${workspaceFolder}/pc_tool/src/HidConfigTool.App/HidConfigTool.App.csproj"
+                "${workspaceFolder}/pc_tool/windows/HidConfigTool.App/HidConfigTool.App.csproj"
             ],
             "presentation": {
                 "reveal": "always",

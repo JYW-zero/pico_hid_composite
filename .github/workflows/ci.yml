@@ -174,7 +174,7 @@ jobs:
     # 5. 运行单元测试
     # --------------------------------------------------------
     - name: Run unit tests
-      run: dotnet test pc_tool/src/HidConfigTool.Tests/HidConfigTool.Tests.csproj --configuration Release --verbosity normal
+      run: dotnet test pc_tool/tests/HidConfigTool.Tests/HidConfigTool.Tests.csproj --configuration Release --verbosity normal
       continue-on-error: true
 
     # --------------------------------------------------------
@@ -182,7 +182,7 @@ jobs:
     # --------------------------------------------------------
     - name: Publish PC Tool (framework-dependent)
       run: |
-        dotnet publish pc_tool/src/HidConfigTool.App/HidConfigTool.App.csproj `
+        dotnet publish pc_tool/windows/HidConfigTool.App/HidConfigTool.App.csproj `
           --configuration Release `
           --self-contained false `
           --output publish-framework-dependent
@@ -192,7 +192,7 @@ jobs:
     # --------------------------------------------------------
     - name: Publish PC Tool (self-contained single-file)
       run: |
-        dotnet publish pc_tool/src/HidConfigTool.App/HidConfigTool.App.csproj `
+        dotnet publish pc_tool/windows/HidConfigTool.App/HidConfigTool.App.csproj `
           --configuration Release `
           --self-contained true `
           --runtime win-x64 `
