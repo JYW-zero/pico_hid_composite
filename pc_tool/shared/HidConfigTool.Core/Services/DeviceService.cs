@@ -1456,6 +1456,8 @@ public class DeviceService : IDeviceService
 
         try
         {
+            // 清除日志是写操作，需要先解锁
+            await UnlockConfigAsync();
             bool result = await SendControlCommandAsync(CMD_CLEAR_FAULT);
             if (result)
             {
