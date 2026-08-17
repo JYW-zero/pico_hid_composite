@@ -118,6 +118,12 @@ static const device_config_t s_default_config =
     .reserved           = {0},
     .keymap             = {0},  /* 后面单独初始化 */
     .fn_keymap          = {0},  /* 后面单独初始化 */
+    .joystick_invert_x  = DEFAULT_JOY_INV_X,
+    .joystick_invert_y  = DEFAULT_JOY_INV_Y,
+    .encoder_steps      = DEFAULT_ENC_STEPS,
+    .encoder_scroll_speed = DEFAULT_ENC_SCROLL,
+    .joystick_sensitivity = DEFAULT_JOY_SENS,
+    .reserved2          = {0},
     .crc32              = 0
 };
 
@@ -241,6 +247,31 @@ static bool migrate_from_v1(const device_config_t* old_cfg, device_config_t* new
     return true;
 }
 
+/* 从v2迁移到v3：v2已有macro_data，v3新增摇杆/编码器扩展字段 */
+static bool migrate_from_v2(const device_config_t* old_cfg, device_config_t* new_cfg)
+{
+    if (old_cfg == NULL || new_cfg == NULL)
+    {
+        return false;
+    }
+
+    /* 先加载默认配置作为基底（新字段有默认值） */
+    load_default_config();
+    memcpy(new_cfg, &s_current_config, sizeof(device_config_t));
+
+    /* 复制v2中存在的所有字段（偏移0到1325，即macro_data结束） */
+    memcpy(new_cfg, old_cfg, offsetof(device_config_t, joystick_invert_x));
+
+    /* 重新计算CRC */
+    new_cfg->magic = CONFIG_MAGIC;
+    new_cfg->version = CONFIG_VERSION;
+    uint32_t crc = crc32_calc((const uint8_t*)new_cfg,
+                              sizeof(device_config_t) - sizeof(uint32_t));
+    new_cfg->crc32 = crc;
+
+    return true;
+}
+
 /* 尝试迁移旧版本配置到新版本
  * 返回值：true=迁移成功，false=无法迁移
  */
@@ -262,6 +293,9 @@ static bool config_try_migrate(const device_config_t* old_cfg, device_config_t* 
     {
         case 0x0001:
             return migrate_from_v1(old_cfg, out_new_cfg);
+
+        case 0x0002:
+            return migrate_from_v2(old_cfg, out_new_cfg);
 
         default:
             /* 版本太老或未知，无法迁移 */

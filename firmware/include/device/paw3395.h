@@ -53,8 +53,11 @@ int paw3395_init(const paw3395_cfg_t *cfg);
 /* 软件复位传感器 */
 int paw3395_reset(const paw3395_cfg_t *cfg);
 
-/* 设置DPI */
+/* 设置DPI（固定档位） */
 int paw3395_set_dpi(const paw3395_cfg_t *cfg, paw3395_dpi_e dpi);
+
+/* 设置任意DPI（CPI值，范围100-6400，会自动对齐到25的倍数） */
+int paw3395_set_dpi_raw(const paw3395_cfg_t *cfg, uint16_t cpi);
 
 /* 读取运动数据 */
 int paw3395_read_motion(const paw3395_cfg_t *cfg, paw3395_motion_t *motion);

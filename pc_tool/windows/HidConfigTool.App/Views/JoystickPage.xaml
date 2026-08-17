@@ -230,22 +230,10 @@
                 </StackPanel>
             </Border>
 
-            <!-- 灵敏度设置卡片（开发中） -->
-            <Border Style="{StaticResource CardStyle}" Opacity="0.5">
-                <StackPanel IsEnabled="False">
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
-                        <TextBlock Text="灵敏度" Style="{StaticResource CardTitleStyle}" Margin="0" />
-                        <Border Background="{StaticResource AccentTransparentBrush}"
-                                CornerRadius="4"
-                                Padding="6,2"
-                                VerticalAlignment="Center"
-                                Margin="10,0,0,0">
-                            <TextBlock Text="开发中"
-                                       FontSize="10"
-                                       Foreground="{StaticResource AccentBrush}"
-                                       FontWeight="Medium" />
-                        </Border>
-                    </StackPanel>
+            <!-- 灵敏度设置卡片 -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Text="灵敏度" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,16" />
 
                     <Grid Margin="0,0,0,12">
                         <Grid.ColumnDefinitions>
@@ -275,22 +263,10 @@
                 </StackPanel>
             </Border>
 
-            <!-- 方向设置卡片（开发中） -->
-            <Border Style="{StaticResource CardStyle}" Margin="0" Opacity="0.5">
-                <StackPanel IsEnabled="False">
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
-                        <TextBlock Text="方向设置" Style="{StaticResource CardTitleStyle}" Margin="0" />
-                        <Border Background="{StaticResource AccentTransparentBrush}"
-                                CornerRadius="4"
-                                Padding="6,2"
-                                VerticalAlignment="Center"
-                                Margin="10,0,0,0">
-                            <TextBlock Text="开发中"
-                                       FontSize="10"
-                                       Foreground="{StaticResource AccentBrush}"
-                                       FontWeight="Medium" />
-                        </Border>
-                    </StackPanel>
+            <!-- 方向设置卡片 -->
+            <Border Style="{StaticResource CardStyle}" Margin="0">
+                <StackPanel>
+                    <TextBlock Text="方向设置" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,16" />
 
                     <CheckBox Content="反转 X 轴"
                               IsChecked="{Binding InvertX}"

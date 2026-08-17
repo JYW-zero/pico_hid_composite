@@ -57,7 +57,7 @@ public class DeviceService : IDeviceService
     private const int HID_TIMEOUT_MS = 5000;
 
     // 配置结构体大小
-    private const int CONFIG_SIZE = 1330;  // 与固件 device_config_t 一致（含 macro_data 1184 字节）
+    private const int CONFIG_SIZE = 1338;  // v3: 与固件 device_config_t 一致（新增摇杆/编码器扩展字段）
 
     // 每个块的大小
     private const int BLOCK_SIZE = 62;
@@ -71,7 +71,13 @@ public class DeviceService : IDeviceService
     private const int OFFSET_SEQ = 11;
     private const int OFFSET_KEYMAP = 14;
     private const int OFFSET_FN_KEYMAP = 78;
-    private const int OFFSET_CRC32 = 1326;  // 固件中 crc32 在 macro_data(1184字节) 之后
+    // v3 新增字段（macro_data之后，crc32之前）
+    private const int OFFSET_JOY_INV_X = 1326;
+    private const int OFFSET_JOY_INV_Y = 1327;
+    private const int OFFSET_ENC_STEPS = 1328;
+    private const int OFFSET_ENC_SCROLL = 1329;
+    private const int OFFSET_JOY_SENS = 1330;
+    private const int OFFSET_CRC32 = 1334;  // v3: crc32 在扩展字段之后
 
     #endregion
 
@@ -465,6 +471,19 @@ public class DeviceService : IDeviceService
             Array.Copy(data, OFFSET_FN_KEYMAP, config.FnKeymap, 0, 64);
         }
 
+        // v3 新增字段（版本>=3时有效）
+        if (config.Version >= 3 && data.Length >= OFFSET_CRC32)
+        {
+            config.JoystickInvertX = data[OFFSET_JOY_INV_X] != 0;
+            config.JoystickInvertY = data[OFFSET_JOY_INV_Y] != 0;
+            config.EncoderStepsPerTick = data[OFFSET_ENC_STEPS];
+            config.EncoderScrollSpeed = data[OFFSET_ENC_SCROLL];
+            if (data.Length >= OFFSET_JOY_SENS + 2)
+            {
+                config.JoystickSensitivity = BitConverter.ToUInt16(data, OFFSET_JOY_SENS) / 1000.0;
+            }
+        }
+
         return config;
     }
 
@@ -506,6 +525,14 @@ public class DeviceService : IDeviceService
             int len = Math.Min(64, config.FnKeymap.Length);
             Array.Copy(config.FnKeymap, 0, data, OFFSET_FN_KEYMAP, len);
         }
+
+        // v3 新增字段
+        data[OFFSET_JOY_INV_X] = (byte)(config.JoystickInvertX ? 1 : 0);
+        data[OFFSET_JOY_INV_Y] = (byte)(config.JoystickInvertY ? 1 : 0);
+        data[OFFSET_ENC_STEPS] = (byte)Math.Clamp(config.EncoderStepsPerTick, 0, 255);
+        data[OFFSET_ENC_SCROLL] = (byte)Math.Clamp(config.EncoderScrollSpeed, 0, 255);
+        ushort sensRaw = (ushort)Math.Clamp((int)(config.JoystickSensitivity * 1000), 0, 65535);
+        BitConverter.GetBytes(sensRaw).CopyTo(data, OFFSET_JOY_SENS);
 
         // CRC32（与固件端 crc32_calc 算法一致：标准 IEEE 802.3 CRC32）
         uint crc = Crc32Calculate(data, 0, OFFSET_CRC32);
@@ -1572,6 +1599,31 @@ public class DeviceService : IDeviceService
         ushort newDpi = (ushort)_currentConfig.DpiLevels[dpiIndex];
         _currentConfig.Dpi = newDpi;
         _currentConfig.DpiIndex = dpiIndex;
+
+        return await WriteConfigToDeviceAsync(_currentConfig);
+    }
+
+    /// <summary>设置任意DPI值（100-6400，自动对齐到25的倍数）</summary>
+    public async Task<bool> SetDpiValueAsync(ushort dpi, CancellationToken cancellationToken = default)
+    {
+        if (_currentConfig == null)
+            return false;
+
+        // 限制范围并对齐到25的倍数
+        if (dpi < 100) dpi = 100;
+        if (dpi > 6400) dpi = 6400;
+        dpi = (ushort)((dpi / 25) * 25);
+
+        _currentConfig.Dpi = dpi;
+        // 更新索引（如果匹配预设档位）
+        for (int i = 0; i < _currentConfig.DpiLevels.Length; i++)
+        {
+            if (_currentConfig.DpiLevels[i] == dpi)
+            {
+                _currentConfig.DpiIndex = i;
+                break;
+            }
+        }
 
         return await WriteConfigToDeviceAsync(_currentConfig);
     }

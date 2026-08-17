@@ -168,7 +168,14 @@ static void core1_encoder_task(void)
     
     if (delta != 0)
     {
-        shared_hw_add_wheel(delta);
+        /* 应用步长和滚动速度 */
+        const device_config_t* enc_cfg = config_get();
+        uint8_t steps = enc_cfg->encoder_steps;
+        uint8_t speed = enc_cfg->encoder_scroll_speed;
+        if (steps == 0) steps = 1;
+        if (speed == 0) speed = 1;
+        int32_t total_delta = delta * (int32_t)steps * (int32_t)speed;
+        shared_hw_add_wheel(total_delta);
     }
     
     /* 中键状态（带消抖：连续3次一致才确认） */
@@ -249,14 +256,25 @@ static void core1_joystick_task(void)
     x = (x * 127) / range;
     y = (y * 127) / range;
 
+    /* 应用灵敏度（定点数，1.0=1000） */
+    const device_config_t* cfg = config_get();
+    uint16_t sens = cfg->joystick_sensitivity;
+    if (sens == 0) sens = 1000;  /* 防止除零 */
+    x = (x * (int32_t)sens) / 1000;
+    y = (y * (int32_t)sens) / 1000;
+
     /* 限制范围 */
     if (x > 127) x = 127;
     if (x < -127) x = -127;
     if (y > 127) y = 127;
     if (y < -127) y = -127;
 
+    /* X/Y轴反转配置 */
+    if (cfg->joystick_invert_x) x = -x;
+    if (cfg->joystick_invert_y) y = -y;  /* 默认Y轴反转（物理方向与HID相反），可通过配置取消 */
+
     int16_t joy_x = (int16_t)x;
-    int16_t joy_y = (int16_t)(-y);  /* Y轴反转 */
+    int16_t joy_y = (int16_t)y;
 
     /* 摇杆按键消抖：连续3次一致才确认（10ms任务周期=30ms消抖） */
     static uint8_t s_joy_btn_debounce_count = 0;

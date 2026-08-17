@@ -43,7 +43,7 @@ extern "C" {
 #define CONFIG_MAGIC          0x5A5A5A5AU
 
 /* 配置版本号：升级时用于兼容旧版本配置 */
-#define CONFIG_VERSION        0x0002U
+#define CONFIG_VERSION        0x0003U
 
 /* 默认DPI值 */
 #define DEFAULT_DPI           1600U
@@ -53,6 +53,19 @@ extern "C" {
 
 /* 默认编码器方向：0=正常，1=反转 */
 #define DEFAULT_ENCODER_REV   0U
+
+/* 默认摇杆灵敏度（定点数，1.0=1000，范围100-5000即0.1-5.0） */
+#define DEFAULT_JOY_SENS      1000U
+
+/* 默认摇杆X/Y反转：0=正常，1=反转（Y轴默认反转，因为物理方向与HID相反） */
+#define DEFAULT_JOY_INV_X     0U
+#define DEFAULT_JOY_INV_Y     1U
+
+/* 默认编码器每格步数（1-10） */
+#define DEFAULT_ENC_STEPS     1U
+
+/* 默认编码器滚动速度（1-10） */
+#define DEFAULT_ENC_SCROLL    3U
 
 /* 宏配置大小：8个宏 × 148字节/宏 = 1184字节 */
 #define CONFIG_MACRO_DATA_SIZE  (8U * 148U)
@@ -75,6 +88,13 @@ typedef struct __attribute__((packed))
     uint8_t  keymap[64];         /* 64键映射表（普通层） */
     uint8_t  fn_keymap[64];      /* 64键映射表（Fn层） */
     uint8_t  macro_data[CONFIG_MACRO_DATA_SIZE]; /* 宏配置原始数据 */
+    /* v2 新增字段（加在crc32之前，不改变旧字段偏移） */
+    uint8_t  joystick_invert_x;   /* 摇杆X轴反转：0=正常，1=反转 */
+    uint8_t  joystick_invert_y;   /* 摇杆Y轴反转：0=正常，1=反转 */
+    uint8_t  encoder_steps;       /* 编码器每格步数（1-10） */
+    uint8_t  encoder_scroll_speed;/* 编码器滚动速度（1-10） */
+    uint16_t joystick_sensitivity;/* 摇杆灵敏度（定点数，1.0=1000） */
+    uint8_t  reserved2[2];        /* 保留对齐 */
     uint32_t crc32;              /* CRC32校验值（计算前面所有字段） */
 } device_config_t;
 

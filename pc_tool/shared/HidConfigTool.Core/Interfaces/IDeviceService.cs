@@ -76,6 +76,9 @@ public interface IDeviceService : IDisposable
     /// <param name="dpiIndex">DPI 档位索引 (0-3)</param>
     Task<bool> SetDpiAsync(int dpiIndex);
 
+    /// <summary>设置任意DPI值（100-6400）</summary>
+    Task<bool> SetDpiValueAsync(ushort dpi, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// 设置指针加速
     /// </summary>

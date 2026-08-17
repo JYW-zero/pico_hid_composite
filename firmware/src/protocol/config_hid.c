@@ -737,8 +737,13 @@ void hid_config_task(void)
                         LOG_INFO_PRINT("[CONFIG] ✅ 配置已保存到 Flash\n");
                         const paw3395_cfg_t *paw_cfg = board_get_paw3395_cfg();
                         if (paw_cfg != NULL) {
-                            paw3395_dpi_e dpi_enum = dpi_val_to_enum(merged.dpi);
-                            int ret = paw3395_set_dpi(paw_cfg, dpi_enum);
+                            int ret;
+                            if (merged.dpi == 400 || merged.dpi == 800 || merged.dpi == 1600 || merged.dpi == 3200) {
+                                paw3395_dpi_e dpi_enum = dpi_val_to_enum(merged.dpi);
+                                ret = paw3395_set_dpi(paw_cfg, dpi_enum);
+                            } else {
+                                ret = paw3395_set_dpi_raw(paw_cfg, merged.dpi);
+                            }
                             if (ret == 0) LOG_INFO_PRINT("[CONFIG] ✅ DPI 已应用: %d\n", merged.dpi);
                             else LOG_ERROR_PRINT("[CONFIG] ❌ DPI 应用失败，错误码: %d\n", ret);
                         }

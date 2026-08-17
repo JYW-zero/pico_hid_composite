@@ -277,6 +277,28 @@ int paw3395_set_dpi(const paw3395_cfg_t *cfg, paw3395_dpi_e dpi)
     return status;
 }
 
+int paw3395_set_dpi_raw(const paw3395_cfg_t *cfg, uint16_t cpi)
+{
+    int status = PAW3395_OK;
+
+    if (cfg == NULL)
+    {
+        fault_record(FAULT_LEVEL_ERROR, "paw3395", "set_dpi_raw null cfg");
+        return PAW3395_ERR_INVALID_PARAM;
+    }
+
+    /* 限制范围：100-6400 CPI，对齐到25的倍数 */
+    if (cpi < 100) cpi = 100;
+    if (cpi > 6400) cpi = 6400;
+    cpi = (cpi / 25) * 25;  /* 对齐到25的倍数 */
+
+    /* 寄存器值 = CPI/25 - 1，范围0-255 */
+    uint8_t reg_val = (uint8_t)(cpi / 25 - 1);
+    status = paw3395_reg_write(cfg, PAW3395_REG_CONFIG1, reg_val);
+
+    return status;
+}
+
 int paw3395_read_motion(const paw3395_cfg_t *cfg, paw3395_motion_t *motion)
 {
     int status = PAW3395_OK;

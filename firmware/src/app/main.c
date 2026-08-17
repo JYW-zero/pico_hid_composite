@@ -318,10 +318,17 @@ int main(void)
     printf("  产品ID: 0x%02X\n", pid);
     printf("  修订ID: 0x%02X\n", rid);
 
-    /* 从配置加载DPI */
+    /* 从配置加载DPI（支持任意DPI值） */
     uint16_t dpi_val = config_get()->dpi;
-    paw3395_dpi_e dpi_enum = dpi_val_to_enum(dpi_val);
-    paw3395_set_dpi(paw3395_cfg, dpi_enum);
+    if (dpi_val == 400 || dpi_val == 800 || dpi_val == 1600 || dpi_val == 3200)
+    {
+        paw3395_dpi_e dpi_enum = dpi_val_to_enum(dpi_val);
+        paw3395_set_dpi(paw3395_cfg, dpi_enum);
+    }
+    else
+    {
+        paw3395_set_dpi_raw(paw3395_cfg, dpi_val);
+    }
     printf("  DPI设置为: %d (从配置加载)\n", dpi_val);
   }
   else
