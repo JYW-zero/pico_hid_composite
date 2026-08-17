@@ -268,17 +268,23 @@ public partial class JoystickPageViewModel : ObservableObject, IDisposable
         try
         {
             _isSaving = true;
-            // 确保CurrentConfig中的死区是最新值
-            if (_deviceService.CurrentConfig != null)
+
+            // 直接从ViewModel属性更新CurrentConfig所有字段，确保保存的是当前UI值
+            var cfg = _deviceService.CurrentConfig;
+            if (cfg != null)
             {
-                _deviceService.CurrentConfig.JoystickDeadzone = (ushort)Math.Clamp(Deadzone, 0, 4095);
+                cfg.JoystickDeadzone = (ushort)Math.Clamp(Deadzone, 0, 4095);
+                cfg.JoystickSensitivity = Sensitivity;
+                cfg.JoystickInvertX = InvertX;
+                cfg.JoystickInvertY = InvertY;
             }
-            // 保存完整配置到Flash（包含死区、灵敏度和方向）
+
+            // 保存完整配置到Flash
             ushort dz = (ushort)Math.Clamp(Deadzone, 0, 4095);
             bool result = await _deviceService.SetJoystickDeadzoneAsync(dz);
             if (result)
             {
-                StatusMessage = $"配置已保存: 死区={dz}, 灵敏度={Sensitivity:F1}x";
+                StatusMessage = $"配置已保存: 死区={dz}, 灵敏度={Sensitivity:F1}x, 反转X={InvertX}, 反转Y={InvertY}";
             }
             else
             {
@@ -315,9 +321,11 @@ public partial class JoystickPageViewModel : ObservableObject, IDisposable
         if (!_deviceService.IsConnected)
             return;
 
+        // 捕获当前死区值，避免异步延迟后属性被修改
+        ushort dz = (ushort)Math.Clamp(Deadzone, 0, 4095);
+
         try
         {
-            ushort dz = (ushort)Math.Clamp(Deadzone, 0, 4095);
             bool result = await _deviceService.SetJoystickDeadzoneRealtimeAsync(dz);
             if (result)
             {
