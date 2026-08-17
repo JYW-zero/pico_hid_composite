@@ -575,11 +575,13 @@
             <Setter.Value>
                 <ControlTemplate TargetType="Slider">
                     <Grid x:Name="sliderGrid" VerticalAlignment="Center">
+                        <!-- 轨道背景 -->
                         <Border x:Name="track"
                                 Height="4"
                                 Background="{TemplateBinding Background}"
                                 CornerRadius="2"
                                 VerticalAlignment="Center" />
+                        <!-- 填充条 -->
                         <Border x:Name="fill"
                                 Height="4"
                                 Background="{TemplateBinding Foreground}"
@@ -598,48 +600,48 @@
                                 </MultiBinding>
                             </Border.Width>
                         </Border>
-                        <Thumb x:Name="Thumb"
-                               Width="16"
-                               Height="16"
-                               HorizontalAlignment="Left"
-                               VerticalAlignment="Center">
-                            <Thumb.Template>
-                                <ControlTemplate TargetType="Thumb">
-                                    <Border x:Name="thumbBorder"
-                                            Background="White"
-                                            CornerRadius="8"
-                                            BorderBrush="{StaticResource AccentBrush}"
-                                            BorderThickness="2" />
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="thumbBorder" Property="Background" Value="{StaticResource AccentHoverBrush}" />
-                                            <Setter TargetName="thumbBorder" Property="BorderBrush" Value="{StaticResource AccentHoverBrush}" />
-                                        </Trigger>
-                                        <Trigger Property="IsDragging" Value="True">
-                                            <Setter TargetName="thumbBorder" Property="Background" Value="{StaticResource AccentPressedBrush}" />
-                                            <Setter TargetName="thumbBorder" Property="BorderBrush" Value="{StaticResource AccentPressedBrush}" />
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Thumb.Template>
-                            <Thumb.RenderTransform>
-                                <TranslateTransform>
-                                    <TranslateTransform.X>
-                                        <MultiBinding>
-                                            <MultiBinding.Converter>
-                                                <conv:SliderThumbConverter />
-                                            </MultiBinding.Converter>
-                                            <Binding Path="Value" RelativeSource="{RelativeSource TemplatedParent}" />
-                                            <Binding Path="Minimum" RelativeSource="{RelativeSource TemplatedParent}" />
-                                            <Binding Path="Maximum" RelativeSource="{RelativeSource TemplatedParent}" />
-                                            <Binding Path="ActualWidth" ElementName="sliderGrid" />
-                                            <Binding Path="Width" ElementName="Thumb" />
-                                        </MultiBinding>
-                                    </TranslateTransform.X>
-                                </TranslateTransform>
-                            </Thumb.RenderTransform>
-                        </Thumb>
+                        <!-- Track 控件（处理拖动逻辑） -->
+                        <Track x:Name="PART_Track">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Background="Transparent" BorderThickness="0" Focusable="False" />
+                            </Track.DecreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb x:Name="Thumb" Width="16" Height="16">
+                                    <Thumb.Template>
+                                        <ControlTemplate TargetType="Thumb">
+                                            <Border x:Name="thumbBorder"
+                                                    Background="White"
+                                                    CornerRadius="8"
+                                                    BorderBrush="{StaticResource AccentBrush}"
+                                                    BorderThickness="2" />
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="thumbBorder" Property="Background" Value="{StaticResource AccentHoverBrush}" />
+                                                    <Setter TargetName="thumbBorder" Property="BorderBrush" Value="{StaticResource AccentHoverBrush}" />
+                                                </Trigger>
+                                                <Trigger Property="IsDragging" Value="True">
+                                                    <Setter TargetName="thumbBorder" Property="Background" Value="{StaticResource AccentPressedBrush}" />
+                                                    <Setter TargetName="thumbBorder" Property="BorderBrush" Value="{StaticResource AccentPressedBrush}" />
+                                                </Trigger>
+                                                <Trigger Property="IsEnabled" Value="False">
+                                                    <Setter TargetName="thumbBorder" Property="Opacity" Value="0.4" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Track.Thumb>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Background="Transparent" BorderThickness="0" Focusable="False" />
+                            </Track.IncreaseRepeatButton>
+                        </Track>
                     </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="fill" Property="Opacity" Value="0.4" />
+                            <Setter TargetName="track" Property="Opacity" Value="0.4" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
