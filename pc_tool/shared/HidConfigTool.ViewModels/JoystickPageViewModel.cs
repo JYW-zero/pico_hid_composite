@@ -1,3 +1,4 @@
+using System.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HidConfigTool.Core.Interfaces;
@@ -56,6 +57,7 @@ public partial class JoystickPageViewModel : ObservableObject, IDisposable
     /// </summary>
     [ObservableProperty]
     private bool _isSaving;
+    private CancellationTokenSource? _configDebounceCts;
 
     /// <summary>
     /// 状态消息
@@ -189,19 +191,82 @@ public partial class JoystickPageViewModel : ObservableObject, IDisposable
     partial void OnSensitivityChanged(double value)
     {
         if (_isInitialized && _deviceService.CurrentConfig != null)
+        {
             _deviceService.CurrentConfig.JoystickSensitivity = value;
+            ScheduleConfigSave();
+        }
     }
 
     partial void OnInvertXChanged(bool value)
     {
         if (_isInitialized && _deviceService.CurrentConfig != null)
+        {
             _deviceService.CurrentConfig.JoystickInvertX = value;
+            ScheduleConfigSave();
+        }
     }
 
     partial void OnInvertYChanged(bool value)
     {
         if (_isInitialized && _deviceService.CurrentConfig != null)
+        {
             _deviceService.CurrentConfig.JoystickInvertY = value;
+            ScheduleConfigSave();
+        }
+    }
+
+    /// <summary>
+    /// 延迟保存配置到设备（debounce 500ms，避免频繁写Flash）
+    /// </summary>
+    private void ScheduleConfigSave()
+    {
+        _configDebounceCts?.Cancel();
+        _configDebounceCts = new CancellationTokenSource();
+        var token = _configDebounceCts.Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(500, token);
+                if (!token.IsCancellationRequested)
+                {
+                    await SaveFullConfigAsync();
+                }
+            }
+            catch (TaskCanceledException) { }
+        });
+    }
+
+    /// <summary>
+    /// 保存完整摇杆配置到设备（死区+灵敏度+方向）
+    /// </summary>
+    private async Task SaveFullConfigAsync()
+    {
+        if (!_deviceService.IsConnected || _isSaving) return;
+        try
+        {
+            _isSaving = true;
+            // 先实时应用死区
+            await _deviceService.SetJoystickDeadzoneRealtimeAsync((ushort)Deadzone);
+            // 保存完整配置到Flash（包含灵敏度和方向）
+            bool result = await _deviceService.SetJoystickDeadzoneAsync((ushort)Deadzone);
+            if (result)
+            {
+                StatusMessage = $"配置已保存: 死区={Deadzone:F0}, 灵敏度={Sensitivity:F1}x";
+            }
+            else
+            {
+                StatusMessage = "保存失败";
+            }
+        }
+        catch
+        {
+            StatusMessage = "保存异常";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
     }
 
     partial void OnJoystickXChanged(double value)

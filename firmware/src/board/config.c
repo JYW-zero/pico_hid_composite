@@ -499,6 +499,18 @@ void config_init(void)
         s_current_config.seq = 2;
     }
 
+    /* 防御性修复：v3新字段如果为0或异常，设为默认值（兼容旧版本升级） */
+    if (s_current_config.joystick_sensitivity == 0 || s_current_config.joystick_sensitivity > 5000) {
+        s_current_config.joystick_sensitivity = DEFAULT_JOY_SENS;
+        fault_record(FAULT_LEVEL_WARN, "config", "joystick_sensitivity invalid, reset to default");
+    }
+    if (s_current_config.encoder_steps == 0) {
+        s_current_config.encoder_steps = DEFAULT_ENC_STEPS;
+    }
+    if (s_current_config.encoder_scroll_speed == 0) {
+        s_current_config.encoder_scroll_speed = DEFAULT_ENC_SCROLL;
+    }
+
     s_initialized = true;
 }
 
