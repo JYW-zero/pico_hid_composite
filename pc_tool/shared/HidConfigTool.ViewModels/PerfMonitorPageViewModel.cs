@@ -55,7 +55,12 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
     /// 刷新间隔（秒）
     /// </summary>
     [ObservableProperty]
-    private int _refreshInterval = 5;  // 性能监控不需要实时，5秒足够
+    private int _refreshInterval = 5;
+
+    /// <summary>
+    /// 刷新间隔选项
+    /// </summary>
+    public List<int> RefreshIntervalOptions { get; } = new() { 1, 2, 3, 5, 10, 30, 60 };
 
     /// <summary>
     /// 设备端性能监控是否开启
@@ -304,14 +309,32 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
     /// </summary>
     private async Task LoadTaskStatsAsync(byte taskCount)
     {
-        TaskStats.Clear();
-
+        // 先收集所有数据，再批量更新，避免UI闪烁
+        var newStats = new List<PerfTaskStat>();
         for (byte i = 0; i < taskCount && i < 16; i++)
         {
             var taskStat = await _deviceService.GetPerfTaskStatAsync(i);
             if (taskStat != null)
             {
-                TaskStats.Add(taskStat);
+                newStats.Add(taskStat);
+            }
+        }
+
+        // 数量相同时更新现有项（不触发集合变更，减少闪烁）
+        // 数量不同时重建（仅在任务注册数变化时发生）
+        if (TaskStats.Count == newStats.Count)
+        {
+            for (int i = 0; i < newStats.Count; i++)
+            {
+                TaskStats[i] = newStats[i];
+            }
+        }
+        else
+        {
+            TaskStats.Clear();
+            foreach (var stat in newStats)
+            {
+                TaskStats.Add(stat);
             }
         }
     }

@@ -75,10 +75,11 @@
                                VerticalAlignment="Center"
                                Margin="0,0,8,0"
                                FontSize="13" />
-                    <TextBox Text="{Binding RefreshInterval}"
-                             Width="60"
-                             VerticalAlignment="Center"
-                             Margin="0,0,4,0" />
+                    <ComboBox ItemsSource="{Binding RefreshIntervalOptions}"
+                              SelectedItem="{Binding RefreshInterval}"
+                              Width="70"
+                              VerticalAlignment="Center"
+                              Margin="0,0,4,0" />
                     <TextBlock Text="秒"
                                Foreground="{StaticResource TextSecondaryBrush}"
                                VerticalAlignment="Center"
