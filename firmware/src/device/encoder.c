@@ -115,15 +115,8 @@ encoder_dir_e encoder_update(const encoder_cfg_t *cfg, encoder_state_t *state)
         }
         else
         {
-            /* 状态未变但有残余累积：逐步衰减，防止接触不良跳状态后的残留 */
-            if (state->accum > 0)
-            {
-                state->accum--;
-            }
-            else if (state->accum < 0)
-            {
-                state->accum++;
-            }
+            /* 状态未变化：不衰减累积值，防止正常转动时累积被抵消
+             * （转动时A/B状态变化间隔通常>1ms，每次衰减会导致永远无法累积到steps_per_tick） */
             result = ENCODER_DIR_NONE;
         }
     }
