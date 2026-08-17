@@ -119,6 +119,10 @@ void watchdog_tick(void)
 
     uint32_t now = time_us_32();
 
+    /* Core0 代为喂 DEVICE 层：Flash 写入时 Core1 会被暂停约 50-100ms，
+     * 这是正常行为，不应触发看门狗。Core1 死锁由任务超时机制检测。 */
+    s_last_feed_us[WDG_LAYER_DEVICE] = now;
+
     /* 检查每一层是否超时 */
     for (int i = 0; i < WDG_LAYER_COUNT; i++)
     {

@@ -758,6 +758,9 @@ void hid_config_task(void)
                     } else {
                         LOG_ERROR_PRINT("[CONFIG] ❌ 配置保存到 Flash 失败\n");
                     }
+
+                    /* 配置保存+DPI应用期间Core1被暂停，结束后补喂DEVICE层 */
+                    watchdog_feed_layer(WDG_LAYER_DEVICE);
                 }
                 break;
             case CMD_RESET_STATS:
