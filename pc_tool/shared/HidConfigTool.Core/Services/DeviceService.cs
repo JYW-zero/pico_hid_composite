@@ -2005,11 +2005,18 @@ public class DeviceService : IDeviceService
         try
         {
             Log("INFO", "正在重启设备...");
-            bool result = await SendControlCommandAsync(CMD_REBOOT);
+            // 固件要求连续发送3次（5秒内）才执行，防止恶意DoS
+            bool result = false;
+            for (int i = 0; i < 3; i++)
+            {
+                result = await SendControlCommandAsync(CMD_REBOOT);
+                if (!result) break;
+                if (i < 2) await Task.Delay(100);
+            }
 
             if (result)
             {
-                Log("INFO", "重启命令已发送");
+                Log("INFO", "重启命令已发送（3次确认）");
                 // 设备会断开连接，自动连接机制会处理重连
             }
             else
@@ -2037,11 +2044,18 @@ public class DeviceService : IDeviceService
         try
         {
             Log("INFO", "正在进入 BOOTSEL 模式...");
-            bool result = await SendControlCommandAsync(CMD_ENTER_DFU);
+            // 固件要求连续发送3次（5秒内）才执行，防止恶意DoS
+            bool result = false;
+            for (int i = 0; i < 3; i++)
+            {
+                result = await SendControlCommandAsync(CMD_ENTER_DFU);
+                if (!result) break;
+                if (i < 2) await Task.Delay(100);
+            }
 
             if (result)
             {
-                Log("INFO", "BOOTSEL 命令已发送，设备将进入烧录模式");
+                Log("INFO", "BOOTSEL 命令已发送（3次确认），设备将进入烧录模式");
                 // 设备会进入 BOOTSEL 模式，断开连接
                 Disconnect();
             }
