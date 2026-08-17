@@ -310,8 +310,9 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
     private async Task LoadTaskStatsAsync(byte taskCount)
     {
         // 先收集所有数据，再批量更新，避免UI闪烁
+        // 注意：任务索引可能不连续（如0-3和8-11），需遍历到最大索引而非taskCount
         var newStats = new List<PerfTaskStat>();
-        for (byte i = 0; i < taskCount && i < 16; i++)
+        for (byte i = 0; i < 16; i++)
         {
             var taskStat = await _deviceService.GetPerfTaskStatAsync(i);
             if (taskStat != null)

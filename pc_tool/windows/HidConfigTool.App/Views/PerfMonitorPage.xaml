@@ -77,9 +77,13 @@
                                FontSize="13" />
                     <ComboBox ItemsSource="{Binding RefreshIntervalOptions}"
                               SelectedItem="{Binding RefreshInterval}"
-                              Width="70"
+                              Width="80"
                               VerticalAlignment="Center"
-                              Margin="0,0,4,0" />
+                              Margin="0,0,4,0"
+                              Background="{StaticResource InputBackgroundBrush}"
+                              BorderBrush="{StaticResource BorderBrush}"
+                              BorderThickness="1"
+                              Padding="8,4" />
                     <TextBlock Text="秒"
                                Foreground="{StaticResource TextSecondaryBrush}"
                                VerticalAlignment="Center"
