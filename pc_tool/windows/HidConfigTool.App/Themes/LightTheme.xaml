@@ -724,47 +724,57 @@
                         <ToggleButton x:Name="PART_DropDown"
                                       Focusable="False"
                                       IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
-                                      ClickMode="Press"
-                                      Background="Transparent"
-                                      BorderThickness="0"
-                                      Padding="0" />
-                        <Border x:Name="border"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="6"
-                                Padding="{TemplateBinding Padding}"
-                                IsHitTestVisible="False">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <ContentPresenter Grid.Column="0"
-                                                  x:Name="ContentSite"
-                                                  Content="{TemplateBinding SelectionBoxItem}"
-                                                  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
-                                                  ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                                      ClickMode="Press">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border x:Name="border"
+                                            Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            CornerRadius="6"
+                                            Padding="{TemplateBinding Padding}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <ContentPresenter Grid.Column="0"
+                                                              x:Name="ContentSite"
+                                                              Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                              ContentTemplate="{Binding SelectionBoxItemTemplate, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                              ContentStringFormat="{Binding SelectionBoxItemStringFormat, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                              VerticalAlignment="Center"
+                                                              HorizontalAlignment="Left"
+                                                              Margin="0,0,4,0"
+                                                              RecognizesAccessKey="True" />
+                                            <Path Grid.Column="1"
+                                                  Data="M0 0 L4 4 L8 0"
+                                                  Stroke="{StaticResource TextSecondaryBrush}"
+                                                  StrokeThickness="1.5"
+                                                  StrokeStartLineCap="Round"
+                                                  StrokeEndLineCap="Round"
+                                                  StrokeLineJoin="Round"
                                                   VerticalAlignment="Center"
-                                                  HorizontalAlignment="Left"
-                                                  Margin="0,0,4,0"
-                                                  RecognizesAccessKey="True" />
-                                <Path Grid.Column="1"
-                                      Data="M0 0 L4 4 L8 0"
-                                      Stroke="{StaticResource TextSecondaryBrush}"
-                                      StrokeThickness="1.5"
-                                      StrokeStartLineCap="Round"
-                                      StrokeEndLineCap="Round"
-                                      StrokeLineJoin="Round"
-                                      VerticalAlignment="Center"
-                                      HorizontalAlignment="Right"
-                                      Width="10"
-                                      Height="6"
-                                      Stretch="Fill"
-                                      Margin="0,0,8,0"
-                                      x:Name="arrow" />
-                            </Grid>
-                        </Border>
+                                                  HorizontalAlignment="Right"
+                                                  Width="10"
+                                                  Height="6"
+                                                  Stretch="Fill"
+                                                  Margin="0,0,8,0"
+                                                  x:Name="arrow" />
+                                        </Grid>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource TextTertiaryBrush}" />
+                                        </Trigger>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                            <Setter TargetName="arrow" Property="Stroke" Value="{StaticResource AccentBrush}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
                         <Popup x:Name="PART_Popup"
                                Placement="Bottom"
                                AllowsTransparency="True"
@@ -782,13 +792,6 @@
                         </Popup>
                     </Grid>
                     <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource TextTertiaryBrush}" />
-                        </Trigger>
-                        <Trigger Property="IsDropDownOpen" Value="True">
-                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
-                            <Setter TargetName="arrow" Property="Stroke" Value="{StaticResource AccentBrush}" />
-                        </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.5" />
                         </Trigger>
@@ -897,6 +900,7 @@
                                           BorderThickness="0"
                                           HorizontalContentAlignment="Left"
                                           VerticalContentAlignment="Center"
+                                          Foreground="{TemplateBinding Foreground}"
                                           Padding="0">
                                 <ToggleButton.Template>
                                     <ControlTemplate TargetType="ToggleButton">
