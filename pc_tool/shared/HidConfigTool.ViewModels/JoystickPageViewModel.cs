@@ -14,7 +14,8 @@ public partial class JoystickPageViewModel : ObservableObject, IDisposable
     private readonly ITimerService _refreshTimer;
     private bool _disposed;
     private bool _isInitialized;
-    private bool _isApplyingRealtime;
+    private bool _isApplyingRealtime;  // 保留但不再使用，防止编译错误
+    private CancellationTokenSource? _deadzoneDebounceCts;
 
     [ObservableProperty]
     private double _deadzone = 100;
@@ -187,9 +188,24 @@ public partial class JoystickPageViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(DeadzoneCircleWidth));
         OnPropertyChanged(nameof(DeadzoneCircleLeft));
         OnPropertyChanged(nameof(DeadzoneCircleTop));
-        if (_isInitialized && !_isApplyingRealtime)
+        if (_isInitialized)
         {
-            _ = ApplyDeadzoneRealtimeAsync();
+            // 实时应用死区：debounce 50ms，确保发送最新值
+            _deadzoneDebounceCts?.Cancel();
+            _deadzoneDebounceCts = new CancellationTokenSource();
+            var token = _deadzoneDebounceCts.Token;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(50, token);
+                    if (!token.IsCancellationRequested)
+                    {
+                        await ApplyDeadzoneRealtimeAsync();
+                    }
+                }
+                catch (TaskCanceledException) { }
+            });
             ScheduleConfigSave();  // 延迟保存到Flash
         }
     }
@@ -252,13 +268,17 @@ public partial class JoystickPageViewModel : ObservableObject, IDisposable
         try
         {
             _isSaving = true;
-            // 先实时应用死区
-            await _deviceService.SetJoystickDeadzoneRealtimeAsync((ushort)Deadzone);
-            // 保存完整配置到Flash（包含灵敏度和方向）
-            bool result = await _deviceService.SetJoystickDeadzoneAsync((ushort)Deadzone);
+            // 确保CurrentConfig中的死区是最新值
+            if (_deviceService.CurrentConfig != null)
+            {
+                _deviceService.CurrentConfig.JoystickDeadzone = (ushort)Math.Clamp(Deadzone, 0, 4095);
+            }
+            // 保存完整配置到Flash（包含死区、灵敏度和方向）
+            ushort dz = (ushort)Math.Clamp(Deadzone, 0, 4095);
+            bool result = await _deviceService.SetJoystickDeadzoneAsync(dz);
             if (result)
             {
-                StatusMessage = $"配置已保存: 死区={Deadzone:F0}, 灵敏度={Sensitivity:F1}x";
+                StatusMessage = $"配置已保存: 死区={dz}, 灵敏度={Sensitivity:F1}x";
             }
             else
             {
@@ -297,11 +317,11 @@ public partial class JoystickPageViewModel : ObservableObject, IDisposable
 
         try
         {
-            _isApplyingRealtime = true;
-            bool result = await _deviceService.SetJoystickDeadzoneRealtimeAsync((ushort)Deadzone);
+            ushort dz = (ushort)Math.Clamp(Deadzone, 0, 4095);
+            bool result = await _deviceService.SetJoystickDeadzoneRealtimeAsync(dz);
             if (result)
             {
-                StatusMessage = $"死区已实时应用: {Deadzone:F0}（未保存到Flash）";
+                StatusMessage = $"死区已实时应用: {dz}（未保存到Flash）";
             }
             else
             {
@@ -311,10 +331,6 @@ public partial class JoystickPageViewModel : ObservableObject, IDisposable
         catch
         {
             StatusMessage = "死区应用异常";
-        }
-        finally
-        {
-            _isApplyingRealtime = false;
         }
     }
 
