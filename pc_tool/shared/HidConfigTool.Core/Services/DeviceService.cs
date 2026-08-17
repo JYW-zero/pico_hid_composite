@@ -49,6 +49,7 @@ public class DeviceService : IDeviceService
     private const byte CMD_MACRO_STOP = 0x0A;           // 停止宏（参数：宏ID，0xFF=停止所有）
     private const byte CMD_SET_PERF_ENABLE = 0x0B;      // 设置性能监控开关（参数：1=开启，0=关闭）
     private const byte CMD_SET_JOYSTICK_DZ_RT = 0x0C;   // 实时设置摇杆死区（参数：2字节小端，不写Flash）
+    private const byte CMD_UNLOCK_CONFIG = 0x0D;        // 解锁配置写入（需连续3次，5秒内）
 
     // 配置魔数
     private const uint CONFIG_MAGIC = 0x5A5A5A5A;
@@ -252,21 +253,20 @@ public class DeviceService : IDeviceService
     /// </summary>
     public async Task<IReadOnlyList<HidDeviceInfo>> GetDevicesAsync()
     {
+        // 如果已连接，直接返回当前设备，避免独占模式下重新枚举失败导致重复
+        lock (_stateLock)
+        {
+            if (_currentDevice != null)
+            {
+                return new List<HidDeviceInfo> { _currentDevice };
+            }
+        }
+
         var allDevices = await _hidDriver.FindDevicesAsync(DeviceVendorId, DeviceProductId);
 
         // 只返回配置接口的设备（UsagePage = 0xFF00 Vendor Defined）
         // 过滤掉键盘、鼠标、消费者控制、游戏手柄等其他集合
         var configDevices = allDevices.Where(d => d.UsagePage == 0xFF00).ToList();
-
-        // 独占访问模式下，已连接的设备无法被 FindDevicesAsync 重新打开读取信息
-        // 因此需要将当前已连接的设备手动加入列表，确保 UI 能显示
-        lock (_stateLock)
-        {
-            if (_currentDevice != null && !configDevices.Any(d => d.DevicePath == _currentDevice.DevicePath))
-            {
-                configDevices.Insert(0, _currentDevice);
-            }
-        }
 
         return configDevices;
     }
@@ -611,6 +611,14 @@ public class DeviceService : IDeviceService
                 }
             }
 
+            // 解锁配置写入（固件默认锁定，需连续发送3次解锁命令）
+            if (!await UnlockConfigAsync())
+            {
+                Log("ERROR", "配置解锁失败，无法写入");
+                OnOperationStatusChanged("配置解锁失败，请重试");
+                return false;
+            }
+
             for (int attempt = 0; attempt < maxRetries; attempt++)
             {
                 try
@@ -843,6 +851,27 @@ public class DeviceService : IDeviceService
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// 解锁配置写入（需连续发送3次，5秒内）
+    /// 固件默认锁定配置，防止恶意程序篡改。写入配置前必须先解锁。
+    /// </summary>
+    private async Task<bool> UnlockConfigAsync()
+    {
+        Log("INFO", "正在解锁配置写入...");
+        for (int i = 0; i < 3; i++)
+        {
+            bool result = await SendControlCommandAsync(CMD_UNLOCK_CONFIG);
+            if (!result)
+            {
+                Log("ERROR", $"解锁配置失败（第{i + 1}/3次）");
+                return false;
+            }
+            if (i < 2) await Task.Delay(100);
+        }
+        Log("INFO", "配置已解锁（30秒后自动锁定）");
+        return true;
     }
 
     private async Task<bool> SendControlCommandAsync(byte command)
