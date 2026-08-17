@@ -727,6 +727,14 @@ void hid_config_task(void)
                     /* 只覆盖前142字节（magic ~ fn_keymap 结束，不含 macro_data） */
                     memcpy(&merged, &g_tmp_config, 142);
 
+                    /* 覆盖v3新增字段（偏移1326+，在macro_data之后）
+                     * 这些字段不在前142字节内，必须单独复制 */
+                    merged.joystick_invert_x = g_tmp_config.joystick_invert_x;
+                    merged.joystick_invert_y = g_tmp_config.joystick_invert_y;
+                    merged.encoder_steps = g_tmp_config.encoder_steps;
+                    merged.encoder_scroll_speed = g_tmp_config.encoder_scroll_speed;
+                    merged.joystick_sensitivity = g_tmp_config.joystick_sensitivity;
+
                     /* 强制设置正确的 magic 和 version */
                     merged.magic = CONFIG_MAGIC;
                     merged.version = CONFIG_VERSION;
