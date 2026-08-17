@@ -44,7 +44,7 @@
 
     <Grid>
         <!-- ==================== 主页面：设置项列表 ==================== -->
-        <StackPanel Visibility="{Binding IsInSubPage, Converter={StaticResource BoolToVis}, ConverterParameter=Inverse}">
+        <StackPanel Visibility="{Binding IsInSubPage, Converter={StaticResource InvertBoolConverter}}">
             <TextBlock Text="设置" Style="{StaticResource PageTitleStyle}" />
             <TextBlock Text="配置应用行为、外观和设备管理选项" Style="{StaticResource PageSubtitleStyle}" Margin="0,0,0,20" />
 
