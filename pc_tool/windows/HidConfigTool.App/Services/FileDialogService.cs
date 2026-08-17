@@ -1,4 +1,6 @@
 using Microsoft.Win32;
+using System.Diagnostics;
+using System.IO;
 using HidConfigTool.Core.Interfaces;
 
 namespace HidConfigTool.App.Services;
@@ -27,5 +29,13 @@ public class FileDialogService : IFileDialogService
             DefaultExt = defaultExt
         };
         return dialog.ShowDialog() == true ? dialog.FileName : null;
+    }
+
+    public void OpenFolder(string path)
+    {
+        if (Directory.Exists(path))
+        {
+            Process.Start(new ProcessStartInfo("explorer.exe", path) { UseShellExecute = true });
+        }
     }
 }

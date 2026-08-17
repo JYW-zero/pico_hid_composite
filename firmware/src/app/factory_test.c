@@ -10,7 +10,7 @@
 #include "board/flash_layout.h"
 #include "middleware/fault.h"
 #include "device/keypad_spi.h"
-#include "device/paw3395.h"
+#include "device/optical_sensor.h"
 #include "device/joystick.h"
 #include "device/encoder.h"
 #include "pico/time.h"
@@ -69,41 +69,41 @@ static factory_test_status_t test_spi_keypad(char* detail, uint32_t* duration_ms
     return FACTORY_TEST_PASS;
 }
 
-/* 测试2：PAW3395传感器测试 */
-static factory_test_status_t test_paw3395(char* detail, uint32_t* duration_ms)
+/* 测试2：OPTICAL_SENSOR传感器测试 */
+static factory_test_status_t test_optical_sensor(char* detail, uint32_t* duration_ms)
 {
     uint32_t start = to_ms_since_boot(get_absolute_time());
-    const paw3395_cfg_t* cfg = board_get_paw3395_cfg();
+    const optical_sensor_cfg_t* cfg = board_get_optical_sensor_cfg();
 
-    /* 初始化PAW3395 */
-    int ret = paw3395_init(cfg);
+    /* 初始化OPTICAL_SENSOR */
+    int ret = optical_sensor_init(cfg);
     if (ret != 0)
     {
-        sprintf(detail, "PAW3395: 初始化失败 (%d)", ret);
+        sprintf(detail, "OPTICAL_SENSOR: 初始化失败 (%d)", ret);
         *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
         return FACTORY_TEST_FAIL;
     }
 
     /* 读取产品ID */
     uint8_t pid = 0, rid = 0;
-    ret = paw3395_reg_read(cfg, 0x00, &pid);
+    ret = optical_sensor_reg_read(cfg, 0x00, &pid);
     if (ret != 0)
     {
-        sprintf(detail, "PAW3395: 读取产品ID失败");
+        sprintf(detail, "OPTICAL_SENSOR: 读取产品ID失败");
         *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
         return FACTORY_TEST_FAIL;
     }
-    paw3395_reg_read(cfg, 0x01, &rid);
+    optical_sensor_reg_read(cfg, 0x01, &rid);
 
     /* 检查产品ID是否合理（不是0x00也不是0xFF） */
     if (pid == 0x00 || pid == 0xFF)
     {
-        sprintf(detail, "PAW3395: 产品ID异常 (0x%02X)", pid);
+        sprintf(detail, "OPTICAL_SENSOR: 产品ID异常 (0x%02X)", pid);
         *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
         return FACTORY_TEST_FAIL;
     }
 
-    sprintf(detail, "PAW3395: 产品ID=0x%02X 修订ID=0x%02X", pid, rid);
+    sprintf(detail, "OPTICAL_SENSOR: 产品ID=0x%02X 修订ID=0x%02X", pid, rid);
     *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
     return FACTORY_TEST_PASS;
 }
@@ -358,8 +358,8 @@ factory_test_status_t factory_test_run_item(factory_test_item_t item)
         case FACTORY_TEST_SPI_KEYPAD:
             result = test_spi_keypad(detail, &duration_ms);
             break;
-        case FACTORY_TEST_PAW3395:
-            result = test_paw3395(detail, &duration_ms);
+        case FACTORY_TEST_OPTICAL_SENSOR:
+            result = test_optical_sensor(detail, &duration_ms);
             break;
         case FACTORY_TEST_JOYSTICK_ADC:
             result = test_joystick_adc(detail, &duration_ms);

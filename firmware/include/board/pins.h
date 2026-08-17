@@ -20,19 +20,19 @@
 #define KEYPAD_SPI_BAUDRATE_HZ  (100000u)
 #define KEYPAD_SPI_CS_DELAY_US  (5u)  /* CS 下降/上升延时 5 us */
 
-/* ==================== PAW3395 光学鼠标传感器 ==================== */
+/* ==================== OPTICAL_SENSOR 光学鼠标传感器 ==================== */
 /* SPI1 引脚映射 */
-#define PAW3395_SPI_SCK_PIN   (10u)
-#define PAW3395_SPI_MOSI_PIN  (11u)
-#define PAW3395_SPI_MISO_PIN  (12u)
-#define PAW3395_SPI_CS_PIN    (13u)
-#define PAW3395_MOT_PIN       (14u)  /* 运动中断引脚 */
-#define PAW3395_RST_PIN       (15u)  /* 复位引脚 */
+#define OPTICAL_SENSOR_SPI_SCK_PIN   (10u)
+#define OPTICAL_SENSOR_SPI_MOSI_PIN  (11u)
+#define OPTICAL_SENSOR_SPI_MISO_PIN  (12u)
+#define OPTICAL_SENSOR_SPI_CS_PIN    (13u)
+#define OPTICAL_SENSOR_MOT_PIN       (14u)  /* 运动中断引脚 */
+#define OPTICAL_SENSOR_RST_PIN       (15u)  /* 复位引脚 */
 
-/* PAW3395 SPI参数 */
-#define PAW3395_SPI_BAUDRATE_HZ  (500000u)
-#define PAW3395_SPI_CS_DELAY_US  (1u)   /* CS 下降/上升延时 1 us */
-#define PAW3395_REG_DELAY_US     (10u)  /* 寄存器读写延时 10 us */
+/* OPTICAL_SENSOR SPI参数 */
+#define OPTICAL_SENSOR_SPI_BAUDRATE_HZ  (500000u)
+#define OPTICAL_SENSOR_SPI_CS_DELAY_US  (1u)   /* CS 下降/上升延时 1 us */
+#define OPTICAL_SENSOR_REG_DELAY_US     (10u)  /* 寄存器读写延时 10 us */
 
 /* ==================== PS2 双轴摇杆 ==================== */
 #define JOYSTICK_ADC_X_PIN   (26u)  /* ADC0 - X轴 */

@@ -46,7 +46,7 @@ static struct
 
     /* Core1 运行状态统计（Core1 递增，Core0 读取） */
     uint32_t keypad_scan_count;
-    uint32_t paw3395_read_count;
+    uint32_t optical_sensor_read_count;
     uint32_t encoder_scan_count;
     uint32_t joystick_read_count;
     uint32_t error_count;
@@ -78,7 +78,7 @@ void shared_hw_data_init(void)
     s_data.joy_btn = false;
     s_data.heartbeat = 0;
     s_data.keypad_scan_count = 0;
-    s_data.paw3395_read_count = 0;
+    s_data.optical_sensor_read_count = 0;
     s_data.encoder_scan_count = 0;
     s_data.joystick_read_count = 0;
     s_data.error_count = 0;
@@ -281,11 +281,11 @@ uint32_t shared_hw_get_keypad_scan_count(void)
     return result;
 }
 
-uint32_t shared_hw_get_paw3395_read_count(void)
+uint32_t shared_hw_get_optical_sensor_read_count(void)
 {
     if (!s_initialized) return 0;
     uint32_t irq = spin_lock_blocking(s_misc_lock);
-    uint32_t result = s_data.paw3395_read_count;
+    uint32_t result = s_data.optical_sensor_read_count;
     spin_unlock(s_misc_lock, irq);
     return result;
 }
@@ -322,7 +322,7 @@ void shared_hw_reset_stats(void)
     if (!s_initialized) return;
     uint32_t irq = spin_lock_blocking(s_misc_lock);
     s_data.keypad_scan_count = 0;
-    s_data.paw3395_read_count = 0;
+    s_data.optical_sensor_read_count = 0;
     s_data.encoder_scan_count = 0;
     s_data.joystick_read_count = 0;
     s_data.error_count = 0;
@@ -339,11 +339,11 @@ void shared_hw_inc_keypad_scan(void)
     spin_unlock(s_misc_lock, irq);
 }
 
-void shared_hw_inc_paw3395_read(void)
+void shared_hw_inc_optical_sensor_read(void)
 {
     if (!s_initialized) return;
     uint32_t irq = spin_lock_blocking(s_misc_lock);
-    s_data.paw3395_read_count++;
+    s_data.optical_sensor_read_count++;
     spin_unlock(s_misc_lock, irq);
 }
 

@@ -1,3 +1,4 @@
+using System.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HidConfigTool.Core.Interfaces;
@@ -13,7 +14,8 @@ public partial class JoystickPageViewModel : ObservableObject, IDisposable
     private readonly ITimerService _refreshTimer;
     private bool _disposed;
     private bool _isInitialized;
-    private bool _isApplyingRealtime;
+    private bool _isApplyingRealtime;  // 保留但不再使用，防止编译错误
+    private CancellationTokenSource? _deadzoneDebounceCts;
 
     [ObservableProperty]
     private double _deadzone = 100;
@@ -56,6 +58,7 @@ public partial class JoystickPageViewModel : ObservableObject, IDisposable
     /// </summary>
     [ObservableProperty]
     private bool _isSaving;
+    private CancellationTokenSource? _configDebounceCts;
 
     /// <summary>
     /// 状态消息
@@ -113,6 +116,11 @@ public partial class JoystickPageViewModel : ObservableObject, IDisposable
         // 从当前配置加载
         if (_deviceService.IsConnected && _deviceService.CurrentConfig != null)
         {
+            // 防御性修复：旧配置中死区可能为0（无效值），重置为默认100
+            if (_deviceService.CurrentConfig.JoystickDeadzone == 0)
+            {
+                _deviceService.CurrentConfig.JoystickDeadzone = 100;
+            }
             Deadzone = _deviceService.CurrentConfig.JoystickDeadzone;
             Sensitivity = _deviceService.CurrentConfig.JoystickSensitivity;
             InvertX = _deviceService.CurrentConfig.JoystickInvertX;
@@ -180,28 +188,117 @@ public partial class JoystickPageViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(DeadzoneCircleWidth));
         OnPropertyChanged(nameof(DeadzoneCircleLeft));
         OnPropertyChanged(nameof(DeadzoneCircleTop));
-        if (_isInitialized && !_isApplyingRealtime)
+        if (_isInitialized)
         {
-            _ = ApplyDeadzoneRealtimeAsync();
+            // 实时应用死区：debounce 50ms，确保发送最新值
+            _deadzoneDebounceCts?.Cancel();
+            _deadzoneDebounceCts = new CancellationTokenSource();
+            var token = _deadzoneDebounceCts.Token;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(50, token);
+                    if (!token.IsCancellationRequested)
+                    {
+                        await ApplyDeadzoneRealtimeAsync();
+                    }
+                }
+                catch (TaskCanceledException) { }
+            });
+            ScheduleConfigSave();  // 延迟保存到Flash
         }
     }
 
     partial void OnSensitivityChanged(double value)
     {
         if (_isInitialized && _deviceService.CurrentConfig != null)
+        {
             _deviceService.CurrentConfig.JoystickSensitivity = value;
+            ScheduleConfigSave();
+        }
     }
 
     partial void OnInvertXChanged(bool value)
     {
         if (_isInitialized && _deviceService.CurrentConfig != null)
+        {
             _deviceService.CurrentConfig.JoystickInvertX = value;
+            ScheduleConfigSave();
+        }
     }
 
     partial void OnInvertYChanged(bool value)
     {
         if (_isInitialized && _deviceService.CurrentConfig != null)
+        {
             _deviceService.CurrentConfig.JoystickInvertY = value;
+            ScheduleConfigSave();
+        }
+    }
+
+    /// <summary>
+    /// 延迟保存配置到设备（debounce 500ms，避免频繁写Flash）
+    /// </summary>
+    private void ScheduleConfigSave()
+    {
+        _configDebounceCts?.Cancel();
+        _configDebounceCts = new CancellationTokenSource();
+        var token = _configDebounceCts.Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(500, token);
+                if (!token.IsCancellationRequested)
+                {
+                    await SaveFullConfigAsync();
+                }
+            }
+            catch (TaskCanceledException) { }
+        });
+    }
+
+    /// <summary>
+    /// 保存完整摇杆配置到设备（死区+灵敏度+方向）
+    /// </summary>
+    private async Task SaveFullConfigAsync()
+    {
+        if (!_deviceService.IsConnected || _isSaving) return;
+        try
+        {
+            _isSaving = true;
+
+            // 直接从ViewModel属性更新CurrentConfig所有字段，确保保存的是当前UI值
+            var cfg = _deviceService.CurrentConfig;
+            if (cfg != null)
+            {
+                cfg.JoystickDeadzone = (ushort)Math.Clamp(Deadzone, 0, 4095);
+                cfg.JoystickSensitivity = Sensitivity;
+                cfg.JoystickInvertX = InvertX;
+                cfg.JoystickInvertY = InvertY;
+            }
+
+            // 保存完整配置到Flash
+            ushort dz = (ushort)Math.Clamp(Deadzone, 0, 4095);
+            bool result = await _deviceService.SetJoystickDeadzoneAsync(dz);
+            if (result)
+            {
+                StatusMessage = $"配置已保存: 死区={dz}, 灵敏度={Sensitivity:F1}x, 反转X={InvertX}, 反转Y={InvertY}";
+            }
+            else
+            {
+                StatusMessage = "保存失败";
+            }
+        }
+        catch
+        {
+            StatusMessage = "保存异常";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
     }
 
     partial void OnJoystickXChanged(double value)
@@ -224,13 +321,15 @@ public partial class JoystickPageViewModel : ObservableObject, IDisposable
         if (!_deviceService.IsConnected)
             return;
 
+        // 捕获当前死区值，避免异步延迟后属性被修改
+        ushort dz = (ushort)Math.Clamp(Deadzone, 0, 4095);
+
         try
         {
-            _isApplyingRealtime = true;
-            bool result = await _deviceService.SetJoystickDeadzoneRealtimeAsync((ushort)Deadzone);
+            bool result = await _deviceService.SetJoystickDeadzoneRealtimeAsync(dz);
             if (result)
             {
-                StatusMessage = $"死区已实时应用: {Deadzone:F0}（未保存到Flash）";
+                StatusMessage = $"死区已实时应用: {dz}（未保存到Flash）";
             }
             else
             {
@@ -240,10 +339,6 @@ public partial class JoystickPageViewModel : ObservableObject, IDisposable
         catch
         {
             StatusMessage = "死区应用异常";
-        }
-        finally
-        {
-            _isApplyingRealtime = false;
         }
     }
 

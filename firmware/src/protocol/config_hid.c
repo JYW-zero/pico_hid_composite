@@ -18,7 +18,7 @@
 #include "middleware/ipc.h"
 #include "hardware/watchdog.h"
 #include "pico/multicore.h"
-#include "device/paw3395.h"
+#include "device/optical_sensor.h"
 #include "pico/time.h"
 #include "pico/bootrom.h"
 
@@ -116,15 +116,15 @@ static volatile uint32_t s_last_dfu_ms = 0;
 #define DFU_WINDOW_MS             5000u
 
 /* DPI数值转枚举 */
-static paw3395_dpi_e dpi_val_to_enum(uint16_t dpi_val)
+static optical_sensor_dpi_e dpi_val_to_enum(uint16_t dpi_val)
 {
     switch (dpi_val)
     {
-        case 400:  return PAW3395_DPI_400;
-        case 800:  return PAW3395_DPI_800;
-        case 1600: return PAW3395_DPI_1600;
-        case 3200: return PAW3395_DPI_3200;
-        default:   return PAW3395_DPI_1600;
+        case 400:  return optical_sensor_DPI_400;
+        case 800:  return optical_sensor_DPI_800;
+        case 1600: return optical_sensor_DPI_1600;
+        case 3200: return optical_sensor_DPI_3200;
+        default:   return optical_sensor_DPI_1600;
     }
 }
 
@@ -417,6 +417,17 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_t
             return (reqlen > 8) ? 8 : reqlen;
         }
 
+        case REPORT_ID_CONFIG_EXT:
+        {
+            /* v3配置扩展字段：偏移1326+，共12字节 */
+            if (reqlen == 0) return 0;
+            memset(buffer, 0, reqlen);
+            uint8_t* ext_bytes = (uint8_t*)&g_tmp_config + 1326;
+            uint16_t copy_len = (reqlen < 12) ? reqlen : 12;
+            memcpy(buffer, ext_bytes, copy_len);
+            return (reqlen > 12) ? 12 : reqlen;
+        }
+
         default:
             return 0;
     }
@@ -497,8 +508,11 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
                     break;
                 }
 
-                /* 配置锁定：拒绝其他控制命令 */
-                if (s_config_locked) {
+                /* 配置锁定：拒绝其他控制命令
+                 * 例外：CMD_ENTER_DFU 和 CMD_REBOOT 本身有3次确认机制，不受锁定限制 */
+                /* 配置锁定检查：DFU/Reboot有独立的3次确认机制，实时设置命令不写Flash，均豁免 */
+                if (s_config_locked && cmd != CMD_ENTER_DFU && cmd != CMD_REBOOT &&
+                    cmd != CMD_SET_JOYSTICK_DZ_RT && cmd != CMD_SET_PERF_ENABLE) {
                     LOG_ERROR_PRINT("[SECURITY] ❌ 配置已锁定，拒绝命令 0x%02X\n", cmd);
                     break;
                 }
@@ -565,13 +579,8 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
         case REPORT_ID_FAULT_LOG:
         {
             if (bufsize >= 1) {
-                /* 配置锁定：拒绝修改日志读取索引 */
-                if (s_config_locked) {
-                    LOG_ERROR_PRINT("[SECURITY] ❌ 配置已锁定，拒绝修改日志索引\n");
-                    break;
-                }
+                /* 错误日志读取索引：仅用于读取，不修改配置，无需锁定 */
                 s_fault_read_index = buffer[0];
-                LOG_INFO_PRINT("[FAULT] 设置日志读取索引: %d\n", s_fault_read_index);
             }
             break;
         }
@@ -579,13 +588,24 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
         case REPORT_ID_PERF_TASK:
         {
             if (bufsize >= 1) {
-                /* 配置锁定：拒绝修改读取索引（与FAULT_LOG保持一致） */
-                if (s_config_locked) {
-                    LOG_ERROR_PRINT("[SECURITY] ❌ 配置已锁定，拒绝修改性能监控索引\n");
-                    break;
-                }
+                /* 性能监控读取索引：仅用于读取，不修改配置，无需锁定 */
                 s_perf_task_index = buffer[0];
-                LOG_INFO_PRINT("[PERF] 设置任务读取索引: %d\n", s_perf_task_index);
+            }
+            break;
+        }
+
+        case REPORT_ID_CONFIG_EXT:
+        {
+            /* v3配置扩展字段写入：偏移1326+，共12字节 */
+            if (s_config_locked) {
+                LOG_ERROR_PRINT("[SECURITY] ❌ 配置已锁定，拒绝写入扩展字段\n");
+                break;
+            }
+            if (bufsize > 0 && buffer != NULL) {
+                uint8_t* ext_bytes = (uint8_t*)&g_tmp_config + 1326;
+                uint16_t copy_len = (bufsize < 12) ? bufsize : 12;
+                memcpy(ext_bytes, buffer, copy_len);
+                LOG_INFO_PRINT("[CONFIG] 收到配置扩展字段 (%d字节)\n", copy_len);
             }
             break;
         }
@@ -701,11 +721,12 @@ void hid_config_task(void)
                 }
 
                 /* 验证 DPI 范围 */
-                if (g_tmp_config.dpi != 400 && g_tmp_config.dpi != 800 &&
-                    g_tmp_config.dpi != 1600 && g_tmp_config.dpi != 3200) {
-                    LOG_ERROR_PRINT("[CONFIG] ❌ 非法 DPI: %d\n", g_tmp_config.dpi);
+                /* 验证 DPI 范围（支持任意 DPI，100-6400，自动对齐到25的倍数） */
+                if (g_tmp_config.dpi < 100 || g_tmp_config.dpi > 6400) {
+                    LOG_ERROR_PRINT("[CONFIG] ❌ DPI 超出范围: %d (允许100-6400)\n", g_tmp_config.dpi);
                     break;
                 }
+                g_tmp_config.dpi = (g_tmp_config.dpi / 25) * 25;
 
                 /* 以当前 Flash 配置为基底，只覆盖配置块传输的字段（前142字节，不含 macro_data）
                  * 避免 macro_data 未传输部分写入垃圾数据
@@ -723,6 +744,14 @@ void hid_config_task(void)
                     /* 只覆盖前142字节（magic ~ fn_keymap 结束，不含 macro_data） */
                     memcpy(&merged, &g_tmp_config, 142);
 
+                    /* 覆盖v3新增字段（偏移1326+，在macro_data之后）
+                     * 这些字段不在前142字节内，必须单独复制 */
+                    merged.joystick_invert_x = g_tmp_config.joystick_invert_x;
+                    merged.joystick_invert_y = g_tmp_config.joystick_invert_y;
+                    merged.encoder_steps = g_tmp_config.encoder_steps;
+                    merged.encoder_scroll_speed = g_tmp_config.encoder_scroll_speed;
+                    merged.joystick_sensitivity = g_tmp_config.joystick_sensitivity;
+
                     /* 强制设置正确的 magic 和 version */
                     merged.magic = CONFIG_MAGIC;
                     merged.version = CONFIG_VERSION;
@@ -732,19 +761,31 @@ void hid_config_task(void)
                                               sizeof(device_config_t) - sizeof(uint32_t));
                     merged.crc32 = crc;
 
+                    /* Flash写入会暂停Core1，Core0主动喂DEVICE层，防止看门狗超时 */
+                    watchdog_feed_layer(WDG_LAYER_DEVICE);
+
                     int save_ret = config_save(&merged);
                     if (save_ret == 0) {
-                        LOG_INFO_PRINT("[CONFIG] ✅ 配置已保存到 Flash\n");
-                        const paw3395_cfg_t *paw_cfg = board_get_paw3395_cfg();
+                        LOG_INFO_PRINT("[CONFIG] ✅ 配置已保存到 Flash (灵敏度=%d, 反转X=%d, 反转Y=%d)\n",
+                                       merged.joystick_sensitivity, merged.joystick_invert_x, merged.joystick_invert_y);
+                        const optical_sensor_cfg_t *paw_cfg = board_get_optical_sensor_cfg();
                         if (paw_cfg != NULL) {
-                            paw3395_dpi_e dpi_enum = dpi_val_to_enum(merged.dpi);
-                            int ret = paw3395_set_dpi(paw_cfg, dpi_enum);
+                            int ret;
+                            if (merged.dpi == 400 || merged.dpi == 800 || merged.dpi == 1600 || merged.dpi == 3200) {
+                                optical_sensor_dpi_e dpi_enum = dpi_val_to_enum(merged.dpi);
+                                ret = optical_sensor_set_dpi(paw_cfg, dpi_enum);
+                            } else {
+                                ret = optical_sensor_set_dpi_raw(paw_cfg, merged.dpi);
+                            }
                             if (ret == 0) LOG_INFO_PRINT("[CONFIG] ✅ DPI 已应用: %d\n", merged.dpi);
                             else LOG_ERROR_PRINT("[CONFIG] ❌ DPI 应用失败，错误码: %d\n", ret);
                         }
                     } else {
                         LOG_ERROR_PRINT("[CONFIG] ❌ 配置保存到 Flash 失败\n");
                     }
+
+                    /* 配置保存+DPI应用期间Core1被暂停，结束后补喂DEVICE层 */
+                    watchdog_feed_layer(WDG_LAYER_DEVICE);
                 }
                 break;
             case CMD_RESET_STATS:

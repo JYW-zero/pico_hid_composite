@@ -96,30 +96,37 @@ public partial class App : Application
         Log("注册: IUpdateService");
 
         services.AddSingleton<TrayIconManager>();
+        services.AddSingleton<ITrayIconService>(sp => sp.GetRequiredService<TrayIconManager>());
         Log("注册: TrayIconManager");
 
         services.AddSingleton<AutoStartManager>();
         Log("注册: AutoStartManager");
 
         services.AddSingleton<ConfigProfileManager>();
+        services.AddSingleton<IConfigProfileService>(sp => sp.GetRequiredService<ConfigProfileManager>());
         Log("注册: ConfigProfileManager");
 
         services.AddSingleton<OsdManager>();
+        services.AddSingleton<IOsdService>(sp => sp.GetRequiredService<OsdManager>());
         Log("注册: OsdManager");
 
         services.AddSingleton<AppAwarenessManager>();
+        services.AddSingleton<IAppAwarenessService>(sp => sp.GetRequiredService<AppAwarenessManager>());
         Log("注册: AppAwarenessManager");
 
         services.AddSingleton<KeyboardHook>();
         Log("注册: KeyboardHook");
 
         services.AddSingleton<MacroRecorder>();
+        services.AddSingleton<IMacroRecorder>(sp => sp.GetRequiredService<MacroRecorder>());
         Log("注册: MacroRecorder");
 
         services.AddSingleton<ThemeManager>();
+        services.AddSingleton<IThemeService>(sp => sp.GetRequiredService<ThemeManager>());
         Log("注册: ThemeManager");
 
         services.AddSingleton<LanguageManager>();
+        services.AddSingleton<ILanguageService>(sp => sp.GetRequiredService<LanguageManager>());
         Log("注册: LanguageManager");
 
         // 视图模型

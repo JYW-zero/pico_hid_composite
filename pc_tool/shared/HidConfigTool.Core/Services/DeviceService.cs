@@ -35,6 +35,7 @@ public class DeviceService : IDeviceService
     private const byte REPORT_ID_FAULT_LOG = 0x12;      // 错误日志 - 读取日志
     private const byte REPORT_ID_KEY_STATE = 0x13;      // 实时按键状态 (64位bitmap)
     private const byte REPORT_ID_JOYSTICK_STATE = 0x14; // 实时摇杆状态
+    private const byte REPORT_ID_CONFIG_EXT = 0x15;     // v3配置扩展字段 (偏移1326+, 12字节)
 
     // 控制命令码
     private const byte CMD_SAVE_CONFIG = 0x01;
@@ -49,6 +50,7 @@ public class DeviceService : IDeviceService
     private const byte CMD_MACRO_STOP = 0x0A;           // 停止宏（参数：宏ID，0xFF=停止所有）
     private const byte CMD_SET_PERF_ENABLE = 0x0B;      // 设置性能监控开关（参数：1=开启，0=关闭）
     private const byte CMD_SET_JOYSTICK_DZ_RT = 0x0C;   // 实时设置摇杆死区（参数：2字节小端，不写Flash）
+    private const byte CMD_UNLOCK_CONFIG = 0x0D;        // 解锁配置写入（需连续3次，5秒内）
 
     // 配置魔数
     private const uint CONFIG_MAGIC = 0x5A5A5A5A;
@@ -57,7 +59,7 @@ public class DeviceService : IDeviceService
     private const int HID_TIMEOUT_MS = 5000;
 
     // 配置结构体大小
-    private const int CONFIG_SIZE = 1330;  // 与固件 device_config_t 一致（含 macro_data 1184 字节）
+    private const int CONFIG_SIZE = 1338;  // v3: 与固件 device_config_t 一致（新增摇杆/编码器扩展字段）
 
     // 每个块的大小
     private const int BLOCK_SIZE = 62;
@@ -71,7 +73,13 @@ public class DeviceService : IDeviceService
     private const int OFFSET_SEQ = 11;
     private const int OFFSET_KEYMAP = 14;
     private const int OFFSET_FN_KEYMAP = 78;
-    private const int OFFSET_CRC32 = 1326;  // 固件中 crc32 在 macro_data(1184字节) 之后
+    // v3 新增字段（macro_data之后，crc32之前）
+    private const int OFFSET_JOY_INV_X = 1326;
+    private const int OFFSET_JOY_INV_Y = 1327;
+    private const int OFFSET_ENC_STEPS = 1328;
+    private const int OFFSET_ENC_SCROLL = 1329;
+    private const int OFFSET_JOY_SENS = 1330;
+    private const int OFFSET_CRC32 = 1334;  // v3: crc32 在扩展字段之后
 
     #endregion
 
@@ -79,6 +87,8 @@ public class DeviceService : IDeviceService
     private HidDeviceInfo? _currentDevice;
     private DeviceConfig? _currentConfig;
     private bool _disposed;
+    private bool _autoExportErrorLog = true;
+    private IReadOnlyList<ErrorLogEntry>? _lastErrorLogs;
 
     /// <summary>
     /// 写入操作锁，防止并发调用
@@ -145,6 +155,15 @@ public class DeviceService : IDeviceService
     public string? DeviceName => _currentDevice?.ProductName;
     public string? FirmwareVersion { get; private set; }
     public DeviceConfig? CurrentConfig => _currentConfig;
+
+    /// <summary>
+    /// 设备断开时自动导出错误日志
+    /// </summary>
+    public bool AutoExportErrorLog
+    {
+        get => _autoExportErrorLog;
+        set => _autoExportErrorLog = value;
+    }
 
     /// <summary>
     /// 设备 VID
@@ -246,21 +265,20 @@ public class DeviceService : IDeviceService
     /// </summary>
     public async Task<IReadOnlyList<HidDeviceInfo>> GetDevicesAsync()
     {
+        // 如果已连接，直接返回当前设备，避免独占模式下重新枚举失败导致重复
+        lock (_stateLock)
+        {
+            if (_currentDevice != null)
+            {
+                return new List<HidDeviceInfo> { _currentDevice };
+            }
+        }
+
         var allDevices = await _hidDriver.FindDevicesAsync(DeviceVendorId, DeviceProductId);
 
         // 只返回配置接口的设备（UsagePage = 0xFF00 Vendor Defined）
         // 过滤掉键盘、鼠标、消费者控制、游戏手柄等其他集合
         var configDevices = allDevices.Where(d => d.UsagePage == 0xFF00).ToList();
-
-        // 独占访问模式下，已连接的设备无法被 FindDevicesAsync 重新打开读取信息
-        // 因此需要将当前已连接的设备手动加入列表，确保 UI 能显示
-        lock (_stateLock)
-        {
-            if (_currentDevice != null && !configDevices.Any(d => d.DevicePath == _currentDevice.DevicePath))
-            {
-                configDevices.Insert(0, _currentDevice);
-            }
-        }
 
         return configDevices;
     }
@@ -335,6 +353,48 @@ public class DeviceService : IDeviceService
     /// <summary>
     /// 断开连接
     /// </summary>
+    /// <summary>
+    /// 自动导出错误日志到本地文件（设备断开时调用）
+    /// </summary>
+    private async Task AutoExportLogsAsync()
+    {
+        if (!_autoExportErrorLog || _lastErrorLogs == null || _lastErrorLogs.Count == 0)
+            return;
+
+        try
+        {
+            string logDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "HIDConfigTool", "ErrorLogs");
+            Directory.CreateDirectory(logDir);
+
+            string fileName = $"error_log_{DateTime.Now:yyyyMMdd_HHmmss}.txt";
+            string filePath = Path.Combine(logDir, fileName);
+
+            var lines = new List<string>
+            {
+                "========================================",
+                "  Pico HID 复合设备 - 自动导出错误日志",
+                $"  导出时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
+                $"  日志条数: {_lastErrorLogs.Count}",
+                "========================================",
+                ""
+            };
+
+            foreach (var log in _lastErrorLogs.Reverse())
+            {
+                lines.Add($"[{log.TimeFormatted}] [{log.LevelName}] [{log.Module}] {log.Message}");
+            }
+
+            await File.WriteAllLinesAsync(filePath, lines);
+            Log("INFO", $"错误日志已自动导出: {filePath}");
+        }
+        catch (Exception ex)
+        {
+            Log("ERROR", $"自动导出错误日志失败: {ex.Message}");
+        }
+    }
+
     public void Disconnect()
     {
         bool hadDevice;
@@ -350,6 +410,9 @@ public class DeviceService : IDeviceService
 
         if (hadDevice)
         {
+            // 设备断开前自动导出错误日志
+            _ = AutoExportLogsAsync();
+
             try
             {
                 _hidDriver.Close();
@@ -397,6 +460,17 @@ public class DeviceService : IDeviceService
                 int len2 = Math.Min(copyLen2, CONFIG_SIZE - offset2);
                 if (len2 > 0)
                     Array.Copy(block2, 0, fullData, offset2, len2);
+            }
+
+            // 读取v3扩展字段（偏移1326+，12字节）
+            byte[]? extBlock = await _hidDriver.GetFeatureReportAsync(REPORT_ID_CONFIG_EXT);
+            if (extBlock != null)
+            {
+                int extLen = Math.Min(extBlock.Length, 12);
+                if (extLen > 0 && OFFSET_JOY_INV_X + extLen <= CONFIG_SIZE)
+                {
+                    Array.Copy(extBlock, 0, fullData, OFFSET_JOY_INV_X, extLen);
+                }
             }
 
             return ParseConfig(fullData);
@@ -465,6 +539,19 @@ public class DeviceService : IDeviceService
             Array.Copy(data, OFFSET_FN_KEYMAP, config.FnKeymap, 0, 64);
         }
 
+        // v3 新增字段（版本>=3时有效）
+        if (config.Version >= 3 && data.Length >= OFFSET_CRC32)
+        {
+            config.JoystickInvertX = data[OFFSET_JOY_INV_X] != 0;
+            config.JoystickInvertY = data[OFFSET_JOY_INV_Y] != 0;
+            config.EncoderStepsPerTick = data[OFFSET_ENC_STEPS];
+            config.EncoderScrollSpeed = data[OFFSET_ENC_SCROLL];
+            if (data.Length >= OFFSET_JOY_SENS + 2)
+            {
+                config.JoystickSensitivity = BitConverter.ToUInt16(data, OFFSET_JOY_SENS) / 1000.0;
+            }
+        }
+
         return config;
     }
 
@@ -506,6 +593,14 @@ public class DeviceService : IDeviceService
             int len = Math.Min(64, config.FnKeymap.Length);
             Array.Copy(config.FnKeymap, 0, data, OFFSET_FN_KEYMAP, len);
         }
+
+        // v3 新增字段
+        data[OFFSET_JOY_INV_X] = (byte)(config.JoystickInvertX ? 1 : 0);
+        data[OFFSET_JOY_INV_Y] = (byte)(config.JoystickInvertY ? 1 : 0);
+        data[OFFSET_ENC_STEPS] = (byte)Math.Clamp(config.EncoderStepsPerTick, 0, 255);
+        data[OFFSET_ENC_SCROLL] = (byte)Math.Clamp(config.EncoderScrollSpeed, 0, 255);
+        ushort sensRaw = (ushort)Math.Clamp((int)(config.JoystickSensitivity * 1000), 0, 65535);
+        BitConverter.GetBytes(sensRaw).CopyTo(data, OFFSET_JOY_SENS);
 
         // CRC32（与固件端 crc32_calc 算法一致：标准 IEEE 802.3 CRC32）
         uint crc = Crc32Calculate(data, 0, OFFSET_CRC32);
@@ -584,6 +679,14 @@ public class DeviceService : IDeviceService
                 }
             }
 
+            // 解锁配置写入（固件默认锁定，需连续发送3次解锁命令）
+            if (!await UnlockConfigAsync())
+            {
+                Log("ERROR", "配置解锁失败，无法写入");
+                OnOperationStatusChanged("配置解锁失败，请重试");
+                return false;
+            }
+
             for (int attempt = 0; attempt < maxRetries; attempt++)
             {
                 try
@@ -603,9 +706,17 @@ public class DeviceService : IDeviceService
                     bool ok1 = await _hidDriver.SendFeatureReportAsync(REPORT_ID_CONFIG_BLOCK1, block1);
                     bool ok2 = await _hidDriver.SendFeatureReportAsync(REPORT_ID_CONFIG_BLOCK2, block2);
 
-                    if (!ok0 || !ok1 || !ok2)
+                    // 发送v3扩展字段（偏移1326+，12字节）
+                    byte[] extBlock = new byte[12];
+                    if (data.Length >= OFFSET_JOY_INV_X + 12)
                     {
-                        string failBlocks = $"{(!ok0 ? "0 " : "")}{(!ok1 ? "1 " : "")}{(!ok2 ? "2 " : "")}".Trim();
+                        Array.Copy(data, OFFSET_JOY_INV_X, extBlock, 0, 12);
+                    }
+                    bool okExt = await _hidDriver.SendFeatureReportAsync(REPORT_ID_CONFIG_EXT, extBlock);
+
+                    if (!ok0 || !ok1 || !ok2 || !okExt)
+                    {
+                        string failBlocks = $"{(!ok0 ? "0 " : "")}{(!ok1 ? "1 " : "")}{(!ok2 ? "2 " : "")}{(!okExt ? "EXT " : "")}".Trim();
                         Log("WARNING", $"第 {attempt + 1} 次写入失败，块 {failBlocks} 写入失败");
 
                         // 写入块失败，重试前先重连
@@ -816,6 +927,27 @@ public class DeviceService : IDeviceService
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// 解锁配置写入（需连续发送3次，5秒内）
+    /// 固件默认锁定配置，防止恶意程序篡改。写入配置前必须先解锁。
+    /// </summary>
+    private async Task<bool> UnlockConfigAsync()
+    {
+        Log("INFO", "正在解锁配置写入...");
+        for (int i = 0; i < 3; i++)
+        {
+            bool result = await SendControlCommandAsync(CMD_UNLOCK_CONFIG);
+            if (!result)
+            {
+                Log("ERROR", $"解锁配置失败（第{i + 1}/3次）");
+                return false;
+            }
+            if (i < 2) await Task.Delay(100);
+        }
+        Log("INFO", "配置已解锁（30秒后自动锁定）");
+        return true;
     }
 
     private async Task<bool> SendControlCommandAsync(byte command)
@@ -1304,7 +1436,8 @@ public class DeviceService : IDeviceService
             }
 
             Log("INFO", $"获取所有错误日志成功，共 {logs.Count} 条");
-            return logs.AsReadOnly();
+            _lastErrorLogs = logs.AsReadOnly();
+            return _lastErrorLogs;
         }
         catch (Exception ex)
         {
@@ -1323,6 +1456,8 @@ public class DeviceService : IDeviceService
 
         try
         {
+            // 清除日志是写操作，需要先解锁
+            await UnlockConfigAsync();
             bool result = await SendControlCommandAsync(CMD_CLEAR_FAULT);
             if (result)
             {
@@ -1572,6 +1707,31 @@ public class DeviceService : IDeviceService
         ushort newDpi = (ushort)_currentConfig.DpiLevels[dpiIndex];
         _currentConfig.Dpi = newDpi;
         _currentConfig.DpiIndex = dpiIndex;
+
+        return await WriteConfigToDeviceAsync(_currentConfig);
+    }
+
+    /// <summary>设置任意DPI值（100-6400，自动对齐到25的倍数）</summary>
+    public async Task<bool> SetDpiValueAsync(ushort dpi, CancellationToken cancellationToken = default)
+    {
+        if (_currentConfig == null)
+            return false;
+
+        // 限制范围并对齐到25的倍数
+        if (dpi < 100) dpi = 100;
+        if (dpi > 6400) dpi = 6400;
+        dpi = (ushort)((dpi / 25) * 25);
+
+        _currentConfig.Dpi = dpi;
+        // 更新索引（如果匹配预设档位）
+        for (int i = 0; i < _currentConfig.DpiLevels.Length; i++)
+        {
+            if (_currentConfig.DpiLevels[i] == dpi)
+            {
+                _currentConfig.DpiIndex = i;
+                break;
+            }
+        }
 
         return await WriteConfigToDeviceAsync(_currentConfig);
     }
@@ -1953,11 +2113,18 @@ public class DeviceService : IDeviceService
         try
         {
             Log("INFO", "正在重启设备...");
-            bool result = await SendControlCommandAsync(CMD_REBOOT);
+            // 固件要求连续发送3次（5秒内）才执行，防止恶意DoS
+            bool result = false;
+            for (int i = 0; i < 3; i++)
+            {
+                result = await SendControlCommandAsync(CMD_REBOOT);
+                if (!result) break;
+                if (i < 2) await Task.Delay(100);
+            }
 
             if (result)
             {
-                Log("INFO", "重启命令已发送");
+                Log("INFO", "重启命令已发送（3次确认）");
                 // 设备会断开连接，自动连接机制会处理重连
             }
             else
@@ -1985,11 +2152,18 @@ public class DeviceService : IDeviceService
         try
         {
             Log("INFO", "正在进入 BOOTSEL 模式...");
-            bool result = await SendControlCommandAsync(CMD_ENTER_DFU);
+            // 固件要求连续发送3次（5秒内）才执行，防止恶意DoS
+            bool result = false;
+            for (int i = 0; i < 3; i++)
+            {
+                result = await SendControlCommandAsync(CMD_ENTER_DFU);
+                if (!result) break;
+                if (i < 2) await Task.Delay(100);
+            }
 
             if (result)
             {
-                Log("INFO", "BOOTSEL 命令已发送，设备将进入烧录模式");
+                Log("INFO", "BOOTSEL 命令已发送（3次确认），设备将进入烧录模式");
                 // 设备会进入 BOOTSEL 模式，断开连接
                 Disconnect();
             }

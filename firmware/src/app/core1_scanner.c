@@ -15,7 +15,7 @@
 #include "pico/multicore.h"
 #include "hardware/sync.h"
 #include "device/keypad_spi.h"
-#include "device/paw3395.h"
+#include "device/optical_sensor.h"
 #include "device/encoder.h"
 #include "device/joystick.h"
 #include "board/board.h"
@@ -41,7 +41,7 @@
 
 /* 硬件配置句柄（只读，全局共享） */
 static const keypad_spi_cfg_t *s_keypad_cfg = NULL;
-static const paw3395_cfg_t *s_paw3395_cfg = NULL;
+static const optical_sensor_cfg_t *s_optical_sensor_cfg = NULL;
 static const encoder_cfg_t *s_encoder_cfg = NULL;
 static const joystick_cfg_t *s_joystick_cfg = NULL;
 
@@ -80,19 +80,19 @@ static void core1_keypad_task(void)
     perf_end(10);
 }
 
-/* PAW3395 传感器读取任务：2ms */
-static void core1_paw3395_task(void)
+/* OPTICAL_SENSOR 传感器读取任务：2ms */
+static void core1_optical_sensor_task(void)
 {
     /* 连续错误计数器，超过阈值尝试重新初始化 */
     static uint8_t s_consecutive_errors = 0;
-#define PAW3395_MAX_CONSECUTIVE_ERRORS  50u  /* 50次×2ms = 100ms */
+#define OPTICAL_SENSOR_MAX_CONSECUTIVE_ERRORS  50u  /* 50次×2ms = 100ms */
 
     perf_start(9);
-    paw3395_motion_t motion;
-    if (paw3395_read_motion(s_paw3395_cfg, &motion) == 0)
+    optical_sensor_motion_t motion;
+    if (optical_sensor_read_motion(s_optical_sensor_cfg, &motion) == 0)
     {
         s_consecutive_errors = 0;  /* 成功则重置错误计数 */
-        shared_hw_inc_paw3395_read();
+        shared_hw_inc_optical_sensor_read();
 
         if (motion.has_motion)
         {
@@ -121,11 +121,11 @@ static void core1_paw3395_task(void)
     {
         shared_hw_inc_error();
         s_consecutive_errors++;
-        if (s_consecutive_errors >= PAW3395_MAX_CONSECUTIVE_ERRORS)
+        if (s_consecutive_errors >= OPTICAL_SENSOR_MAX_CONSECUTIVE_ERRORS)
         {
             /* 连续错误过多，尝试重新初始化传感器 */
-            fault_record(FAULT_LEVEL_WARN, "paw3395", "consecutive errors, re-init");
-            (void)paw3395_init(s_paw3395_cfg);
+            fault_record(FAULT_LEVEL_WARN, "optical_sensor", "consecutive errors, re-init");
+            (void)optical_sensor_init(s_optical_sensor_cfg);
             s_consecutive_errors = 0;
         }
     }
@@ -168,7 +168,14 @@ static void core1_encoder_task(void)
     
     if (delta != 0)
     {
-        shared_hw_add_wheel(delta);
+        /* 应用步长和滚动速度 */
+        const device_config_t* enc_cfg = config_get();
+        uint8_t steps = enc_cfg->encoder_steps;
+        uint8_t speed = enc_cfg->encoder_scroll_speed;
+        if (steps == 0) steps = 1;
+        if (speed == 0) speed = 1;
+        int32_t total_delta = delta * (int32_t)steps * (int32_t)speed;
+        shared_hw_add_wheel(total_delta);
     }
     
     /* 中键状态（带消抖：连续3次一致才确认） */
@@ -249,14 +256,25 @@ static void core1_joystick_task(void)
     x = (x * 127) / range;
     y = (y * 127) / range;
 
+    /* 应用灵敏度（定点数，1.0=1000） */
+    const device_config_t* cfg = config_get();
+    uint16_t sens = cfg->joystick_sensitivity;
+    if (sens == 0) sens = 1000;  /* 防止除零 */
+    x = (x * (int32_t)sens) / 1000;
+    y = (y * (int32_t)sens) / 1000;
+
     /* 限制范围 */
     if (x > 127) x = 127;
     if (x < -127) x = -127;
     if (y > 127) y = 127;
     if (y < -127) y = -127;
 
+    /* X/Y轴反转配置 */
+    if (cfg->joystick_invert_x) x = -x;
+    if (cfg->joystick_invert_y) y = -y;  /* 默认Y轴反转（物理方向与HID相反），可通过配置取消 */
+
     int16_t joy_x = (int16_t)x;
-    int16_t joy_y = (int16_t)(-y);  /* Y轴反转 */
+    int16_t joy_y = (int16_t)y;
 
     /* 摇杆按键消抖：连续3次一致才确认（10ms任务周期=30ms消抖） */
     static uint8_t s_joy_btn_debounce_count = 0;
@@ -290,7 +308,7 @@ void core1_scanner_main(void)
 
     /* 获取硬件配置句柄（只读） */
     s_keypad_cfg = board_get_keypad_spi_cfg();
-    s_paw3395_cfg = board_get_paw3395_cfg();
+    s_optical_sensor_cfg = board_get_optical_sensor_cfg();
     s_encoder_cfg = board_get_encoder_cfg();
     s_joystick_cfg = board_get_joystick_cfg();
     
@@ -305,11 +323,11 @@ void core1_scanner_main(void)
 
     /* 注册 Core1 性能监控任务（索引8-11，与Core0的0-3分开） */
     perf_register_task(8, "c1_encoder");
-    perf_register_task(9, "c1_paw3395");
+    perf_register_task(9, "c1_optical_sensor");
     perf_register_task(10, "c1_keypad");
     perf_register_task(11, "c1_joystick");
     perf_set_threshold(8, 200);    /* encoder: 0.2ms */
-    perf_set_threshold(9, 500);    /* paw3395: 0.5ms */
+    perf_set_threshold(9, 500);    /* optical_sensor: 0.5ms */
     perf_set_threshold(10, 1000);  /* keypad: 1ms */
     perf_set_threshold(11, 500);   /* joystick: 0.5ms */
     
@@ -323,11 +341,11 @@ void core1_scanner_main(void)
     s_core1_tasks[idx].task_func = core1_encoder_task;
     idx++;
     
-    /* PAW3395 传感器读取：2ms，高优先级 */
+    /* OPTICAL_SENSOR 传感器读取：2ms，高优先级 */
     s_core1_tasks[idx].interval_us = 2000;
     s_core1_tasks[idx].last_run_us = 0;
     s_core1_tasks[idx].priority = 64;
-    s_core1_tasks[idx].task_func = core1_paw3395_task;
+    s_core1_tasks[idx].task_func = core1_optical_sensor_task;
     idx++;
     
     /* 键盘扫描：5ms，普通优先级 */
@@ -363,7 +381,7 @@ void core1_scanner_main(void)
 
                 case IPC_CMD_SET_DPI:
                     /* 设置 DPI */
-                    paw3395_set_dpi(s_paw3395_cfg, (paw3395_dpi_e)param);
+                    optical_sensor_set_dpi(s_optical_sensor_cfg, (optical_sensor_dpi_e)param);
                     multicore_fifo_push_blocking(IPC_ACK_OK);
                     break;
 

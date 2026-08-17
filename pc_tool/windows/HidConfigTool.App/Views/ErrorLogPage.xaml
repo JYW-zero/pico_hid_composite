@@ -135,6 +135,27 @@
                             </Style>
                         </Button.Style>
                     </Button>
+                    <Button Command="{Binding ExportCommand}"
+                            Content="导出"
+                            IsEnabled="{Binding IsDeviceConnected}"
+                            Padding="16,9"
+                            Margin="8,0,0,0"
+                            FontSize="12"
+                            MinWidth="70"
+                            Style="{StaticResource SecondaryButtonStyle}" />
+                    <CheckBox Content="断开自动导出"
+                              IsChecked="{Binding AutoExportEnabled}"
+                              VerticalAlignment="Center"
+                              Margin="16,0,0,0"
+                              FontSize="12"
+                              Foreground="{StaticResource TextSecondaryBrush}" />
+                    <Button Command="{Binding OpenExportFolderCommand}"
+                            Content="打开目录"
+                            Padding="16,9"
+                            Margin="8,0,0,0"
+                            FontSize="12"
+                            MinWidth="70"
+                            Style="{StaticResource SecondaryButtonStyle}" />
                 </StackPanel>
             </Grid>
         </Grid>

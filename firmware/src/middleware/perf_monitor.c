@@ -14,7 +14,8 @@
 /* ==================== 静态变量 ==================== */
 
 static perf_task_stat_t s_tasks[PERF_MAX_TASKS];
-static uint8_t s_task_count = 0;
+static uint8_t s_task_count = 0;       /* 最大索引+1，用于数组边界检查 */
+static uint8_t s_registered_count = 0; /* 实际注册的任务数 */
 static uint32_t s_task_start_us[PERF_MAX_TASKS];  /* 每个任务的开始时间 */
 
 static uint32_t s_init_time_us = 0;     /* 初始化时间 */
@@ -99,6 +100,8 @@ void perf_register_task(uint8_t index, const char* name)
     s_tasks[index].threshold_us = 0;
     s_tasks[index].overrun_count = 0;
 
+    s_registered_count++;
+
     if (index >= s_task_count)
     {
         s_task_count = index + 1;
@@ -164,12 +167,18 @@ void perf_end(uint8_t index)
 
 uint8_t perf_get_task_count(void)
 {
-    return s_task_count;
+    return s_registered_count;
 }
 
 bool perf_get_task_stat(uint8_t index, perf_task_stat_t* out_stat)
 {
     if (out_stat == NULL || index >= s_task_count)
+    {
+        return false;
+    }
+
+    // 未注册的任务（name为空）返回无效
+    if (s_tasks[index].name == NULL || s_tasks[index].name[0] == '\0')
     {
         return false;
     }

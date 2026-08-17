@@ -51,7 +51,7 @@
                                     CornerRadius="6"
                                     Padding="10,6"
                                     Margin="0,0,8,0">
-                                <TextBlock Text="4 档可调"
+                                <TextBlock Text="支持自定义"
                                            FontSize="11"
                                            Foreground="{StaticResource AccentBrush}"
                                            FontWeight="Medium" />
@@ -106,6 +106,39 @@
                             </Button.Style>
                         </Button>
                     </UniformGrid>
+
+                    <!-- 自定义 DPI 滑块 -->
+                    <StackPanel Margin="0,16,0,0">
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="自定义 DPI"
+                                       FontSize="13"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center" />
+                            <Border Grid.Column="1"
+                                    Background="{StaticResource InputBackgroundBrush}"
+                                    CornerRadius="4"
+                                    Padding="8,4">
+                                <TextBlock Text="{Binding CurrentDpi, StringFormat={}{0:F0}}"
+                                           FontSize="12"
+                                           Foreground="{StaticResource AccentBrush}"
+                                           FontFamily="Consolas"
+                                           FontWeight="SemiBold" />
+                            </Border>
+                        </Grid>
+                        <Slider Value="{Binding CurrentDpi}"
+                                Minimum="100"
+                                Maximum="6400"
+                                TickFrequency="100"
+                                IsSnapToTickEnabled="False" />
+                        <TextBlock Text="拖动滑块设置任意 DPI（100-6400，自动对齐到25的倍数），或点击上方预设档位快速选择。"
+                                   Style="{StaticResource HintStyle}"
+                                   Margin="0,8,0,0" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
 

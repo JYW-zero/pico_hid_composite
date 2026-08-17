@@ -28,6 +28,11 @@ public interface IDeviceService : IDisposable
     DeviceConfig? CurrentConfig { get; }
 
     /// <summary>
+    /// 设备断开时自动导出错误日志
+    /// </summary>
+    bool AutoExportErrorLog { get; set; }
+
+    /// <summary>
     /// 操作状态变化事件（用于UI显示状态提示）
     /// 参数：状态消息
     /// </summary>
@@ -75,6 +80,9 @@ public interface IDeviceService : IDisposable
     /// </summary>
     /// <param name="dpiIndex">DPI 档位索引 (0-3)</param>
     Task<bool> SetDpiAsync(int dpiIndex);
+
+    /// <summary>设置任意DPI值（100-6400）</summary>
+    Task<bool> SetDpiValueAsync(ushort dpi, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 设置指针加速

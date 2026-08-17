@@ -20,7 +20,7 @@ extern "C" {
 typedef enum
 {
     FACTORY_TEST_SPI_KEYPAD = 0,    /* SPI键盘测试 */
-    FACTORY_TEST_PAW3395,           /* PAW3395传感器测试 */
+    FACTORY_TEST_OPTICAL_SENSOR,           /* OPTICAL_SENSOR传感器测试 */
     FACTORY_TEST_JOYSTICK_ADC,      /* 摇杆ADC测试 */
     FACTORY_TEST_ENCODER,           /* 编码器测试 */
     FACTORY_TEST_FLASH,             /* Flash读写测试 */

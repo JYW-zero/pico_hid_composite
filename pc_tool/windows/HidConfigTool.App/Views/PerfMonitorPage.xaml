@@ -37,7 +37,7 @@
                                 <Style TargetType="Ellipse">
                                     <Setter Property="Visibility" Value="Collapsed" />
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding AutoRefresh}" Value="True">
+                                        <DataTrigger Binding="{Binding IsPerfMonitorEnabled}" Value="True">
                                             <Setter Property="Visibility" Value="Visible" />
                                         </DataTrigger>
                                     </Style.Triggers>
@@ -70,21 +70,20 @@
                         </Button.Style>
                     </Button>
 
-                    <CheckBox Content="自动刷新"
-                              IsChecked="{Binding AutoRefresh}"
-                              Style="{StaticResource ToggleSwitchStyle}"
-                              VerticalAlignment="Center"
-                              Margin="0,0,16,0" />
-
                     <TextBlock Text="间隔:"
                                Foreground="{StaticResource TextSecondaryBrush}"
                                VerticalAlignment="Center"
                                Margin="0,0,8,0"
                                FontSize="13" />
-                    <TextBox Text="{Binding RefreshInterval}"
-                             Width="60"
-                             VerticalAlignment="Center"
-                             Margin="0,0,4,0" />
+                    <ComboBox ItemsSource="{Binding RefreshIntervalOptions}"
+                              SelectedItem="{Binding RefreshInterval}"
+                              Width="80"
+                              VerticalAlignment="Center"
+                              Margin="0,0,4,0"
+                              Background="{StaticResource InputBackgroundBrush}"
+                              BorderBrush="{StaticResource BorderBrush}"
+                              BorderThickness="1"
+                              Padding="8,4" />
                     <TextBlock Text="秒"
                                Foreground="{StaticResource TextSecondaryBrush}"
                                VerticalAlignment="Center"

@@ -6,16 +6,20 @@ using HidConfigTool.Core.Models;
 namespace HidConfigTool.ViewModels;
 
 /// <summary>
-/// 榧犳爣璁剧疆椤甸潰瑙嗗浘妯″瀷
+/// 鼠标设置页面视图模型
 /// </summary>
 public partial class MousePageViewModel : ObservableObject
 {
     private readonly IDeviceService _deviceService;
     private bool _isInitialized;
     private bool _isSaving;
+    private CancellationTokenSource? _dpiDebounceCts;
 
     [ObservableProperty]
     private int _currentDpiIndex = 1;
+
+    [ObservableProperty]
+    private double _currentDpi = 800;
 
     [ObservableProperty]
     private bool _accelerationEnabled;
@@ -30,26 +34,18 @@ public partial class MousePageViewModel : ObservableObject
     private bool _isApplying;
 
     /// <summary>
-    /// 褰撳墠 DPI 鏂囨湰
+    /// 当前 DPI 文本
     /// </summary>
-    public string CurrentDpiText
-    {
-        get
-        {
-            int[] dpiValues = { 400, 800, 1600, 3200 };
-            if (CurrentDpiIndex >= 0 && CurrentDpiIndex < dpiValues.Length)
-                return $"{dpiValues[CurrentDpiIndex]} DPI";
-            return "鏈煡";
-        }
-    }
+    public string CurrentDpiText => $"{(int)CurrentDpi} DPI";
 
     public MousePageViewModel(IDeviceService deviceService)
     {
         _deviceService = deviceService;
 
-        // 浠庡綋鍓嶉厤缃姞杞?
+        // 从当前配置加载
         if (_deviceService.IsConnected && _deviceService.CurrentConfig != null)
         {
+            CurrentDpi = _deviceService.CurrentConfig.Dpi;
             CurrentDpiIndex = _deviceService.CurrentConfig.DpiIndex;
             AccelerationEnabled = _deviceService.CurrentConfig.AccelerationEnabled;
             AccelerationThreshold = _deviceService.CurrentConfig.AccelerationThreshold;
@@ -68,26 +64,80 @@ public partial class MousePageViewModel : ObservableObject
         if (index < 0 || index > 3)
             return;
 
-        // 鍏堟洿鏂版湰鍦版樉绀?
+        int[] dpiValues = { 400, 800, 1600, 3200 };
+        double dpi = dpiValues[index];
+
+        // 先更新本地显示
         CurrentDpiIndex = index;
-        OnPropertyChanged(nameof(CurrentDpiText));
+        CurrentDpi = dpi;
+
+        // 取消待处理的 debounce
+        _dpiDebounceCts?.Cancel();
 
         if (_deviceService.IsConnected)
         {
             IsApplying = true;
             try
             {
-                // 灏濊瘯鍐欏叆璁惧锛屽け璐ヤ篃涓嶅奖鍝嶆湰鍦版樉绀?
                 await _deviceService.SetDpiAsync(index);
             }
             catch
             {
-                // 蹇界暐鍐欏叆閿欒
+                // 忽略写入错误
             }
             finally
             {
                 IsApplying = false;
             }
+        }
+    }
+
+    partial void OnCurrentDpiChanged(double value)
+    {
+        if (!_isInitialized || _isSaving) return;
+
+        // 检查是否匹配预设档位
+        int[] dpiValues = { 400, 800, 1600, 3200 };
+        int idx = Array.IndexOf(dpiValues, (int)value);
+        if (idx >= 0) CurrentDpiIndex = idx;
+
+        if (_deviceService.IsConnected)
+        {
+            // debounce: 延迟300ms写入，避免拖动滑块时频繁写Flash
+            _dpiDebounceCts?.Cancel();
+            _dpiDebounceCts = new CancellationTokenSource();
+            var token = _dpiDebounceCts.Token;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(300, token);
+                    if (!token.IsCancellationRequested)
+                    {
+                        await SaveCustomDpiAsync((ushort)value);
+                    }
+                }
+                catch (TaskCanceledException) { }
+            }, token);
+        }
+    }
+
+    private async Task SaveCustomDpiAsync(ushort dpi)
+    {
+        if (!_deviceService.IsConnected || _isSaving) return;
+
+        try
+        {
+            _isSaving = true;
+            await _deviceService.SetDpiValueAsync(dpi);
+        }
+        catch
+        {
+            // 忽略保存错误
+        }
+        finally
+        {
+            _isSaving = false;
         }
     }
 
@@ -124,7 +174,7 @@ public partial class MousePageViewModel : ObservableObject
         }
         catch
         {
-            // 蹇界暐淇濆瓨閿欒
+            // 忽略保存错误
         }
         finally
         {
@@ -132,4 +182,3 @@ public partial class MousePageViewModel : ObservableObject
         }
     }
 }
-

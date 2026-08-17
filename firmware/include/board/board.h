@@ -10,7 +10,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "device/keypad_spi.h"
-#include "device/paw3395.h"
+#include "device/optical_sensor.h"
 #include "device/joystick.h"
 #include "device/encoder.h"
 
@@ -22,8 +22,8 @@ void bsp_init(void);
 /* 获取SPI键盘硬件配置句柄 */
 const keypad_spi_cfg_t* board_get_keypad_spi_cfg(void);
 
-/* 获取PAW3395传感器硬件配置句柄 */
-const paw3395_cfg_t* board_get_paw3395_cfg(void);
+/* 获取OPTICAL_SENSOR传感器硬件配置句柄 */
+const optical_sensor_cfg_t* board_get_optical_sensor_cfg(void);
 
 /* 获取摇杆硬件配置句柄 */
 const joystick_cfg_t* board_get_joystick_cfg(void);

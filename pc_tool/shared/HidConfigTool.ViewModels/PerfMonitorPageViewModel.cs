@@ -52,16 +52,15 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
     private bool _isDeviceConnected;
 
     /// <summary>
-    /// 是否自动刷新
-    /// </summary>
-    [ObservableProperty]
-    private bool _autoRefresh = true;
-
-    /// <summary>
     /// 刷新间隔（秒）
     /// </summary>
     [ObservableProperty]
-    private int _refreshInterval = 5;  // 性能监控不需要实时，5秒足够
+    private int _refreshInterval = 5;
+
+    /// <summary>
+    /// 刷新间隔选项
+    /// </summary>
+    public List<int> RefreshIntervalOptions { get; } = new() { 1, 2, 3, 5, 10, 30, 60 };
 
     /// <summary>
     /// 设备端性能监控是否开启
@@ -119,7 +118,8 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
         _refreshTimer.Interval = TimeSpan.FromSeconds(5);  // 5秒刷新，减少USB总线占用
         _refreshTimer.Tick += OnRefreshTimerTick;
 
-        if (AutoRefresh && IsDeviceConnected)
+        // 设备已连接且监控已开启时启动自动刷新
+        if (IsDeviceConnected && IsPerfMonitorEnabled)
         {
             _refreshTimer.Start();
         }
@@ -133,7 +133,7 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
         IsDeviceConnected = isConnected;
         SystemStat = null;
 
-        if (isConnected && AutoRefresh)
+        if (isConnected && IsPerfMonitorEnabled)
         {
             _refreshTimer.Start();
         }
@@ -276,12 +276,14 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
                 IsPerfMonitorEnabled = targetEnabled;
                 if (targetEnabled)
                 {
-                    // 开启后立即刷新一次数据
+                    // 开启后启动自动刷新并立即刷新一次
+                    _refreshTimer.Start();
                     await RefreshCoreAsync(isAutoRefresh: false);
                 }
                 else
                 {
-                    // 关闭时清空显示
+                    // 关闭时停止刷新并清空显示
+                    _refreshTimer.Stop();
                     SystemStat = null;
                     TaskStats.Clear();
                     CpuHistory.Clear();
@@ -307,14 +309,33 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
     /// </summary>
     private async Task LoadTaskStatsAsync(byte taskCount)
     {
-        TaskStats.Clear();
-
-        for (byte i = 0; i < taskCount && i < 16; i++)
+        // 先收集所有数据，再批量更新，避免UI闪烁
+        // 注意：任务索引可能不连续（如0-3和8-11），需遍历到最大索引而非taskCount
+        var newStats = new List<PerfTaskStat>();
+        for (byte i = 0; i < 16; i++)
         {
             var taskStat = await _deviceService.GetPerfTaskStatAsync(i);
             if (taskStat != null)
             {
-                TaskStats.Add(taskStat);
+                newStats.Add(taskStat);
+            }
+        }
+
+        // 数量相同时更新现有项（不触发集合变更，减少闪烁）
+        // 数量不同时重建（仅在任务注册数变化时发生）
+        if (TaskStats.Count == newStats.Count)
+        {
+            for (int i = 0; i < newStats.Count; i++)
+            {
+                TaskStats[i] = newStats[i];
+            }
+        }
+        else
+        {
+            TaskStats.Clear();
+            foreach (var stat in newStats)
+            {
+                TaskStats.Add(stat);
             }
         }
     }
@@ -350,22 +371,7 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// 切换自动刷新
-    /// </summary>
-    partial void OnAutoRefreshChanged(bool value)
-    {
-        if (value && IsDeviceConnected)
-        {
-            _refreshTimer.Start();
-        }
-        else
-        {
-            _refreshTimer.Stop();
-        }
-    }
-
-    /// <summary>
-    /// 刷新间隔变化
+    /// 刷新间隔变化时立即更新定时器
     /// </summary>
     partial void OnRefreshIntervalChanged(int value)
     {

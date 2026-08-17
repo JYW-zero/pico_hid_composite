@@ -34,7 +34,7 @@ void shared_hw_add_wheel(int32_t delta);
 void shared_hw_set_keys(uint64_t keys);
 
 /* 设置鼠标按键（OR合并：只设置指定位，不清除其他位）
- * 多个来源（编码器中键、PAW3395侧键等）的按钮状态通过OR合并
+ * 多个来源（编码器中键、OPTICAL_SENSOR侧键等）的按钮状态通过OR合并
  */
 void shared_hw_set_mouse_buttons(uint8_t buttons);
 
@@ -73,7 +73,7 @@ void shared_hw_get_joystick(int16_t *out_x, int16_t *out_y, bool *out_btn);
 /* Core1 运行状态统计，Core1 更新，Core0 读取 */
 
 uint32_t shared_hw_get_keypad_scan_count(void);
-uint32_t shared_hw_get_paw3395_read_count(void);
+uint32_t shared_hw_get_optical_sensor_read_count(void);
 uint32_t shared_hw_get_encoder_scan_count(void);
 uint32_t shared_hw_get_joystick_read_count(void);
 uint32_t shared_hw_get_error_count(void);
@@ -81,7 +81,7 @@ void shared_hw_reset_stats(void);
 
 /* ==================== Core1 专用递增函数 ==================== */
 void shared_hw_inc_keypad_scan(void);
-void shared_hw_inc_paw3395_read(void);
+void shared_hw_inc_optical_sensor_read(void);
 void shared_hw_inc_encoder_scan(void);
 void shared_hw_inc_joystick_read(void);
 void shared_hw_inc_error(void);

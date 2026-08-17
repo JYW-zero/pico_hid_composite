@@ -783,3 +783,106 @@ IDialogService、ITimerService、IUiThreadService、IFileDialogService、IInputD
 - 已完成：上位机架构重构，双UI共享核心层，编译测试通过
 - 进行中：Avalonia 端平台服务完善、整体测试
 - 待完成：工厂测试模式完善、低功耗模式、固件在线升级
+---
+
+## 2026-08-18 固件与上位机密集修复阶段
+
+### 阶段概述
+在双UI架构重构完成后，进入密集的功能验证和bug修复阶段。主要围绕固件端安全机制、配置协议扩展、上位机UI控件修复、设置页面重构等方面展开。
+
+### 一、固件端修复与增强
+
+#### 1. 安全机制实现
+- **配置锁定机制**：默认锁定配置写入，需连续发送3次 CMD_UNLOCK_CONFIG（5秒内）解锁，解锁后30秒无操作自动重新锁定
+- **DFU/Reboot确认**：CMD_ENTER_DFU 和 CMD_REBOOT 需连续3次确认（5秒内），防止误操作
+- **实时命令豁免**：CMD_SET_PERF_ENABLE、CMD_SET_JOYSTICK_DZ_RT 等实时命令不受配置锁定保护
+- **读取索引豁免**：REPORT_ID_PERF_TASK、REPORT_ID_FAULT_LOG 的 SET_REPORT 仅设置读取索引，不受锁定保护
+
+#### 2. 宏执行状态机修复
+- **KEY_PRESS/TEXT_CHAR 两阶段状态机**：第一帧按下按键返回false（暂停），第二帧释放按键返回true（继续），解决宏动作无效问题
+- **宏鼠标按钮合并**：g_mouse_buttons = shared_hw_get_mouse_buttons() | macro_get_mouse_buttons()
+- **状态机完整性验证**：所有状态有明确退出条件，无死锁路径
+
+#### 3. 配置协议扩展
+- **CONFIG_VERSION 升级到 v3**：新增摇杆灵敏度、方向反转、编码器步长/速度字段
+- **device_config_t 结构体扩展到 1338 字节**
+- **新增 Report ID 21 (CONFIG_EXT)**：传输 v3 扩展字段（12字节），解决原3个配置块（186字节）无法覆盖扩展字段的问题
+- **控制命令参数修复**：HID描述符中 Report ID 7 的 Report Count 从 1 改为 3，解决上位机发送3字节但Windows只发1字节的问题
+- **APPLY_CONFIG 合并策略**：以当前Flash配置为基底，只覆盖前142字节，macro_data 区域不被覆盖
+
+#### 4. 性能监控修复
+- **任务数统计修复**：新增 s_registered_count 统计实际注册任务数，perf_get_task_count 返回实际注册数（8个）而非最大索引+1（12个）
+- **未注册任务过滤**：perf_get_task_stat 对 name 为空的任务返回 false
+- **上位机读取循环修复**：LoadTaskStatsAsync 循环从 taskCount 改为 16，确保读取不连续索引的 Core1 任务
+
+#### 5. 其他固件修复
+- **USB挂起回调修复**：标志位+tick延迟执行，避免在USB回调中直接休眠导致看门狗复位
+- **Core0任务优先级设置**：watchdog_tick(0) > mouse_hid_task(1) > keypad_task/joystick_task(2) > led_blinking(3)
+- **逐位消抖修复**：改为逐位独立计数器，多键同时按下时已稳定的键不被其他键的抖动重置
+- **IPC非阻塞通信**：CMD_SET_JOYSTICK_DZ_RT 改为非阻塞发送，先 drain 再检查 wready
+- **编码器滚轮修复**：移除状态不变时的 accum 衰减逻辑，解决 accum 无法累积到 steps_per_tick 的问题
+- **PAW3395 重命名为 optical_sensor**：支持任意DPI，不再限制固定档位
+
+### 二、上位机修复与增强
+
+#### 1. UI控件修复
+- **ComboBox 下拉框**：经过多轮自定义模板尝试后，最终移除自定义 Template，使用 WPF 默认样式，确保下拉功能正常
+- **Slider 拖不动**：自定义模板缺少 Track 控件，修复后所有滑块（DPI、死区、灵敏度等）可正常拖动
+- **Expander 标题看不见**：Header 的 ToggleButton 缺少 Foreground 绑定，添加后标题文字正常显示
+- **自定义DPI被拒绝**：固件验证只允许固定档位，修复后支持任意DPI值
+
+#### 2. 摇杆功能修复
+- **死区设置不生效**：经过四轮排查，定位为协议扩展字段无传输通道，新增 Report ID 21 解决
+- **控制命令参数丢失**：Report Count=1 导致参数被截断，修复为 Report Count=3
+- **灵敏度显示0**：Flash旧数据无v3字段，添加默认值处理
+- **方向设置不立即生效**：修复 APPLY_CONFIG 时的字段映射
+
+#### 3. 错误日志功能
+- **导出功能**：ErrorLogPageViewModel 添加 ExportCommand，使用 IFileDialogService 保存为文本文件
+- **自动导出**：设备断开时自动导出错误日志到 %AppData%\HIDConfigTool\ErrorLogs\
+- **打开目录按钮**：一键打开导出目录
+- **清除日志前解锁**：ClearErrorLogsAsync 添加自动解锁步骤（CMD_CLEAR_FAULT 是写操作，受锁定保护）
+
+#### 4. 性能监控页面优化
+- **移除单独自动刷新开关**：开启监控即自动刷新，关闭监控即停止
+- **间隔时间下拉框**：从 TextBox 改为 ComboBox（1/2/3/5/10/30/60秒）
+- **任务列表刷新优化**：数量相同时更新现有项而非 Clear+Add，减少闪烁
+- **任务数动态显示**：监控几个任务就显示几个，自动增加
+
+#### 5. 设置页面重构（多轮迭代）
+- **第一轮**：移除折叠面板（Expander），改为分组卡片全部展开
+- **第二轮**：参考豆包风格，简单设置项改为左右布局（左文字+描述，右控件）
+- **第三轮**：完全改为豆包纯列表式，移除分组卡片边框，用小标题+分隔线分组
+- **第四轮（最终）**：实现主从导航
+  - 主页面：7个设置项列表（通用、配置管理、配置文件、应用感知、固件升级、外观、关于），每项有图标+标题+描述+箭头
+  - 子页面：返回按钮+详细设置内容
+  - 用 Visibility 绑定 CurrentSection 控制显示
+  - 新增 EnumToVisConverter（枚举值转可见性）
+
+#### 6. 转换器修复
+- **InvertBoolConverter**：原实现只返回 bool，用于 Visibility 绑定时 WPF 无法识别导致主子页面重叠；修改为根据 targetType 返回 bool 或 Visibility
+
+### 三、新增文件
+- `pc_tool/windows/HidConfigTool.App/Converters/EnumToVisConverter.cs` — 枚举值转可见性转换器
+- `pc_tool/shared/HidConfigTool.ViewModels/SettingsPageViewModel.cs` — 新增 SettingsSection 枚举、CurrentSection 属性、导航命令
+
+### 四、验证结果
+- ✅ 固件编译通过，UF2 生成正常
+- ✅ 上位机编译通过（0错误）
+- ✅ ComboBox 下拉功能正常
+- ✅ Slider 拖动功能正常
+- ✅ 摇杆死区/灵敏度/方向设置生效
+- ✅ 编码器滚轮功能正常
+- ✅ 设置页面主从导航正常
+- ✅ 错误日志导出功能正常
+
+### 五、待完善
+- Avalonia 端三个页面（JoystickPage/EncoderPage/MousePage）尚未同步 WPF 端的修改
+- Avalonia 端设置页面尚未实现主从导航
+- 固件端配置双备份一致性修复、按键统计CRC、ERROR日志限频等残留问题待处理
+- PAW3395 DPI寄存器值错误待修复
+
+### 当前进度
+- 已完成：固件安全机制、配置协议v3扩展、上位机UI控件全面修复、设置页面主从导航
+- 进行中：整体功能验证、Avalonia端同步
+- 待完成：残留P1/P2问题修复、工厂测试模式、低功耗模式
