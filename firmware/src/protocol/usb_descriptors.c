@@ -128,13 +128,13 @@ uint8_t const desc_hid_config_report[] =
   0x95, 32,                //   Report Count (32)
   0xB1, 0x02,              //   Feature (Data,Var,Abs)
 
-  // 控制命令 Feature 报告 (Report ID 7, 1 字节)
+  // 控制命令 Feature 报告 (Report ID 7, 3 字节: command + param_low + param_high)
   0x85, 7,                 //   Report ID (7)
   0x09, 0x04,              //   Usage (0x04)
   0x15, 0x00,              //   Logical Minimum (0)
   0x26, 0xFF, 0x00,        //   Logical Maximum (255)
   0x75, 0x08,              //   Report Size (8 bits)
-  0x95, 1,                 //   Report Count (1)
+  0x95, 3,                 //   Report Count (3) - 支持16位参数的命令
   0xB1, 0x02,              //   Feature (Data,Var,Abs)
 
   // 按键统计 0 Feature 报告 (Report ID 10, 32 字节, 键0-15)
