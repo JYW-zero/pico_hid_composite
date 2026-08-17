@@ -14,6 +14,7 @@ public partial class ErrorLogPageViewModel : ObservableObject, IDisposable
 {
     private readonly IDeviceService _deviceService;
     private readonly IDialogService _dialogService;
+    private readonly IFileDialogService _fileDialogService;
     private bool _disposed;
 
     // 所有日志的完整列表（用于筛选）
@@ -64,10 +65,11 @@ public partial class ErrorLogPageViewModel : ObservableObject, IDisposable
     /// <summary>
     /// 构造函数
     /// </summary>
-    public ErrorLogPageViewModel(IDeviceService deviceService, IDialogService dialogService)
+    public ErrorLogPageViewModel(IDeviceService deviceService, IDialogService dialogService, IFileDialogService fileDialogService)
     {
         _deviceService = deviceService;
         _dialogService = dialogService;
+        _fileDialogService = fileDialogService;
         _deviceService.DeviceConnectionChanged += OnDeviceConnectionChanged;
 
         IsDeviceConnected = _deviceService.IsConnected;
@@ -190,6 +192,63 @@ public partial class ErrorLogPageViewModel : ObservableObject, IDisposable
         finally
         {
             IsLoading = false;
+        }
+    }
+
+    /// <summary>
+    /// 导出日志为文本文件
+    /// </summary>
+    [RelayCommand]
+    private void Export()
+    {
+        if (_allLogs.Count == 0)
+        {
+            _dialogService.ShowInfo("没有可导出的日志");
+            return;
+        }
+
+        string? filePath = _fileDialogService.SaveFile(
+            "导出错误日志",
+            "文本文件 (*.txt)|*.txt|所有文件 (*.*)|*.*",
+            "txt");
+
+        if (string.IsNullOrEmpty(filePath))
+            return;
+
+        try
+        {
+            var lines = new List<string>
+            {
+                "========================================",
+                "  Pico HID 复合设备 - 错误日志导出",
+                $"  导出时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
+                $"  总日志数: {_allLogs.Count}",
+                $"  总故障数: {TotalFaultCount}",
+                "========================================",
+                ""
+            };
+
+            // 倒序导出（最新的在上面）
+            for (int i = _allLogs.Count - 1; i >= 0; i--)
+            {
+                var log = _allLogs[i];
+                string levelStr = log.Level switch
+                {
+                    0 => "INFO",
+                    1 => "WARN",
+                    2 => "ERROR",
+                    3 => "FATAL",
+                    _ => "UNKNOWN"
+                };
+                lines.Add($"[{levelStr}] [{log.Module}] {log.Message}");
+            }
+
+            File.WriteAllLines(filePath, lines);
+            _dialogService.ShowInfo($"日志已导出到:\n{filePath}", "导出成功");
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowError($"导出失败: {ex.Message}", "错误");
         }
     }
 
