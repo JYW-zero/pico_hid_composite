@@ -736,9 +736,13 @@ void hid_config_task(void)
                                               sizeof(device_config_t) - sizeof(uint32_t));
                     merged.crc32 = crc;
 
+                    /* Flash写入会暂停Core1，Core0主动喂DEVICE层，防止看门狗超时 */
+                    watchdog_feed_layer(WDG_LAYER_DEVICE);
+
                     int save_ret = config_save(&merged);
                     if (save_ret == 0) {
-                        LOG_INFO_PRINT("[CONFIG] ✅ 配置已保存到 Flash\n");
+                        LOG_INFO_PRINT("[CONFIG] ✅ 配置已保存到 Flash (灵敏度=%d, 反转X=%d, 反转Y=%d)\n",
+                                       merged.joystick_sensitivity, merged.joystick_invert_x, merged.joystick_invert_y);
                         const optical_sensor_cfg_t *paw_cfg = board_get_optical_sensor_cfg();
                         if (paw_cfg != NULL) {
                             int ret;
