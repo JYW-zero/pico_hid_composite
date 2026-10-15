@@ -10,12 +10,10 @@ namespace HidConfigTool.ViewModels;
 /// <summary>
 /// 性能监控页面视图模型
 /// </summary>
-public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
+public partial class PerfMonitorPageViewModel : PageViewModelBase
 {
-    private readonly IDeviceService _deviceService;
     private readonly ITimerService _refreshTimer;
     private readonly IDialogService _dialogService;
-    private bool _disposed;
 
     /// <summary>
     /// 系统性能统计
@@ -46,12 +44,6 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
     private bool _isLoading;
 
     /// <summary>
-    /// 是否有设备连接
-    /// </summary>
-    [ObservableProperty]
-    private bool _isDeviceConnected;
-
-    /// <summary>
     /// 刷新间隔（秒）
     /// </summary>
     [ObservableProperty]
@@ -67,6 +59,23 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
     /// </summary>
     [ObservableProperty]
     private bool _isPerfMonitorEnabled;
+
+    /// <summary>
+    /// 选中的任务索引（用于设置阈值）
+    /// </summary>
+    [ObservableProperty]
+    private int _selectedTaskIndex = -1;
+
+    /// <summary>
+    /// 阈值输入（微秒，0=禁用告警）
+    /// </summary>
+    [ObservableProperty]
+    private int _thresholdInput = 1000;
+
+    /// <summary>
+    /// 阈值预设选项（微秒）
+    /// </summary>
+    public List<int> ThresholdPresets { get; } = new() { 500, 1000, 2000, 5000, 10000, 20000 };
 
     /// <summary>
     /// CPU使用率文本
@@ -107,12 +116,9 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
     /// 构造函数
     /// </summary>
     public PerfMonitorPageViewModel(IDeviceService deviceService, ITimerService timerService, IDialogService dialogService)
+        : base(deviceService)
     {
-        _deviceService = deviceService;
         _dialogService = dialogService;
-        _deviceService.DeviceConnectionChanged += OnDeviceConnectionChanged;
-
-        IsDeviceConnected = _deviceService.IsConnected;
 
         _refreshTimer = timerService;
         _refreshTimer.Interval = TimeSpan.FromSeconds(5);  // 5秒刷新，减少USB总线占用
@@ -126,21 +132,26 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// 设备连接状态变化
+    /// 设备已连接（重写基类虚方法）
     /// </summary>
-    private void OnDeviceConnectionChanged(object? sender, bool isConnected)
+    protected override Task OnDeviceConnectedAsync()
     {
-        IsDeviceConnected = isConnected;
         SystemStat = null;
-
-        if (isConnected && IsPerfMonitorEnabled)
+        if (IsPerfMonitorEnabled)
         {
             _refreshTimer.Start();
         }
-        else
-        {
-            _refreshTimer.Stop();
-        }
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 设备已断开（重写基类虚方法）
+    /// </summary>
+    protected override Task OnDeviceDisconnectedAsync()
+    {
+        SystemStat = null;
+        _refreshTimer.Stop();
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -148,9 +159,16 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
     /// </summary>
     private async void OnRefreshTimerTick(object? sender, EventArgs e)
     {
-        if (!IsLoading && IsDeviceConnected)
+        try
         {
-            await RefreshCoreAsync(isAutoRefresh: true);
+            if (!IsLoading && IsDeviceConnected)
+            {
+                await RefreshCoreAsync(isAutoRefresh: true);
+            }
+        }
+        catch
+        {
+            // async void 定时器回调必须捕获异常，防止未观察异常导致应用崩溃
         }
     }
 
@@ -178,7 +196,7 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
         try
         {
             // 加载系统状态
-            var stat = await _deviceService.GetPerfSystemStatAsync();
+            var stat = await DeviceService.GetPerfSystemStatAsync();
             if (stat != null)
             {
                 SystemStat = stat;
@@ -231,7 +249,7 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
         IsLoading = true;
         try
         {
-            bool success = await _deviceService.ResetPerfStatsAsync();
+            bool success = await DeviceService.ResetPerfStatsAsync();
             if (success)
             {
                 // 清空历史数据
@@ -270,7 +288,7 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
         bool targetEnabled = !IsPerfMonitorEnabled;
         try
         {
-            bool success = await _deviceService.SetPerfMonitorEnabledAsync(targetEnabled);
+            bool success = await DeviceService.SetPerfMonitorEnabledAsync(targetEnabled);
             if (success)
             {
                 IsPerfMonitorEnabled = targetEnabled;
@@ -305,6 +323,89 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
+    /// 设置选中任务的超时阈值
+    /// </summary>
+    [RelayCommand]
+    private async Task SetThresholdAsync()
+    {
+        if (!IsDeviceConnected || SelectedTaskIndex < 0 || SelectedTaskIndex > 15)
+        {
+            _dialogService.ShowWarning("请先在任务列表中选择一个任务", "提示");
+            return;
+        }
+
+        if (ThresholdInput < 0 || ThresholdInput > 25500)
+        {
+            _dialogService.ShowWarning("阈值必须在 0-25500 微秒之间（0=禁用告警）", "无效阈值");
+            return;
+        }
+
+        try
+        {
+            bool success = await DeviceService.SetPerfThresholdAsync(SelectedTaskIndex, ThresholdInput);
+            if (success)
+            {
+                if (ThresholdInput == 0)
+                {
+                    _dialogService.ShowInfo($"任务 {SelectedTaskIndex} 超时告警已禁用", "设置成功");
+                }
+                else
+                {
+                    _dialogService.ShowInfo($"任务 {SelectedTaskIndex} 超时阈值已设置为 {ThresholdInput}us", "设置成功");
+                }
+                // 刷新任务统计以显示新阈值
+                if (SystemStat != null)
+                {
+                    await LoadTaskStatsAsync(SystemStat.TaskCount);
+                }
+            }
+            else
+            {
+                _dialogService.ShowError("设置阈值失败，请检查设备连接", "设置失败");
+            }
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowError($"设置阈值异常: {ex.Message}", "错误");
+        }
+    }
+
+    /// <summary>
+    /// 禁用选中任务的超时告警
+    /// </summary>
+    [RelayCommand]
+    private async Task DisableThresholdAsync()
+    {
+        if (!IsDeviceConnected || SelectedTaskIndex < 0 || SelectedTaskIndex > 15)
+        {
+            _dialogService.ShowWarning("请先在任务列表中选择一个任务", "提示");
+            return;
+        }
+
+        try
+        {
+            bool success = await DeviceService.SetPerfThresholdAsync(SelectedTaskIndex, 0);
+            if (success)
+            {
+                _dialogService.ShowInfo($"任务 {SelectedTaskIndex} 超时告警已禁用", "设置成功");
+                // 刷新任务统计以显示新阈值
+                if (SystemStat != null)
+                {
+                    await LoadTaskStatsAsync(SystemStat.TaskCount);
+                }
+            }
+            else
+            {
+                _dialogService.ShowError("禁用告警失败，请检查设备连接", "设置失败");
+            }
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowError($"禁用告警异常: {ex.Message}", "错误");
+        }
+    }
+
+    /// <summary>
     /// 加载所有任务统计
     /// </summary>
     private async Task LoadTaskStatsAsync(byte taskCount)
@@ -314,7 +415,7 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
         var newStats = new List<PerfTaskStat>();
         for (byte i = 0; i < 16; i++)
         {
-            var taskStat = await _deviceService.GetPerfTaskStatAsync(i);
+            var taskStat = await DeviceService.GetPerfTaskStatAsync(i);
             if (taskStat != null)
             {
                 newStats.Add(taskStat);
@@ -400,15 +501,11 @@ public partial class PerfMonitorPageViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// 释放资源，取消事件订阅，防止内存泄漏
+    /// 释放子类特有资源（重写基类虚方法）
     /// </summary>
-    public void Dispose()
+    protected override void DisposeManagedResources()
     {
-        if (_disposed) return;
-        _disposed = true;
-
         _refreshTimer.Stop();
         _refreshTimer.Tick -= OnRefreshTimerTick;
-        _deviceService.DeviceConnectionChanged -= OnDeviceConnectionChanged;
     }
 }

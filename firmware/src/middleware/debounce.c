@@ -17,13 +17,30 @@ void debounce_64key_init(debounce_64key_t *db, uint8_t threshold)
 
     db->last_raw = 0xFFFFFFFFFFFFFFFFULL;
     db->stable_state = 0xFFFFFFFFFFFFFFFFULL;
-    db->debounce_threshold = threshold;
+    db->debounce_threshold = (threshold > 0) ? threshold : 1;
 
     /* 初始化所有按键计数器为0 */
     for (int i = 0; i < 64; i++)
     {
         db->count[i] = 0;
     }
+}
+
+void debounce_64key_set_threshold(debounce_64key_t *db, uint8_t threshold)
+{
+    if (db == NULL)
+    {
+        fault_record(FAULT_LEVEL_ERROR, "debounce", "set_threshold null pointer");
+        return;
+    }
+    if (threshold == 0) threshold = 1;
+    db->debounce_threshold = threshold;
+}
+
+uint8_t debounce_64key_get_threshold(const debounce_64key_t *db)
+{
+    if (db == NULL) return 0;
+    return db->debounce_threshold;
 }
 
 uint64_t debounce_64key_update(debounce_64key_t *db, uint64_t raw)

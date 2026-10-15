@@ -12,17 +12,23 @@ set SRCS=unity/src/unity.c ^
         mock/mock_gpio.c ^
         mock/mock_time.c ^
         mock/mock_flash.c ^
+        mock/mock_tusb.c ^
+        mock/mock_watchdog.c ^
         ../src/board/config.c ^
         ../src/middleware/debounce.c ^
         ../src/middleware/fault.c ^
         ../src/middleware/scheduler.c ^
         ../src/app/keymap.c ^
+        ../src/app/macro.c ^
         ../src/device/encoder.c ^
         test_debounce.c ^
         test_keymap.c ^
         test_encoder.c ^
         test_scheduler.c ^
         test_config.c ^
+        test_crc.c ^
+        test_macro.c ^
+        test_fault.c ^
         test_runner.c
 set OUTPUT=run_tests.exe
 

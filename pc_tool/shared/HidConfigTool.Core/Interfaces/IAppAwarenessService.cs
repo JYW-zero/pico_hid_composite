@@ -1,4 +1,4 @@
-using HidConfigTool.Core.Models;
+﻿using HidConfigTool.Core.Models;
 
 namespace HidConfigTool.Core.Interfaces;
 

@@ -19,11 +19,13 @@ static const char* s_size_string = "unknown";
 
 /* 各区域的偏移（相对于Flash起始地址）
  * 布局（从末尾向前）：
- *   偏移  size  用途
+ *   偏移    size  用途
  *   end-4K  4K   配置B区
  *   end-8K  4K   配置A区
- *   end-12K 4K   错误日志区
- *   end-16K 4K   按键统计区
+ *   end-12K 4K   错误日志区B
+ *   end-16K 4K   错误日志区A（默认活动区）
+ *   end-20K 4K   按键统计区
+ *   end-24K 4K   Provisioning 出厂配置/制造标志区（阶段3启用，阶段2占位）
  */
 static uint32_t s_region_offsets[FLASH_REGION_COUNT];
 static uint32_t s_region_sizes[FLASH_REGION_COUNT];
@@ -78,15 +80,26 @@ static void calculate_layout(uint32_t total_size)
     s_region_offsets[FLASH_REGION_CONFIG_A] = offset;
     s_region_sizes[FLASH_REGION_CONFIG_A] = FLASH_LAYOUT_SECTOR_SIZE;
 
-    /* 错误日志区：最后第3个扇区 */
+    /* 错误日志区B：最后第3个扇区（磨损均衡） */
     offset -= FLASH_LAYOUT_SECTOR_SIZE;
-    s_region_offsets[FLASH_REGION_FAULT_LOG] = offset;
-    s_region_sizes[FLASH_REGION_FAULT_LOG] = FLASH_LAYOUT_SECTOR_SIZE;
+    s_region_offsets[FLASH_REGION_FAULT_LOG_B] = offset;
+    s_region_sizes[FLASH_REGION_FAULT_LOG_B] = FLASH_LAYOUT_SECTOR_SIZE;
 
-    /* 按键统计区：最后第4个扇区 */
+    /* 错误日志区A：最后第4个扇区（磨损均衡，默认活动区） */
+    offset -= FLASH_LAYOUT_SECTOR_SIZE;
+    s_region_offsets[FLASH_REGION_FAULT_LOG_A] = offset;
+    s_region_sizes[FLASH_REGION_FAULT_LOG_A] = FLASH_LAYOUT_SECTOR_SIZE;
+
+    /* 按键统计区：最后第5个扇区 */
     offset -= FLASH_LAYOUT_SECTOR_SIZE;
     s_region_offsets[FLASH_REGION_KEY_STATS] = offset;
     s_region_sizes[FLASH_REGION_KEY_STATS] = FLASH_LAYOUT_SECTOR_SIZE;
+
+    /* 出厂配置/制造标志区：最后第6个扇区（end-24K，阶段3启用，阶段2仅占位）。
+     * 放在最后分配（地址最低），既有5区相对末尾偏移保持不变。 */
+    offset -= FLASH_LAYOUT_SECTOR_SIZE;
+    s_region_offsets[FLASH_REGION_PROVISIONING] = offset;
+    s_region_sizes[FLASH_REGION_PROVISIONING] = FLASH_LAYOUT_SECTOR_SIZE;
 }
 
 /* 获取大小描述字符串 */
@@ -191,6 +204,12 @@ uint32_t flash_layout_get_xip_addr(flash_region_e region)
         return 0xFFFFFFFFU;
     }
     return FLASH_LAYOUT_XIP_BASE + s_region_offsets[region];
+}
+
+/* XIP 只读基址，弱函数；host 单元测试由 mock 覆盖为 RAM 模拟 Flash 地址 */
+__attribute__((weak)) uintptr_t flash_layout_xip_base(void)
+{
+    return FLASH_LAYOUT_XIP_BASE;
 }
 
 uint32_t flash_layout_get_size(flash_region_e region)

@@ -1,0 +1,261 @@
+================================================================================
+  指动 HID 复合设备配置工具 - 第三方库许可证声明
+  Zhidong HID Composite Device Config Tool - Third-Party Licenses
+================================================================================
+
+  产品名称：指动 HID 复合设备配置工具
+  版本：v1.0.0
+  厂商：指动科技
+  最后更新：2026-08-20
+
+================================================================================
+  目录
+================================================================================
+
+  1. 概述
+  2. 运行时依赖（包含在发布产品中）
+  3. 开发时依赖（不包含在发布产品中）
+  4. 许可证全文
+     4.1 MIT License
+     4.2 BSD 3-Clause License
+     4.3 Apache License 2.0
+  5. 联系方式
+
+================================================================================
+  1. 概述
+================================================================================
+
+  本软件使用了多个开源第三方库。所有第三方库均使用宽松开源许可证，
+  允许商业使用、修改和分发。在此向各项目的贡献者表示衷心感谢。
+
+  本文件列出了所有使用的第三方库及其许可证信息。
+
+================================================================================
+  2. 运行时依赖（包含在发布产品中）
+================================================================================
+
+  ------------------------------------------------------------------------
+  2.1 Avalonia UI
+  ------------------------------------------------------------------------
+  名称：Avalonia
+  版本：11.3.2
+  许可证：MIT License
+  用途：跨平台 UI 框架（Windows/macOS/Linux）
+  项目主页：https://avaloniaui.net/
+  源代码：https://github.com/AvaloniaUI/Avalonia
+
+  包含的子包：
+  - Avalonia 11.3.2
+  - Avalonia.Desktop 11.3.2
+  - Avalonia.Themes.Fluent 11.3.2
+  - Avalonia.Controls.DataGrid 11.3.2
+
+  ------------------------------------------------------------------------
+  2.2 CommunityToolkit.Mvvm
+  ------------------------------------------------------------------------
+  名称：CommunityToolkit.Mvvm
+  版本：8.4.2
+  许可证：MIT License
+  用途：MVVM 工具包（ObservableObject、RelayCommand、源生成器等）
+  项目主页：https://learn.microsoft.com/dotnet/communitytoolkit/mvvm/
+  源代码：https://github.com/CommunityToolkit/dotnet
+
+  ------------------------------------------------------------------------
+  2.3 Microsoft.Extensions.DependencyInjection
+  ------------------------------------------------------------------------
+  名称：Microsoft.Extensions.DependencyInjection
+  版本：10.0.0 / 10.0.10
+  许可证：MIT License
+  用途：依赖注入容器
+  项目主页：https://learn.microsoft.com/dotnet/core/extensions/
+  源代码：https://github.com/dotnet/runtime
+
+  ------------------------------------------------------------------------
+  2.4 Microsoft.Extensions.Hosting
+  ------------------------------------------------------------------------
+  名称：Microsoft.Extensions.Hosting
+  版本：10.0.10
+  许可证：MIT License
+  用途：应用程序宿主、生命周期管理
+  项目主页：https://learn.microsoft.com/dotnet/core/extensions/
+  源代码：https://github.com/dotnet/runtime
+
+  ------------------------------------------------------------------------
+  2.5 HidSharp
+  ------------------------------------------------------------------------
+  名称：HidSharp
+  版本：2.1.0
+  许可证：Apache License 2.0
+  用途：跨平台 HID 设备访问（Windows/macOS/Linux）
+  项目主页：https://www.zer7.com/software/hidsharp
+  作者：James F. Bellinger
+
+================================================================================
+  3. 开发时依赖（不包含在发布产品中）
+================================================================================
+
+  以下库仅用于开发和测试阶段，不包含在最终发布的产品中：
+
+  ------------------------------------------------------------------------
+  3.1 xUnit
+  ------------------------------------------------------------------------
+  名称：xunit
+  版本：2.9.3
+  许可证：Apache License 2.0
+  用途：单元测试框架
+  项目主页：https://xunit.net/
+  源代码：https://github.com/xunit/xunit
+
+  ------------------------------------------------------------------------
+  3.2 xunit.runner.visualstudio
+  ------------------------------------------------------------------------
+  名称：xunit.runner.visualstudio
+  版本：3.1.4
+  许可证：MIT License
+  用途：xUnit 测试运行器（Visual Studio 集成）
+  源代码：https://github.com/xunit/visualstudio.xunit
+
+  ------------------------------------------------------------------------
+  3.3 Moq
+  ------------------------------------------------------------------------
+  名称：Moq
+  版本：4.20.72
+  许可证：BSD 3-Clause License
+  用途：Mock 框架（单元测试中模拟对象）
+  项目主页：https://github.com/moq/moq
+  源代码：https://github.com/moq/moq
+
+  ------------------------------------------------------------------------
+  3.4 Microsoft.NET.Test.Sdk
+  ------------------------------------------------------------------------
+  名称：Microsoft.NET.Test.Sdk
+  版本：17.14.1
+  许可证：MIT License
+  用途：.NET 测试 SDK
+  源代码：https://github.com/microsoft/vstest
+
+  ------------------------------------------------------------------------
+  3.5 coverlet.collector
+  ------------------------------------------------------------------------
+  名称：coverlet.collector
+  版本：6.0.4
+  许可证：MIT License
+  用途：代码覆盖率收集器
+  项目主页：https://github.com/coverlet-coverage/coverlet
+  源代码：https://github.com/coverlet-coverage/coverlet
+
+================================================================================
+  4. 许可证全文
+================================================================================
+
+  ------------------------------------------------------------------------
+  4.1 MIT License
+  ------------------------------------------------------------------------
+
+  适用项目：
+  - Avalonia UI
+  - CommunityToolkit.Mvvm
+  - Microsoft.Extensions.DependencyInjection
+  - Microsoft.Extensions.Hosting
+  - xunit.runner.visualstudio
+  - Microsoft.NET.Test.Sdk
+  - coverlet.collector
+
+  许可证文本：
+
+    The MIT License (MIT)
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+
+  ------------------------------------------------------------------------
+  4.2 BSD 3-Clause License
+  ------------------------------------------------------------------------
+
+  适用项目：
+  - Moq
+
+  许可证文本：
+
+    Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions are met:
+
+    1. Redistributions of source code must retain the above copyright notice,
+       this list of conditions and the following disclaimer.
+
+    2. Redistributions in binary form must reproduce the above copyright notice,
+       this list of conditions and the following disclaimer in the documentation
+       and/or other materials provided with the distribution.
+
+    3. Neither the name of the copyright holder nor the names of its contributors
+       may be used to endorse or promote products derived from this software
+       without specific prior written permission.
+
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+    AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+    IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+    ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+    LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+    CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+    SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+    INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+    CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+    ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+    POSSIBILITY OF SUCH DAMAGE.
+
+  ------------------------------------------------------------------------
+  4.3 Apache License 2.0
+  ------------------------------------------------------------------------
+
+  适用项目：
+  - HidSharp
+  - xUnit
+
+  许可证文本：
+
+    Apache License
+    Version 2.0, January 2004
+    http://www.apache.org/licenses/
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+    完整许可证文本请访问：http://www.apache.org/licenses/LICENSE-2.0
+
+================================================================================
+  5. 联系方式
+================================================================================
+
+  项目主页：https://github.com/JYW-zero/pico_hid_composite
+  问题反馈：https://github.com/JYW-zero/pico_hid_composite/issues
+  厂商：指动科技
+
+  如有任何关于第三方库许可证的疑问，请通过上述方式联系我们。
+
+================================================================================
+  文档结束
+================================================================================

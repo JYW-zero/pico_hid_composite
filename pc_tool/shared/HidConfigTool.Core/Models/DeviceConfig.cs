@@ -1,4 +1,4 @@
-namespace HidConfigTool.Core.Models;
+﻿namespace HidConfigTool.Core.Models;
 
 using System.Text.Json.Serialization;
 
@@ -10,7 +10,7 @@ public class DeviceConfig
     /// <summary>
     /// 配置版本
     /// </summary>
-    public int Version { get; set; } = 1;
+    public int Version { get; set; } = 8;
 
     /// <summary>
     /// 当前 DPI 值
@@ -61,6 +61,61 @@ public class DeviceConfig
     /// 摇杆Y轴反转
     /// </summary>
     public bool JoystickInvertY { get; set; } = false;
+
+    /// <summary>
+    /// 摇杆 X 轴中心点（ADC 值，0-4095，v5 新增）
+    /// </summary>
+    public ushort JoystickCenterX { get; set; } = 2048;
+
+    /// <summary>
+    /// 摇杆 Y 轴中心点（ADC 值，0-4095，v5 新增）
+    /// </summary>
+    public ushort JoystickCenterY { get; set; } = 2048;
+
+    /// <summary>
+    /// 摇杆是否已校准（v5 新增）
+    /// </summary>
+    public bool JoystickCalibrated { get; set; } = false;
+
+    /// <summary>
+    /// 4档 DPI 值（v6 新增，每档 100-6400）
+    /// </summary>
+    public ushort[] DpiSlots { get; set; } = new ushort[] { 400, 800, 1600, 3200 };
+
+    /// <summary>
+    /// 当前 DPI 档位（0-3，v6 新增）
+    /// </summary>
+    public byte CurrentDpiSlot { get; set; } = 2;
+
+    /// <summary>
+    /// LOD 静默高度等级（0=低,1=中,2=高，v6 新增）
+    /// </summary>
+    public byte LodLevel { get; set; } = 1;
+
+    /// <summary>
+    /// 角度捕捉开关（v6 新增）
+    /// </summary>
+    public bool AngleSnapping { get; set; } = false;
+
+    /// <summary>
+    /// DPI 切换按键索引（0xFF=默认，v6 新增）
+    /// </summary>
+    public byte DpiSwitchKey { get; set; } = 0xFF;
+
+    /// <summary>
+    /// Layer2 按键映射（64键，v7 新增）
+    /// </summary>
+    public byte[] Layer2Keymap { get; set; } = new byte[64];
+
+    /// <summary>
+    /// Layer3 按键映射（64键，v7 新增）
+    /// </summary>
+    public byte[] Layer3Keymap { get; set; } = new byte[64];
+
+    /// <summary>
+    /// 性能监控任务超时阈值（8项，单位100us，0=禁用告警；v8 新增，仅 dev 固件有意义）
+    /// </summary>
+    public ushort[] PerfThresholds { get; set; } = new ushort[8];
 
     /// <summary>
     /// 编码器方向是否反转

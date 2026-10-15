@@ -14,16 +14,27 @@
 #include "middleware/fault.h"
 #include "pico/multicore.h"
 #include "hardware/sync.h"
+#include "hardware/structs/scb.h"
+#include "device/dfu/dfu_metadata.h"
 #include "device/keypad_spi.h"
 #include "device/optical_sensor.h"
 #include "device/encoder.h"
 #include "device/joystick.h"
+#include "middleware/joystick_processor.h"
+#include "middleware/encoder_processor.h"
 #include "board/board.h"
 #include "board/config.h"
 #include "pico/time.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+
+/* ==================== 常量定义 ==================== */
+/* Core1 暂停命令超时（微秒）
+ * 防止 Core0 崩溃后 Core1 永久挂起，超时后自动恢复扫描
+ * 5秒足够覆盖 Flash 擦除（~50ms）和固件写入等长操作
+ */
+#define CORE1_PAUSE_TIMEOUT_US  (5000000U)
 #include <stdio.h>
 
 /* ==================== 鼠标加速配置（默认禁用） ==================== */
@@ -38,6 +49,16 @@
 #endif
 
 /* ==================== 私有变量 ==================== */
+
+/* 非阻塞发送 ACK（Core0 不读 ACK 时不阻塞 Core1，失败则记录错误） */
+static void ipc_try_push_ack(uint32_t ack)
+{
+    if (!multicore_fifo_push_timeout_us(ack, 0))
+    {
+        /* FIFO 满，Core0 可能未及时读取 ACK，记录错误但不阻塞 */
+        fault_record(FAULT_LEVEL_WARN, "core1_ipc", "ACK push timeout, FIFO full");
+    }
+}
 
 /* 硬件配置句柄（只读，全局共享） */
 static const keypad_spi_cfg_t *s_keypad_cfg = NULL;
@@ -64,7 +85,21 @@ static sched_task_t s_core1_tasks[CORE1_TASK_COUNT];
 /* 键盘扫描任务：5ms */
 static void core1_keypad_task(void)
 {
+    static uint32_t s_call_count = 0;
+    if (s_call_count < 3) {
+        log_printf("[C1] keypad_task #%lu\n", (unsigned long)s_call_count);
+        s_call_count++;
+    }
     perf_start(10);
+
+    /* 检查去抖阈值是否已更新（Core0 设置） */
+    if (shared_hw_check_and_clear_debounce_updated())
+    {
+        uint8_t new_threshold = shared_hw_get_keypad_debounce_threshold();
+        debounce_64key_set_threshold(&s_keypad_debounce, new_threshold);
+        log_printf("[CORE1] 键盘去抖阈值更新为: %d (约%dms)\n", new_threshold, new_threshold * 5);
+    }
+
     uint64_t raw_keys = 0;
     if (keypad_spi_read_u64(s_keypad_cfg, &raw_keys) == 0)
     {
@@ -83,9 +118,16 @@ static void core1_keypad_task(void)
 /* OPTICAL_SENSOR 传感器读取任务：2ms */
 static void core1_optical_sensor_task(void)
 {
+    static uint32_t s_call_count = 0;
+    if (s_call_count < 3) {
+        log_printf("[C1] optical_task #%lu\n", (unsigned long)s_call_count);
+        s_call_count++;
+    }
     /* 连续错误计数器，超过阈值尝试重新初始化 */
     static uint8_t s_consecutive_errors = 0;
 #define OPTICAL_SENSOR_MAX_CONSECUTIVE_ERRORS  50u  /* 50次×2ms = 100ms */
+#define OPTICAL_SENSOR_REINIT_MIN_INTERVAL_MS   5000u  /* 重新初始化最小间隔5秒，防止频繁初始化阻塞任务 */
+static uint32_t s_last_reinit_ms = 0;
 
     perf_start(9);
     optical_sensor_motion_t motion;
@@ -123,61 +165,51 @@ static void core1_optical_sensor_task(void)
         s_consecutive_errors++;
         if (s_consecutive_errors >= OPTICAL_SENSOR_MAX_CONSECUTIVE_ERRORS)
         {
-            /* 连续错误过多，尝试重新初始化传感器 */
-            fault_record(FAULT_LEVEL_WARN, "optical_sensor", "consecutive errors, re-init");
-            (void)optical_sensor_init(s_optical_sensor_cfg);
+            /* 连续错误过多，尝试重新初始化传感器（限频：距上次初始化不足5秒则跳过，避免频繁初始化阻塞任务） */
+            uint32_t now_ms = to_ms_since_boot(get_absolute_time());
+            if (now_ms - s_last_reinit_ms >= OPTICAL_SENSOR_REINIT_MIN_INTERVAL_MS)
+            {
+                fault_record(FAULT_LEVEL_WARN, "optical_sensor", "consecutive errors, re-init");
+                (void)optical_sensor_init(s_optical_sensor_cfg);
+                s_last_reinit_ms = now_ms;
+            }
+            else
+            {
+                fault_record(FAULT_LEVEL_WARN, "optical_sensor", "re-init throttled, too frequent");
+            }
             s_consecutive_errors = 0;
         }
     }
     
-    /* 喂 DEVICE 层看门狗 */
+    /* 喂 DEVICE 层看门狗（主循环已更新 heartbeat，这里只喂看门狗） */
     watchdog_feed_layer(WDG_LAYER_DEVICE);
     
-    /* 递增心跳计数器，供 Core0 监控 */
-    shared_hw_increment_heartbeat();
     perf_end(9);
 }
 
 /* 编码器扫描任务：1ms */
 static void core1_encoder_task(void)
 {
+    static uint32_t s_call_count = 0;
+    if (s_call_count < 3) {
+        log_printf("[C1] encoder_task #%lu\n", (unsigned long)s_call_count);
+        s_call_count++;
+    }
     perf_start(8);
     shared_hw_inc_encoder_scan();
+
+    /* 读取原始旋转方向 */
     encoder_dir_e dir = encoder_update(s_encoder_cfg, &s_encoder_state);
-    
-    /* 根据配置反转方向（优先用实时设置） */
-    bool reverse;
-    if (s_encoder_reverse_rt >= 0)
+
+    /* 获取当前时间戳（毫秒） */
+    uint32_t now_ms = to_ms_since_boot(get_absolute_time());
+
+    /* 输入原始事件到编码器处理器（带时间戳，用于加速度计算） */
+    if (dir != ENCODER_DIR_NONE)
     {
-        reverse = (s_encoder_reverse_rt != 0);
+        encoder_processor_input((encoder_dir_t)dir, now_ms);
     }
-    else
-    {
-        reverse = (config_get()->encoder_reverse != 0);
-    }
-    int32_t delta = 0;
-    
-    if (dir == ENCODER_DIR_CW)
-    {
-        delta = reverse ? -1 : 1;
-    }
-    else if (dir == ENCODER_DIR_CCW)
-    {
-        delta = reverse ? 1 : -1;
-    }
-    
-    if (delta != 0)
-    {
-        /* 应用步长和滚动速度 */
-        const device_config_t* enc_cfg = config_get();
-        uint8_t steps = enc_cfg->encoder_steps;
-        uint8_t speed = enc_cfg->encoder_scroll_speed;
-        if (steps == 0) steps = 1;
-        if (speed == 0) speed = 1;
-        int32_t total_delta = delta * (int32_t)steps * (int32_t)speed;
-        shared_hw_add_wheel(total_delta);
-    }
-    
+
     /* 中键状态（带消抖：连续3次一致才确认） */
     static uint8_t s_sw_debounce_count = 0;
     static bool s_sw_stable = false;
@@ -195,8 +227,12 @@ static void core1_encoder_task(void)
         {
             s_sw_stable = sw_raw;
             s_sw_debounce_count = 0;
+
+            /* 中键状态变化时输入到编码器处理器（用于模式切换） */
+            encoder_processor_input_switch(s_sw_stable, now_ms);
         }
     }
+
     /* 中键状态（OR合并：只设置/清除中键位，不影响其他来源的按钮） */
     if (s_sw_stable)
     {
@@ -206,12 +242,18 @@ static void core1_encoder_task(void)
     {
         shared_hw_clear_mouse_buttons(0x04);  /* 中键释放：清除 bit2 */
     }
+
     perf_end(8);
 }
 
 /* 摇杆读取任务：10ms */
 static void core1_joystick_task(void)
 {
+    static uint32_t s_call_count = 0;
+    if (s_call_count < 3) {
+        log_printf("[C1] joystick_task #%lu\n", (unsigned long)s_call_count);
+        s_call_count++;
+    }
     perf_start(11);
     joystick_data_t data;
     if (joystick_read(s_joystick_cfg, &data) != 0)
@@ -222,59 +264,51 @@ static void core1_joystick_task(void)
     }
     shared_hw_inc_joystick_read();
 
-    /* ADC 值 0~4095 转换为 -2048~2047（中心值2048） */
-    int32_t x = (int32_t)data.x - 2048;
-    int32_t y = (int32_t)data.y - 2048;
-
-    /* 读取死区（优先用实时设置） */
-    uint16_t deadzone;
-    if (s_joystick_deadzone_rt != 0xFFFFFFFFUL)
+    /* 检查是否有校准触发（Core0 通过 HID 命令触发） */
+    uint16_t calib_samples = 0;
+    if (shared_hw_check_and_clear_joystick_calib_trigger(&calib_samples))
     {
-        deadzone = (uint16_t)s_joystick_deadzone_rt;
-    }
-    else
-    {
-        deadzone = config_get()->joystick_deadzone;
-    }
-    int32_t range = 2048 - (int32_t)deadzone;
-    if (range < 100)
-    {
-        range = 100;
+        if (joystick_processor_start_calibration(calib_samples))
+        {
+            shared_hw_set_joystick_calibration_state(1);  /* 校准中 */
+            log_printf("[CORE1] 摇杆校准开始，采样次数: %d\n", calib_samples);
+        }
     }
 
-    /* 死区处理 */
-    if (x > -(int32_t)deadzone && x < (int32_t)deadzone)
+    /* 如果正在进行校准，输入采样值 */
+    if (joystick_processor_get_calibration_state() == JOYSTICK_CALIB_CENTERING)
     {
-        x = 0;
+        joystick_processor_calibration_sample(data.x, data.y);
     }
-    if (y > -(int32_t)deadzone && y < (int32_t)deadzone)
+    else if (joystick_processor_get_calibration_state() == JOYSTICK_CALIB_DONE)
     {
-        y = 0;
+        /* 校准完成，更新状态并将校准数据写入共享数据（供 Core0 保存到配置） */
+        shared_hw_set_joystick_calibration_state(2);  /* 完成 */
+        joystick_calibration_t calib = joystick_processor_get_calibration();
+        shared_hw_set_joystick_calibration_data(calib.center_x, calib.center_y,
+                                                  calib.calibrated ? 1 : 0);
+        shared_hw_notify_joystick_calib_updated();  /* 通知 Core0 保存到配置 */
+        log_printf("[CORE1] 摇杆校准完成: center_x=%d, center_y=%d\n", calib.center_x, calib.center_y);
+        /* 重置状态为空闲，允许下次校准 */
+        /* 注意：这里不重置 joystick_processor 的状态，因为校准数据需要保留 */
     }
 
-    /* 缩放至 -127~127 */
-    x = (x * 127) / range;
-    y = (y * 127) / range;
-
-    /* 应用灵敏度（定点数，1.0=1000） */
+    /* 从配置提取摇杆参数 */
     const device_config_t* cfg = config_get();
-    uint16_t sens = cfg->joystick_sensitivity;
-    if (sens == 0) sens = 1000;  /* 防止除零 */
-    x = (x * (int32_t)sens) / 1000;
-    y = (y * (int32_t)sens) / 1000;
+    joystick_config_t joy_cfg;
+    joy_cfg.deadzone = cfg->joystick_deadzone;
+    joy_cfg.sensitivity = cfg->joystick_sensitivity;
+    joy_cfg.invert_x = cfg->joystick_invert_x;
+    joy_cfg.invert_y = cfg->joystick_invert_y;
+    joy_cfg.curve_type = cfg->reserved2[0];  /* 使用保留字段存储曲线类型 */
+    joystick_processor_set_config(&joy_cfg);
 
-    /* 限制范围 */
-    if (x > 127) x = 127;
-    if (x < -127) x = -127;
-    if (y > 127) y = 127;
-    if (y < -127) y = -127;
+    /* 处理摇杆信号 */
+    joystick_result_t result;
+    joystick_processor_process(data.x, data.y, &result);
 
-    /* X/Y轴反转配置 */
-    if (cfg->joystick_invert_x) x = -x;
-    if (cfg->joystick_invert_y) y = -y;  /* 默认Y轴反转（物理方向与HID相反），可通过配置取消 */
-
-    int16_t joy_x = (int16_t)x;
-    int16_t joy_y = (int16_t)y;
+    int16_t joy_x = result.x;
+    int16_t joy_y = result.y;
 
     /* 摇杆按键消抖：连续3次一致才确认（10ms任务周期=30ms消抖） */
     static uint8_t s_joy_btn_debounce_count = 0;
@@ -299,9 +333,10 @@ static void core1_joystick_task(void)
     perf_end(11);
 }
 
-/* ==================== 主入口 ==================== */
+/* ==================== 主入口子函数 ==================== */
 
-void core1_scanner_main(void)
+/* Core1 硬件扫描初始化（硬件配置、消抖、处理器、调度器、任务注册） */
+static void core1_scanner_init(void)
 {
     /* 注册Core1为可被flash_safe_execute锁定的核心（必须最早调用） */
     flash_service_core1_init();
@@ -311,13 +346,40 @@ void core1_scanner_main(void)
     s_optical_sensor_cfg = board_get_optical_sensor_cfg();
     s_encoder_cfg = board_get_encoder_cfg();
     s_joystick_cfg = board_get_joystick_cfg();
-    
+
     /* 初始化消抖 */
     debounce_64key_init(&s_keypad_debounce, 2);
-    
+
     /* 初始化编码器状态 */
     encoder_state_init(&s_encoder_state);
-    
+
+    /* 初始化摇杆信号处理器 */
+    joystick_processor_init();
+
+    /* 初始化编码器处理器 */
+    encoder_processor_init();
+
+    /* 从配置加载编码器模式（持久化） */
+    uint8_t saved_mode = config_get()->reserved3[0];
+    if (saved_mode < ENCODER_MODE_COUNT) {
+        log_printf("[C1] before set_mode\n");
+        encoder_processor_set_mode((encoder_mode_t)saved_mode);
+        log_printf("[C1] after set_mode, mode=%d\n", saved_mode);
+    }
+
+    /* 从共享数据加载校准数据（Core0 启动时从配置写入） */
+    uint16_t center_x = 2048, center_y = 2048;
+    uint8_t calibrated = 0;
+    shared_hw_get_joystick_calibration_data(&center_x, &center_y, &calibrated);
+    if (calibrated) {
+        joystick_calibration_t calib;
+        calib.center_x = center_x;
+        calib.center_y = center_y;
+        calib.calibrated = true;
+        joystick_processor_set_calibration(&calib);
+        log_printf("[CORE1] 摇杆校准数据已加载: center_x=%d, center_y=%d\n", center_x, center_y);
+    }
+
     /* 初始化调度器 */
     sched_init();
 
@@ -328,126 +390,128 @@ void core1_scanner_main(void)
     perf_register_task(11, "c1_joystick");
     perf_set_threshold(8, 200);    /* encoder: 0.2ms */
     perf_set_threshold(9, 500);    /* optical_sensor: 0.5ms */
-    perf_set_threshold(10, 1000);  /* keypad: 1ms */
+    perf_set_threshold(10, 2000);  /* keypad: 2ms (SPI 64键读取，含总线竞争余量) */
     perf_set_threshold(11, 500);   /* joystick: 0.5ms */
-    
+
     /* 配置任务列表 */
     int idx = 0;
-    
-    /* 编码器扫描：1ms，高优先级 */
-    s_core1_tasks[idx].interval_us = 1000;
+    s_core1_tasks[idx].interval_us = 1000;  /* 编码器扫描：1ms，高优先级 */
     s_core1_tasks[idx].last_run_us = 0;
     s_core1_tasks[idx].priority = 64;
     s_core1_tasks[idx].task_func = core1_encoder_task;
     idx++;
-    
-    /* OPTICAL_SENSOR 传感器读取：2ms，高优先级 */
-    s_core1_tasks[idx].interval_us = 2000;
+    s_core1_tasks[idx].interval_us = 2000;  /* OPTICAL_SENSOR 传感器读取：2ms，高优先级 */
     s_core1_tasks[idx].last_run_us = 0;
     s_core1_tasks[idx].priority = 64;
     s_core1_tasks[idx].task_func = core1_optical_sensor_task;
     idx++;
-    
-    /* 键盘扫描：5ms，普通优先级 */
-    s_core1_tasks[idx].interval_us = 5000;
+    s_core1_tasks[idx].interval_us = 5000;  /* 键盘扫描：5ms，普通优先级 */
     s_core1_tasks[idx].last_run_us = 0;
     s_core1_tasks[idx].priority = 128;
     s_core1_tasks[idx].task_func = core1_keypad_task;
     idx++;
-    
-    /* 摇杆读取：10ms，普通优先级 */
-    s_core1_tasks[idx].interval_us = 10000;
+    s_core1_tasks[idx].interval_us = 10000; /* 摇杆读取：10ms，普通优先级 */
     s_core1_tasks[idx].last_run_us = 0;
     s_core1_tasks[idx].priority = 128;
     s_core1_tasks[idx].task_func = core1_joystick_task;
     idx++;
-    
-    /* 主循环 */
-    while (1)
-    {
-        /* 处理 FIFO 命令（核间通信） */
-        while (multicore_fifo_rvalid())
-        {
-            uint32_t cmd = multicore_fifo_pop_blocking();
-            uint8_t type = IPC_GET_TYPE(cmd);
-            uint32_t param = IPC_GET_PARAM(cmd);
+}
 
-            switch (type)
-            {
-                case IPC_CMD_NOP:
-                    /* 空操作，回ACK */
-                    multicore_fifo_push_blocking(IPC_ACK_OK);
-                    break;
+/* 处理 Core1 FIFO 命令（核间通信） */
+static void core1_handle_fifo_cmd(uint32_t cmd)
+{
+    uint8_t type = IPC_GET_TYPE(cmd);
+    uint32_t param = IPC_GET_PARAM(cmd);
 
-                case IPC_CMD_SET_DPI:
-                    /* 设置 DPI */
-                    optical_sensor_set_dpi(s_optical_sensor_cfg, (optical_sensor_dpi_e)param);
-                    multicore_fifo_push_blocking(IPC_ACK_OK);
-                    break;
-
-                case IPC_CMD_SLEEP:
-                    /* 进入休眠命令：先回ACK，然后进入WFE等待事件唤醒 */
-                    multicore_fifo_push_blocking(IPC_ACK_OK);
-                    __dmb();  /* 数据同步屏障 */
-                    /* 清除事件标志，确保真正进入休眠 */
-                    __sev();
+    switch (type) {
+        case IPC_CMD_NOP:
+            ipc_try_push_ack(IPC_ACK_OK);
+            break;
+        case IPC_CMD_SET_DPI:
+            optical_sensor_set_dpi(s_optical_sensor_cfg, (optical_sensor_dpi_e)param);
+            ipc_try_push_ack(IPC_ACK_OK);
+            break;
+        case IPC_CMD_SET_DPI_RAW:
+            optical_sensor_set_dpi_raw(s_optical_sensor_cfg, (uint16_t)param);
+            ipc_try_push_ack(IPC_ACK_OK);
+            break;
+        case IPC_CMD_SLEEP:
+            ipc_try_push_ack(IPC_ACK_OK);
+            __dmb();
+            __sev();
+            __wfe();
+            __wfe();
+            break;
+        case IPC_CMD_PAUSE: {
+            ipc_try_push_ack(IPC_ACK_OK);
+            uint32_t pause_start = time_us_32();
+            bool timeout = false;
+            while (1) {
+                /* 等待 FIFO 数据，带超时检查
+                 * 使用 WFE 低功耗等待，但每次唤醒后检查超时
+                 */
+                while (!multicore_fifo_rvalid()) {
                     __wfe();
-                    __wfe();
-                    break;
-
-                case IPC_CMD_PAUSE:
-                    /* 暂停扫描：回ACK，然后进入等待循环，直到收到RESUME */
-                    multicore_fifo_push_blocking(IPC_ACK_OK);
-                    while (1)
-                    {
-                        /* 等待 FIFO 数据 */
-                        while (!multicore_fifo_rvalid())
-                        {
-                            __wfe();  /* 没事做就进入低功耗等待 */
-                        }
-                        uint32_t pause_cmd = multicore_fifo_pop_blocking();
-                        uint8_t pause_type = IPC_GET_TYPE(pause_cmd);
-                        
-                        if (pause_type == IPC_CMD_RESUME)
-                        {
-                            multicore_fifo_push_blocking(IPC_ACK_OK);
-                            break;  /* 退出暂停循环 */
-                        }
-                        else if (pause_type == IPC_CMD_NOP)
-                        {
-                            multicore_fifo_push_blocking(IPC_ACK_OK);
-                        }
-                        /* 其他命令在暂停状态下忽略 */
+                    /* 超时检查：5秒后自动恢复，防止 Core0 崩溃后永久挂起 */
+                    if ((time_us_32() - pause_start) >= CORE1_PAUSE_TIMEOUT_US) {
+                        timeout = true;
+                        break;
                     }
+                }
+                if (timeout) {
+                    fault_record(FAULT_LEVEL_WARN, "core1", "pause timeout (5s), auto resume");
+                    log_printf("[CORE1] ⚠️ 暂停超时(5秒)，自动恢复扫描\n");
                     break;
-
-                case IPC_CMD_RESUME:
-                    /* 正常状态下收到RESUME，直接回ACK */
-                    multicore_fifo_push_blocking(IPC_ACK_OK);
+                }
+                uint32_t pause_cmd = multicore_fifo_pop_blocking();
+                uint8_t pause_type = IPC_GET_TYPE(pause_cmd);
+                if (pause_type == IPC_CMD_RESUME) {
+                    ipc_try_push_ack(IPC_ACK_OK);
                     break;
-
-                case IPC_CMD_SET_ENCODER_REV:
-                    /* 设置编码器方向（实时，不存Flash） */
-                    s_encoder_reverse_rt = (int32_t)param;
-                    multicore_fifo_push_blocking(IPC_ACK_OK);
-                    break;
-
-                case IPC_CMD_SET_JOYSTICK_DZ:
-                    /* 设置摇杆死区（实时，不存Flash） */
-                    s_joystick_deadzone_rt = param;
-                    multicore_fifo_push_blocking(IPC_ACK_OK);
-                    break;
-
-                case IPC_CMD_PING:
-                    /* 测试命令，回ACK */
-                    multicore_fifo_push_blocking(IPC_ACK_OK);
-                    break;
-
-                default:
-                    /* 未知命令，回错误 */
-                    multicore_fifo_push_blocking(IPC_ACK_ERR);
-                    break;
+                } else if (pause_type == IPC_CMD_NOP) {
+                    ipc_try_push_ack(IPC_ACK_OK);
+                }
+                /* 其他命令在暂停状态下忽略，但重置超时计时器（说明 Core0 还活着） */
+                pause_start = time_us_32();
             }
+            break;
+        }
+        case IPC_CMD_RESUME:
+            ipc_try_push_ack(IPC_ACK_OK);
+            break;
+        case IPC_CMD_SET_ENCODER_REV:
+            s_encoder_reverse_rt = (int32_t)param;
+            ipc_try_push_ack(IPC_ACK_OK);
+            break;
+        case IPC_CMD_SET_JOYSTICK_DZ:
+            s_joystick_deadzone_rt = param;
+            ipc_try_push_ack(IPC_ACK_OK);
+            break;
+        case IPC_CMD_PING:
+            ipc_try_push_ack(IPC_ACK_OK);
+            break;
+        default:
+            ipc_try_push_ack(IPC_ACK_ERR);
+            break;
+    }
+}
+
+/* ==================== 主入口 ==================== */
+
+void core1_scanner_main(void)
+{
+    core1_scanner_init();
+
+    /* 主循环 */
+    log_printf("[C1] entering main loop\n");
+    while (1) {
+        /* 每次循环开始时更新 heartbeat，消除单点故障 */
+        shared_hw_increment_heartbeat();
+
+        /* 处理 FIFO 命令（核间通信） */
+        while (multicore_fifo_rvalid()) {
+            uint32_t cmd = multicore_fifo_pop_blocking();
+            core1_handle_fifo_cmd(cmd);
         }
 
         /* 运行调度器 */

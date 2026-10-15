@@ -1,1 +1,1 @@
-global using HidConfigTool.ViewModels;
+﻿global using HidConfigTool.ViewModels;

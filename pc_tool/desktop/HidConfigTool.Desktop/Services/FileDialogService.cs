@@ -1,13 +1,14 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Platform.Storage;
 using System.Diagnostics;
 using HidConfigTool.Core.Interfaces;
 
 namespace HidConfigTool.Desktop.Services;
 
 /// <summary>
-/// Avalonia 文件对话框服务实现
+/// Avalonia 文件对话框服务实现（使用 StorageProvider API）
 /// </summary>
 public class FileDialogService : IFileDialogService
 {
@@ -23,14 +24,15 @@ public class FileDialogService : IFileDialogService
         var window = GetMainWindow();
         if (window == null) return null;
 
-        var dialog = new OpenFileDialog
+        var options = new FilePickerOpenOptions
         {
             Title = title,
-            Filters = ParseFilter(filter),
-            AllowMultiple = false
+            AllowMultiple = false,
+            FileTypeFilter = ParseFilterForOpen(filter)
         };
-        var result = dialog.ShowAsync(window).GetAwaiter().GetResult();
-        return result?.Length > 0 ? result[0] : null;
+
+        var result = window.StorageProvider.OpenFilePickerAsync(options).GetAwaiter().GetResult();
+        return result?.Count > 0 ? result[0].Path.LocalPath : null;
     }
 
     public string? SaveFile(string title, string filter, string defaultExt)
@@ -38,13 +40,15 @@ public class FileDialogService : IFileDialogService
         var window = GetMainWindow();
         if (window == null) return null;
 
-        var dialog = new SaveFileDialog
+        var options = new FilePickerSaveOptions
         {
             Title = title,
-            Filters = ParseFilter(filter),
-            DefaultExtension = defaultExt
+            DefaultExtension = defaultExt,
+            FileTypeChoices = ParseFilterForSave(filter)
         };
-        return dialog.ShowAsync(window).GetAwaiter().GetResult();
+
+        var result = window.StorageProvider.SaveFilePickerAsync(options).GetAwaiter().GetResult();
+        return result?.Path.LocalPath;
     }
 
     public void OpenFolder(string path)
@@ -55,18 +59,43 @@ public class FileDialogService : IFileDialogService
         }
     }
 
-    private List<FileDialogFilter> ParseFilter(string filter)
+    /// <summary>
+    /// 解析过滤器字符串为 FilePickerFileType 列表（用于打开文件）
+    /// 格式: "描述1|*.ext1;*.ext2|描述2|*.ext3"
+    /// </summary>
+    private IReadOnlyList<FilePickerFileType> ParseFilterForOpen(string filter)
     {
-        var filters = new List<FileDialogFilter>();
-        foreach (var part in filter.Split('|'))
+        var result = new List<FilePickerFileType>();
+        var parts = filter.Split('|');
+        for (int i = 0; i + 1 < parts.Length; i += 2)
         {
-            if (part.Contains('.'))
+            var name = parts[i].Trim();
+            var exts = parts[i + 1].Split(';')
+                .Select(e => e.Trim().TrimStart('*'))
+                .Where(e => !string.IsNullOrEmpty(e))
+                .ToList();
+            if (exts.Count > 0)
             {
-                var name = part.Trim();
-                var exts = name.Split(';').Select(e => e.TrimStart('*', '.')).ToList();
-                filters.Add(new FileDialogFilter { Name = name, Extensions = exts });
+                result.Add(new FilePickerFileType(name)
+                {
+                    Patterns = exts.Select(e => $"*{e}").ToArray()
+                });
             }
         }
-        return filters;
+        // 如果没有解析到任何过滤器，添加"所有文件"
+        if (result.Count == 0)
+        {
+            result.Add(new FilePickerFileType("所有文件") { Patterns = new[] { "*" } });
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// 解析过滤器字符串为 FilePickerFileType 列表（用于保存文件）
+    /// </summary>
+    private IReadOnlyList<FilePickerFileType>? ParseFilterForSave(string filter)
+    {
+        var result = ParseFilterForOpen(filter);
+        return result.Count > 0 ? result : null;
     }
 }

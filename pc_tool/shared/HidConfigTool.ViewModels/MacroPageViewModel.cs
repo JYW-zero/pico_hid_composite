@@ -79,9 +79,8 @@ public partial class MacroActionItemViewModel : ObservableObject
     };
 }
 
-public partial class MacroPageViewModel : ObservableObject
+public partial class MacroPageViewModel : PageViewModelBase
 {
-    private readonly IDeviceService _deviceService;
     private readonly IMacroRecorder _macroRecorder;
     private readonly ITimerService _recordTimer;
     private readonly IDialogService _dialogService;
@@ -173,8 +172,8 @@ public partial class MacroPageViewModel : ObservableObject
 
     public MacroPageViewModel(IDeviceService deviceService, IMacroRecorder macroRecorder,
         ITimerService timerService, IDialogService dialogService, IUiThreadService uiThreadService)
+        : base(deviceService)
     {
-        _deviceService = deviceService;
         _macroRecorder = macroRecorder;
         _dialogService = dialogService;
         _uiThreadService = uiThreadService;
@@ -400,7 +399,7 @@ public partial class MacroPageViewModel : ObservableObject
     [RelayCommand]
     private async Task PlayMacro()
     {
-        if (CurrentMacro == null || !_deviceService.IsConnected)
+        if (CurrentMacro == null || !DeviceService.IsConnected)
         {
             _dialogService.ShowInfo("设备未连接或未选择宏", "提示");
             return;
@@ -417,7 +416,7 @@ public partial class MacroPageViewModel : ObservableObject
         await SaveCurrentMacroAsync();
 
         // 发送播放命令
-        bool result = await _deviceService.PlayMacroAsync(macroId);
+        bool result = await DeviceService.PlayMacroAsync(macroId);
         if (result)
         {
             IsPlaying = true;
@@ -432,11 +431,11 @@ public partial class MacroPageViewModel : ObservableObject
     [RelayCommand]
     private async Task StopPlayback()
     {
-        if (!_deviceService.IsConnected)
+        if (!DeviceService.IsConnected)
             return;
 
         byte macroId = CurrentMacro != null ? (byte)Macros.IndexOf(CurrentMacro) : (byte)0xFF;
-        bool result = await _deviceService.StopMacroAsync(macroId);
+        bool result = await DeviceService.StopMacroAsync(macroId);
         if (result)
         {
             IsPlaying = false;
@@ -451,7 +450,7 @@ public partial class MacroPageViewModel : ObservableObject
     /// </summary>
     private async Task LoadMacrosFromDeviceAsync()
     {
-        if (!_deviceService.IsConnected)
+        if (!DeviceService.IsConnected)
         {
             return;
         }
@@ -463,7 +462,7 @@ public partial class MacroPageViewModel : ObservableObject
 
             for (byte i = 0; i < 8; i++)
             {
-                byte[]? data = await _deviceService.GetMacroAsync(i);
+                byte[]? data = await DeviceService.GetMacroAsync(i);
                 if (data != null && data.Length >= 20)
                 {
                     var macro = ParseMacroData(i, data);
@@ -578,7 +577,7 @@ public partial class MacroPageViewModel : ObservableObject
     [RelayCommand]
     private async Task SaveCurrentMacroAsync()
     {
-        if (CurrentMacro == null || !_deviceService.IsConnected)
+        if (CurrentMacro == null || !DeviceService.IsConnected)
         {
             _dialogService.ShowInfo("设备未连接", "提示");
             return;
@@ -608,7 +607,7 @@ public partial class MacroPageViewModel : ObservableObject
             if (macroId >= 8) macroId = 0;
 
             // 写入设备
-            bool ok = await _deviceService.SetMacroAsync(macroId, data);
+            bool ok = await DeviceService.SetMacroAsync(macroId, data);
             if (ok)
             {
                 _dialogService.ShowInfo("保存成功！", "提示");
@@ -685,6 +684,16 @@ public partial class MacroPageViewModel : ObservableObject
         if (keyCode == 0x00)
             return "None";
         return HidKeyConverter.HidUsageToName(keyCode);
+    }
+
+    /// <summary>
+    /// 释放子类特有资源（重写基类虚方法）
+    /// </summary>
+    protected override void DisposeManagedResources()
+    {
+        _recordTimer.Stop();
+        _recordTimer.Tick -= OnRecordTimerTick;
+        _macroRecorder.ActionRecorded -= OnActionRecorded;
     }
 
     #endregion

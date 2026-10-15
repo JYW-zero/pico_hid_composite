@@ -46,6 +46,19 @@ public interface IHidDriver : IDisposable
     Task<bool> SendFeatureReportAsync(byte reportId, byte[] data, CancellationToken cancellationToken);
 
     /// <summary>
+    /// 发送 Output 报告（中断传输，速度比 Feature Report 更快）
+    /// 用于高端游戏外设的命令发送，走 USB 中断传输（Interrupt Transfer）
+    /// </summary>
+    /// <param name="reportId">报告 ID</param>
+    /// <param name="data">报告数据（不含 Report ID）</param>
+    Task<bool> SendOutputReportAsync(byte reportId, byte[] data);
+
+    /// <summary>
+    /// 发送 Output 报告（支持取消）
+    /// </summary>
+    Task<bool> SendOutputReportAsync(byte reportId, byte[] data, CancellationToken cancellationToken);
+
+    /// <summary>
     /// 读取 Feature 报告
     /// </summary>
     Task<byte[]?> GetFeatureReportAsync(byte reportId);
@@ -54,6 +67,15 @@ public interface IHidDriver : IDisposable
     /// 读取 Feature 报告（支持取消）
     /// </summary>
     Task<byte[]?> GetFeatureReportAsync(byte reportId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 读取 Input 报告（设备主动发送给主机的报告，如 ACK 响应）
+    /// 注意：这是一个阻塞调用，直到收到报告或超时/取消。
+    /// 调用方应在独立任务或带超时的 CancellationToken 中调用。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>报告数据（第一个字节为 Report ID），失败或取消返回 null</returns>
+    Task<byte[]?> ReadInputReportAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>

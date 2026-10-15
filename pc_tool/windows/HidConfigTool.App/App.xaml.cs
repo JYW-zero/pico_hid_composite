@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
@@ -89,6 +89,7 @@ public partial class App : Application
         services.AddTransient<ITimerService, TimerService>();
         services.AddSingleton<IKeyPickerService, KeyPickerService>();
         services.AddSingleton<IFileDialogService, FileDialogService>();
+        services.AddSingleton<IFirmwareUpdateService, FirmwareUpdateService>();
         services.AddSingleton<IInputDialogService, InputDialogService>();
         services.AddSingleton<IUiThreadService, UiThreadService>();
         services.AddSingleton<IAutoStartService, AutoStartService>();
@@ -105,6 +106,16 @@ public partial class App : Application
         services.AddSingleton<ConfigProfileManager>();
         services.AddSingleton<IConfigProfileService>(sp => sp.GetRequiredService<ConfigProfileManager>());
         Log("注册: ConfigProfileManager");
+
+        // 配置导入/导出服务
+        services.AddSingleton<ConfigImportExportService>();
+        Log("注册: ConfigImportExportService");
+
+        services.AddSingleton<DeviceDiagnosticsService>();
+        Log("注册: DeviceDiagnosticsService");
+
+        services.AddSingleton<PresetService>();
+        Log("注册: PresetService");
 
         services.AddSingleton<OsdManager>();
         services.AddSingleton<IOsdService>(sp => sp.GetRequiredService<OsdManager>());
@@ -133,6 +144,9 @@ public partial class App : Application
         services.AddSingleton<MainViewModel>();
         Log("注册: MainViewModel");
 
+        services.AddTransient<DashboardPageViewModel>();
+        Log("注册: DashboardPageViewModel");
+
         services.AddTransient<DevicePageViewModel>();
         Log("注册: DevicePageViewModel");
 
@@ -160,15 +174,27 @@ public partial class App : Application
         services.AddTransient<PerfMonitorPageViewModel>();
         Log("注册: PerfMonitorPageViewModel");
 
+        services.AddTransient<DiagnosticsPageViewModel>();
+        Log("注册: DiagnosticsPageViewModel");
+
+        services.AddTransient<PresetPageViewModel>();
+        Log("注册: PresetPageViewModel");
+
         services.AddTransient<SettingsPageViewModel>();
         Log("注册: SettingsPageViewModel");
 
         services.AddTransient<StatsPageViewModel>();
         Log("注册: StatsPageViewModel");
 
+        services.AddTransient<FirmwareUpdatePageViewModel>();
+        Log("注册: FirmwareUpdatePageViewModel");
+
         // 视图
         services.AddTransient<MainWindow>();
         Log("注册: MainWindow");
+
+        services.AddTransient<DashboardPage>();
+        Log("注册: DashboardPage");
 
         services.AddTransient<DevicePage>();
         Log("注册: DevicePage");
@@ -200,11 +226,20 @@ public partial class App : Application
         services.AddTransient<PerfMonitorPage>();
         Log("注册: PerfMonitorPage");
 
+        services.AddTransient<DiagnosticsPage>();
+        Log("注册: DiagnosticsPage");
+
+        services.AddTransient<PresetPage>();
+        Log("注册: PresetPage");
+
         services.AddTransient<SettingsPage>();
         Log("注册: SettingsPage");
 
         services.AddTransient<StatsPage>();
         Log("注册: StatsPage");
+
+        services.AddTransient<FirmwareUpdatePage>();
+        Log("注册: FirmwareUpdatePage");
 
         Log("所有服务注册完成");
     }

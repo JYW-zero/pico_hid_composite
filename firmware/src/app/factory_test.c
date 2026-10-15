@@ -26,6 +26,11 @@
 
 static factory_test_result_t s_result;
 
+/* 锁定 detail 文本缓冲大小：snprintf 的长度参数必须与结构体字段一致，
+ * 防止 FACTORY_TEST_DETAIL_SIZE 与 detail[] 定义漂移导致截断或溢出 */
+_Static_assert(sizeof(s_result.items[0].detail) == FACTORY_TEST_DETAIL_SIZE,
+               "factory_test detail[] size must match FACTORY_TEST_DETAIL_SIZE");
+
 /* ==================== 内部函数：各个测试项 ==================== */
 
 /* 测试1：SPI键盘测试 */
@@ -39,7 +44,7 @@ static factory_test_status_t test_spi_keypad(char* detail, uint32_t* duration_ms
     int ret = keypad_spi_read_u64(cfg, &keys);
     if (ret != 0)
     {
-        sprintf(detail, "SPI键盘: 读取失败 (%d)", ret);
+        snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "SPI键盘: 读取失败 (%d)", ret);
         *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
         return FACTORY_TEST_FAIL;
     }
@@ -59,12 +64,12 @@ static factory_test_status_t test_spi_keypad(char* detail, uint32_t* duration_ms
     if (pressed_count >= 60)
     {
         /* 几乎所有键都按下，可能是SPI通信故障或者短路 */
-        sprintf(detail, "SPI键盘: 疑似短路，按下%d键", pressed_count);
+        snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "SPI键盘: 疑似短路，按下%d键", pressed_count);
         *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
         return FACTORY_TEST_FAIL;
     }
 
-    sprintf(detail, "SPI键盘: 通信正常，%d键按下", pressed_count);
+    snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "SPI键盘: 通信正常，%d键按下", pressed_count);
     *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
     return FACTORY_TEST_PASS;
 }
@@ -79,7 +84,7 @@ static factory_test_status_t test_optical_sensor(char* detail, uint32_t* duratio
     int ret = optical_sensor_init(cfg);
     if (ret != 0)
     {
-        sprintf(detail, "OPTICAL_SENSOR: 初始化失败 (%d)", ret);
+        snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "OPTICAL_SENSOR: 初始化失败 (%d)", ret);
         *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
         return FACTORY_TEST_FAIL;
     }
@@ -89,7 +94,7 @@ static factory_test_status_t test_optical_sensor(char* detail, uint32_t* duratio
     ret = optical_sensor_reg_read(cfg, 0x00, &pid);
     if (ret != 0)
     {
-        sprintf(detail, "OPTICAL_SENSOR: 读取产品ID失败");
+        snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "OPTICAL_SENSOR: 读取产品ID失败");
         *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
         return FACTORY_TEST_FAIL;
     }
@@ -98,12 +103,12 @@ static factory_test_status_t test_optical_sensor(char* detail, uint32_t* duratio
     /* 检查产品ID是否合理（不是0x00也不是0xFF） */
     if (pid == 0x00 || pid == 0xFF)
     {
-        sprintf(detail, "OPTICAL_SENSOR: 产品ID异常 (0x%02X)", pid);
+        snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "OPTICAL_SENSOR: 产品ID异常 (0x%02X)", pid);
         *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
         return FACTORY_TEST_FAIL;
     }
 
-    sprintf(detail, "OPTICAL_SENSOR: 产品ID=0x%02X 修订ID=0x%02X", pid, rid);
+    snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "OPTICAL_SENSOR: 产品ID=0x%02X 修订ID=0x%02X", pid, rid);
     *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
     return FACTORY_TEST_PASS;
 }
@@ -118,7 +123,7 @@ static factory_test_status_t test_joystick_adc(char* detail, uint32_t* duration_
     int ret = joystick_init(cfg);
     if (ret != 0)
     {
-        sprintf(detail, "摇杆ADC: 初始化失败 (%d)", ret);
+        snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "摇杆ADC: 初始化失败 (%d)", ret);
         *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
         return FACTORY_TEST_FAIL;
     }
@@ -128,7 +133,7 @@ static factory_test_status_t test_joystick_adc(char* detail, uint32_t* duration_
     ret = joystick_read(cfg, &data);
     if (ret != 0)
     {
-        sprintf(detail, "摇杆ADC: 读取失败");
+        snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "摇杆ADC: 读取失败");
         *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
         return FACTORY_TEST_FAIL;
     }
@@ -136,7 +141,7 @@ static factory_test_status_t test_joystick_adc(char* detail, uint32_t* duration_
     /* 检查ADC值是否在合理范围内（0-4095） */
     if (data.x > 4095 || data.y > 4095)
     {
-        sprintf(detail, "摇杆ADC: 值超出范围 X=%d Y=%d", data.x, data.y);
+        snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "摇杆ADC: 值超出范围 X=%d Y=%d", data.x, data.y);
         *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
         return FACTORY_TEST_FAIL;
     }
@@ -146,12 +151,12 @@ static factory_test_status_t test_joystick_adc(char* detail, uint32_t* duration_
     bool y_ok = (data.y > 500) && (data.y < 3500);
     if (!x_ok || !y_ok)
     {
-        sprintf(detail, "摇杆ADC: 中值异常 X=%d Y=%d", data.x, data.y);
+        snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "摇杆ADC: 中值异常 X=%d Y=%d", data.x, data.y);
         *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
         return FACTORY_TEST_FAIL;
     }
 
-    sprintf(detail, "摇杆ADC: X=%d Y=%d 按键=%s",
+    snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "摇杆ADC: X=%d Y=%d 按键=%s",
             data.x, data.y, data.btn_pressed ? "按下" : "松开");
     *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
     return FACTORY_TEST_PASS;
@@ -167,7 +172,7 @@ static factory_test_status_t test_encoder(char* detail, uint32_t* duration_ms)
     int ret = encoder_init(cfg);
     if (ret != 0)
     {
-        sprintf(detail, "编码器: 初始化失败 (%d)", ret);
+        snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "编码器: 初始化失败 (%d)", ret);
         *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
         return FACTORY_TEST_FAIL;
     }
@@ -180,7 +185,7 @@ static factory_test_status_t test_encoder(char* detail, uint32_t* duration_ms)
     /* 简单检查：A/B相不应该同时是低电平（除非按下了），
      * 这里只检查GPIO读取功能正常
      */
-    sprintf(detail, "编码器: A=%d B=%d SW=%d",
+    snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "编码器: A=%d B=%d SW=%d",
             a_state ? 1 : 0, b_state ? 1 : 0, sw_state ? 1 : 0);
 
     *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
@@ -202,7 +207,7 @@ static factory_test_status_t test_flash(char* detail, uint32_t* duration_ms)
     /* 检查Flash大小是否合理（至少256KB） */
     if (flash_size < 256 * 1024)
     {
-        sprintf(detail, "Flash: 大小异常 (%s)", size_str);
+        snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "Flash: 大小异常 (%s)", size_str);
         *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
         return FACTORY_TEST_FAIL;
     }
@@ -210,7 +215,7 @@ static factory_test_status_t test_flash(char* detail, uint32_t* duration_ms)
     /* 检查Flash布局是否有效 */
     if (!flash_layout_is_valid())
     {
-        sprintf(detail, "Flash: 布局无效，大小%s不足", size_str);
+        snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "Flash: 布局无效，大小%s不足", size_str);
         *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
         return FACTORY_TEST_FAIL;
     }
@@ -259,18 +264,18 @@ static factory_test_status_t test_flash(char* detail, uint32_t* duration_ms)
     {
         if (config_valid)
         {
-            sprintf(detail, "Flash: %s, 读写测试通过, 配置魔数正确", size_str);
+            snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "Flash: %s, 读写测试通过, 配置魔数正确", size_str);
         }
         else
         {
-            sprintf(detail, "Flash: %s, 读写测试通过, 无有效配置（首次启动？）", size_str);
+            snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "Flash: %s, 读写测试通过, 无有效配置（首次启动？）", size_str);
         }
         *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
         return FACTORY_TEST_PASS;
     }
     else
     {
-        sprintf(detail, "Flash: %s, 写入-回读测试失败", size_str);
+        snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "Flash: %s, 写入-回读测试失败", size_str);
         *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
         return FACTORY_TEST_FAIL;
     }
@@ -290,7 +295,7 @@ static factory_test_status_t test_led(char* detail, uint32_t* duration_ms)
         sleep_ms(500);
     }
 
-    strcpy(detail, "LED: 闪烁 3 次完成，请目视确认");
+    snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "%s", "LED: 闪烁 3 次完成，请目视确认");
 
     *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
     return FACTORY_TEST_PASS;  /* 需要人工确认 */
@@ -309,18 +314,18 @@ static factory_test_status_t test_usb(char* detail, uint32_t* duration_ms)
     {
         if (suspended)
         {
-            strcpy(detail, "USB: 已挂载（挂起状态）");
+            snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "%s", "USB: 已挂载（挂起状态）");
         }
         else
         {
-            strcpy(detail, "USB: 已挂载（正常工作）");
+            snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "%s", "USB: 已挂载（正常工作）");
         }
         *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
         return FACTORY_TEST_PASS;
     }
     else
     {
-        strcpy(detail, "USB: 未挂载");
+        snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "%s", "USB: 未挂载");
         *duration_ms = to_ms_since_boot(get_absolute_time()) - start;
         /* USB未挂载不一定是故障，可能是没插电脑，所以返回警告？
          * 这里先返回FAIL，工厂测试时应该插着USB
@@ -377,7 +382,7 @@ factory_test_status_t factory_test_run_item(factory_test_item_t item)
             result = test_usb(detail, &duration_ms);
             break;
         default:
-            strcpy(detail, "未知测试项");
+            snprintf(detail, FACTORY_TEST_DETAIL_SIZE, "%s", "未知测试项");
             break;
     }
 
@@ -479,13 +484,10 @@ void factory_test_print_result(void)
 
 bool factory_test_check_entry(void)
 {
-    /* TODO: 检测是否进入工厂测试模式
-     * 可以是：
-     * - 按住某个键启动
-     * - 某个GPIO拉低
-     * - 特殊的USB命令
-     */
-    return false;  /* 默认不进入 */
+    /* 工厂测试模式检测已在 main.c 中实现：
+     * 启动时检测 Fn 键长按（500ms），如检测到则调用 factory_test_enter()
+     * 本函数保留为接口兼容，当前未使用 */
+    return false;  /* 默认不进入（实际检测逻辑在 main.c 中） */
 }
 
 void factory_test_enter(void)

@@ -1,8 +1,8 @@
-/*
+﻿/*
  * include/middleware/perf_monitor.h
- * 性能监控模块
- * 完整版本：任务执行时间统计、CPU使用率、主循环频率
- * 用于实时监控系统运行状态，排查性能问题
+ * Performance Monitor Module
+ * Full version: task execution time stats, CPU usage, main loop frequency
+ * For real-time system monitoring and performance troubleshooting
  */
 
 #ifndef MIDDLEWARE_PERF_MONITOR_H
@@ -10,127 +10,165 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
+#include "features.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/* ==================== 常量定义 ==================== */
+/* ==================== Constant Definitions ==================== */
 
-/* 最大监控任务数量 */
+/* Maximum number of monitored tasks */
 #define PERF_MAX_TASKS     16
 
-/* 滑动窗口大小（秒） */
+/* Sliding window size (seconds) */
 #define PERF_WINDOW_10S    10
 #define PERF_WINDOW_30S    30
 
-/* ==================== 数据结构 ==================== */
+/* ==================== Data Structures ==================== */
 
-/* 任务性能统计 */
+/* Task performance statistics */
 typedef struct
 {
-    const char* name;       /* 任务名称 */
-    uint32_t count;         /* 执行次数 */
-    uint32_t total_us;      /* 总执行时间（微秒） */
-    uint32_t min_us;        /* 最小执行时间 */
-    uint32_t max_us;        /* 最大执行时间 */
-    uint32_t last_us;       /* 最近一次执行时间 */
-    uint8_t  cpu_percent;   /* 任务CPU占比（0-100，占总忙碌时间的百分比） */
-    uint32_t threshold_us;  /* 超时告警阈值（微秒），0=不告警 */
-    uint32_t overrun_count; /* 超时次数统计 */
+    const char* name;       /* Task name */
+    uint32_t count;         /* Execution count */
+    uint32_t total_us;      /* Total execution time (microseconds) */
+    uint32_t min_us;        /* Minimum execution time */
+    uint32_t max_us;        /* Maximum execution time */
+    uint32_t last_us;       /* Last execution time */
+    uint8_t  cpu_percent;   /* Task CPU percentage (0-100, percentage of total busy time) */
+    uint32_t threshold_us;  /* Timeout alarm threshold (microseconds), 0=disabled */
+    uint32_t overrun_count; /* Timeout count */
 } perf_task_stat_t;
 
-/* 系统性能统计 */
+/* System performance statistics */
 typedef struct
 {
-    uint32_t loop_freq_hz;      /* 主循环频率（Hz） - 瞬时值 */
-    uint32_t cpu_usage;         /* CPU使用率（0-100） - 瞬时值 */
-    uint32_t uptime_s;          /* 运行时间（秒） */
-    uint8_t  cpu_usage_avg_10s; /* 最近10秒平均CPU使用率 */
-    uint8_t  cpu_usage_avg_30s; /* 最近30秒平均CPU使用率 */
-    uint32_t loop_freq_avg_10s; /* 最近10秒平均主循环频率 */
+    uint32_t loop_freq_hz;      /* Main loop frequency (Hz) - instantaneous */
+    uint32_t cpu_usage;         /* CPU usage (0-100) - instantaneous */
+    uint32_t uptime_s;          /* Uptime (seconds) */
+    uint8_t  cpu_usage_avg_10s; /* Average CPU usage over last 10 seconds */
+    uint8_t  cpu_usage_avg_30s; /* Average CPU usage over last 30 seconds */
+    uint32_t loop_freq_avg_10s; /* Average main loop frequency over last 10 seconds */
 } perf_system_stat_t;
 
-/* ==================== 对外接口 ==================== */
+/* ==================== Public API ==================== */
+
+#if FEATURE_PERF_MONITOR
 
 /**
- * @brief 初始化性能监控模块
+ * @brief Initialize performance monitor module
  */
 void perf_init(void);
 
 /**
- * @brief 注册一个监控任务
- * @param index 任务索引（0~PERF_MAX_TASKS-1）
- * @param name 任务名称
+ * @brief Register a monitored task
+ * @param index Task index (0~PERF_MAX_TASKS-1)
+ * @param name Task name
  */
 void perf_register_task(uint8_t index, const char* name);
 
 /**
- * @brief 任务开始计时
- * @param index 任务索引
+ * @brief Start task timing
+ * @param index Task index
  */
 void perf_start(uint8_t index);
 
 /**
- * @brief 任务结束计时
- * @param index 任务索引
+ * @brief End task timing
+ * @param index Task index
  */
 void perf_end(uint8_t index);
 
 /**
- * @brief 获取已注册的任务数量
- * @return 任务数量
+ * @brief Get number of registered tasks
+ * @return Number of tasks
  */
 uint8_t perf_get_task_count(void);
 
 /**
- * @brief 获取指定任务的统计数据
- * @param index 任务索引
- * @param out_stat 输出统计数据
- * @return true=成功，false=索引无效
+ * @brief Get statistics for specified task
+ * @param index Task index
+ * @param out_stat Output statistics
+ * @return true=success, false=invalid index
  */
 bool perf_get_task_stat(uint8_t index, perf_task_stat_t* out_stat);
 
 /**
- * @brief 获取系统整体统计数据
- * @param out_stat 输出统计数据
+ * @brief Get overall system statistics
+ * @param out_stat Output statistics
  */
 void perf_get_system_stat(perf_system_stat_t* out_stat);
 
 /**
- * @brief 重置所有统计数据
+ * @brief Reset all statistics
  */
 void perf_reset(void);
 
 /**
- * @brief 设置任务超时告警阈值
- * @param index 任务索引
- * @param threshold_us 超时阈值（微秒），0=禁用告警
+ * @brief Set task timeout alarm threshold
+ * @param index Task index
+ * @param threshold_us Timeout threshold (microseconds), 0=disable alarm
  */
 void perf_set_threshold(uint8_t index, uint32_t threshold_us);
 
 /**
- * @brief 主循环 tick（在主循环开头调用，用于计算循环频率和CPU使用率）
+ * @brief Batch load all task timeout thresholds from config
+ * @param thresholds Threshold array (unit: 100 microseconds, 0=disable alarm)
+ * @param count Array length (max PERF_MAX_TASKS)
+ * @note Thresholds stored in config are in 100us units, this function auto-converts to us
+ */
+void perf_load_thresholds(const uint16_t* thresholds, uint8_t count);
+
+/**
+ * @brief Main loop tick (call at start of main loop, for calculating loop frequency and CPU usage)
  */
 void perf_loop_tick(void);
 
 /**
- * @brief 设置性能监控开关
- * @param enabled true=开启，false=关闭
- * @note 关闭后所有 perf_start/perf_end/perf_loop_tick 直接返回，0开销
+ * @brief Set performance monitor enable/disable
+ * @param enabled true=enabled, false=disabled
+ * @note When disabled, all perf_start/perf_end/perf_loop_tick return immediately, zero overhead
  */
 void perf_set_enabled(bool enabled);
 
 /**
- * @brief 获取性能监控开关状态
- * @return true=开启，false=关闭
+ * @brief Get performance monitor enable status
+ * @return true=enabled, false=disabled
  */
 bool perf_is_enabled(void);
 
 /**
- * @brief 打印性能统计到串口（调试用）
+ * @brief Print performance statistics to serial port (for debugging)
  */
 void perf_print_stats(void);
+
+#else  /* FEATURE_PERF_MONITOR == 0：release 空桩，编译期消除、零运行时开销，
+          使 core1_scanner 等处的埋点无需散落 #if 包裹 */
+
+static inline void perf_init(void) {}
+static inline void perf_register_task(uint8_t index, const char* name) { (void)index; (void)name; }
+static inline void perf_start(uint8_t index) { (void)index; }
+static inline void perf_end(uint8_t index) { (void)index; }
+static inline uint8_t perf_get_task_count(void) { return 0; }
+static inline bool perf_get_task_stat(uint8_t index, perf_task_stat_t* out_stat) {
+    (void)index;
+    if (out_stat) memset(out_stat, 0, sizeof(*out_stat));
+    return false;
+}
+static inline void perf_get_system_stat(perf_system_stat_t* out_stat) {
+    if (out_stat) memset(out_stat, 0, sizeof(*out_stat));
+}
+static inline void perf_reset(void) {}
+static inline void perf_set_threshold(uint8_t index, uint32_t threshold_us) { (void)index; (void)threshold_us; }
+static inline void perf_load_thresholds(const uint16_t* thresholds, uint8_t count) { (void)thresholds; (void)count; }
+static inline void perf_loop_tick(void) {}
+static inline void perf_set_enabled(bool enabled) { (void)enabled; }
+static inline bool perf_is_enabled(void) { return false; }
+static inline void perf_print_stats(void) {}
+
+#endif /* FEATURE_PERF_MONITOR */
 
 #ifdef __cplusplus
 }

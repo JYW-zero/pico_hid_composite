@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:loc="clr-namespace:HidConfigTool.App.Localization"
              xmlns:vm="clr-namespace:HidConfigTool.ViewModels;assembly=HidConfigTool.ViewModels"
              mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
@@ -24,12 +25,12 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0">
-                    <TextBlock Text="按键测试" Style="{StaticResource PageTitleStyle}" Margin="0" />
-                    <TextBlock Text="实时检测64个物理按键的按下状态，用于排查按键故障" Style="{StaticResource PageSubtitleStyle}" Margin="0" />
+                    <TextBlock Text="{Binding [Title_KeyTest], Source={StaticResource LocalizationService}}" Style="{StaticResource PageTitleStyle}" Margin="0" />
+                    <TextBlock Text="{Binding [Subtitle_KeyTest], Source={StaticResource LocalizationService}}" Style="{StaticResource PageSubtitleStyle}" Margin="0" />
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <CheckBox Content="自动刷新"
+                    <CheckBox Content="{Binding [Btn_AutoRefresh], Source={StaticResource LocalizationService}}"
                               IsChecked="{Binding AutoRefresh}"
                               Style="{StaticResource ToggleSwitchStyle}"
                               VerticalAlignment="Center"
@@ -73,7 +74,7 @@
                         CornerRadius="10"
                         Padding="16">
                     <StackPanel>
-                        <TextBlock Text="按下数量"
+                        <TextBlock Text="{Binding [Label_PressedCount], Source={StaticResource LocalizationService}}"
                                    FontSize="12"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    Margin="0,0,0,6" />
@@ -92,7 +93,7 @@
                         CornerRadius="10"
                         Padding="16">
                     <StackPanel>
-                        <TextBlock Text="当前按下"
+                        <TextBlock Text="{Binding [Label_CurrentPressed], Source={StaticResource LocalizationService}}"
                                    FontSize="12"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    Margin="0,0,0,6" />
@@ -112,7 +113,7 @@
                         CornerRadius="10"
                         Padding="16">
                     <StackPanel>
-                        <TextBlock Text="设备状态"
+                        <TextBlock Text="{Binding [Label_DeviceStatus], Source={StaticResource LocalizationService}}"
                                    FontSize="12"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    Margin="0,0,0,6" />
@@ -142,7 +143,7 @@
                     CornerRadius="12"
                     Padding="20">
                 <StackPanel>
-                    <TextBlock Text="按键矩阵（8×8，按下时高亮）"
+                    <TextBlock Text="{Binding [Label_KeyMatrix], Source={StaticResource LocalizationService}}"
                                FontSize="13"
                                FontWeight="SemiBold"
                                Foreground="{StaticResource TextPrimaryBrush}"
@@ -201,7 +202,7 @@
             </Border>
 
             <!-- 提示 -->
-            <TextBlock Text="提示：按下设备上的任意按键，对应位置会高亮显示。如果某个按键按下后无反应，可能是硬件焊接问题或引脚配置错误。"
+            <TextBlock Text="{Binding [Hint_KeyTest], Source={StaticResource LocalizationService}}"
                        FontSize="11"
                        Foreground="{StaticResource TextSecondaryBrush}"
                        Margin="0,12,0,0"

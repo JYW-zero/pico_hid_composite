@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using HidConfigTool.Core;
 using HidConfigTool.Core.Interfaces;
 using HidConfigTool.Core.Models;
+using HidConfigTool.Core.Services;
 
 namespace HidConfigTool.ViewModels;
 
@@ -29,7 +30,7 @@ public partial class AppAwarenessRuleItemViewModel : ObservableObject
     private bool _isEnabled = true;
 }
 
-public partial class SettingsPageViewModel : ObservableObject
+public partial class SettingsPageViewModel : PageViewModelBase
 {
     /// <summary>
     /// 设置页面分组
@@ -46,7 +47,6 @@ public partial class SettingsPageViewModel : ObservableObject
     }
 
     private readonly ITrayIconService _trayIconManager;
-    private readonly IDeviceService _deviceService;
 
     /// <summary>
     /// 当前选中的设置项（null=主页面）
@@ -67,6 +67,19 @@ public partial class SettingsPageViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _checkUpdateOnStart = true;
+
+    /// <summary>开发者模式（本地角色）：开启后导航显示性能监控、错误日志、设备诊断等工程页面。
+    /// 仅控制本机 UI 显隐并持久化（LocalRoleService），不是安全边界；真正的访问控制在固件命令闸门。</summary>
+    [ObservableProperty]
+    private bool _isDeveloperMode = LocalRoleService.IsDeveloper;
+
+    partial void OnIsDeveloperModeChanged(bool value)
+    {
+        LocalRoleService.SetRole(value ? LocalRole.Developer : LocalRole.Consumer);
+        StatusMessage = value
+            ? "已开启开发者模式，诊断/工程功能已在导航中显示"
+            : "已关闭开发者模式，返回消费者标准界面";
+    }
 
     [ObservableProperty]
     private bool _osdEnabled = true;
@@ -140,9 +153,9 @@ public partial class SettingsPageViewModel : ObservableObject
         ILanguageService languageManager, IDialogService dialogService,
         IFileDialogService fileDialogService, IInputDialogService inputDialogService,
         IAutoStartService autoStartService, IHelpWindowService helpWindowService)
+        : base(deviceService)
     {
         _trayIconManager = trayIconManager;
-        _deviceService = deviceService;
         _profileManager = profileManager;
         _osdManager = osdManager;
         _appAwarenessManager = appAwarenessManager;
@@ -238,6 +251,18 @@ public partial class SettingsPageViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void SetTheme(string theme)
+    {
+        Theme = theme == "Light" ? "浅色" : "深色";
+    }
+
+    [RelayCommand]
+    private void SetLanguage(string language)
+    {
+        Language = language == "en-US" ? "English" : "简体中文";
+    }
+
+    [RelayCommand]
     private async Task ExportConfigAsync()
     {
         try
@@ -249,7 +274,7 @@ public partial class SettingsPageViewModel : ObservableObject
 
             if (!string.IsNullOrEmpty(filePath))
             {
-                bool result = await _deviceService.ExportConfigAsync(filePath);
+                bool result = await DeviceService.ExportConfigAsync(filePath);
                 if (result)
                 {
                     StatusMessage = "配置导出成功";
@@ -282,7 +307,7 @@ public partial class SettingsPageViewModel : ObservableObject
             {
                 if (_dialogService.ShowConfirm("导入配置将覆盖当前设置，确定要继续吗？", "确认导入"))
                 {
-                    bool success = await _deviceService.ImportConfigAsync(filePath);
+                    bool success = await DeviceService.ImportConfigAsync(filePath);
                     if (success)
                     {
                         StatusMessage = "配置导入成功";
@@ -306,27 +331,87 @@ public partial class SettingsPageViewModel : ObservableObject
     [RelayCommand]
     private async Task ResetConfigAsync()
     {
+        if (!IsDeviceConnected)
+        {
+            _dialogService.ShowWarning("请先连接设备", "未连接设备");
+            return;
+        }
+
         try
         {
-            if (_dialogService.ShowConfirm("恢复默认配置将清除所有自定义设置，确定要继续吗？", "确认恢复"))
+            // 二次确认
+            bool confirmed = _dialogService.ShowConfirm(
+                "恢复出厂设置将清除所有自定义配置（按键映射、DPI、摇杆参数等），设备将重启。确定要继续吗？",
+                "确认恢复出厂设置");
+
+            if (!confirmed)
+                return;
+
+            StatusMessage = "正在恢复出厂设置...";
+
+            // 发送恢复默认命令
+            bool success = await DeviceService.ResetConfigAsync();
+
+            if (success)
             {
-                bool success = await _deviceService.ResetConfigAsync();
-                if (success)
-                {
-                    StatusMessage = "恢复默认配置成功";
-                    _dialogService.ShowInfo("恢复默认配置成功！", "成功");
-                }
-                else
-                {
-                    StatusMessage = "恢复默认配置失败";
-                    _dialogService.ShowError("恢复默认配置失败！", "错误");
-                }
+                StatusMessage = "恢复出厂设置成功，设备正在重启...";
+                _dialogService.ShowInfo("恢复出厂设置成功！设备正在重启，请等待重新连接。", "成功");
+
+                // 等待设备重启并重新连接
+                await WaitForReconnectAsync();
+            }
+            else
+            {
+                StatusMessage = "恢复出厂设置失败";
+                _dialogService.ShowError("恢复出厂设置失败！请检查设备连接后重试。", "错误");
             }
         }
         catch (Exception ex)
         {
-            StatusMessage = $"恢复默认配置失败: {ex.Message}";
-            _dialogService.ShowError($"恢复默认配置失败: {ex.Message}", "错误");
+            StatusMessage = $"恢复出厂设置失败: {ex.Message}";
+            _dialogService.ShowError($"恢复出厂设置失败: {ex.Message}", "错误");
+        }
+    }
+
+    /// <summary>
+    /// 等待设备重启并重新连接
+    /// </summary>
+    private async Task WaitForReconnectAsync()
+    {
+        try
+        {
+            // 等待设备断开（最多 5 秒）
+            int disconnectWait = 0;
+            while (DeviceService.IsConnected && disconnectWait < 5000)
+            {
+                await Task.Delay(200);
+                disconnectWait += 200;
+            }
+
+            StatusMessage = "设备已断开，等待重新连接...";
+
+            // 等待设备重新连接（最多 30 秒）
+            int reconnectWait = 0;
+            while (!DeviceService.IsConnected && reconnectWait < 30000)
+            {
+                await Task.Delay(500);
+                reconnectWait += 500;
+            }
+
+            if (DeviceService.IsConnected)
+            {
+                StatusMessage = "设备已重新连接，恢复出厂设置完成";
+                _dialogService.ShowInfo("设备已重新连接，恢复出厂设置完成！", "完成");
+            }
+            else
+            {
+                StatusMessage = "设备重新连接超时，请手动刷新设备列表";
+                _dialogService.ShowWarning("设备重新连接超时，请手动刷新设备列表或重新插拔设备。", "提示");
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"等待重连时出错: {ex.Message}";
         }
     }
 
@@ -400,7 +485,7 @@ public partial class SettingsPageViewModel : ObservableObject
             var config = _profileManager.LoadProfile(profileName);
             if (config != null)
             {
-                await _deviceService.SaveConfigAsync(config);
+                await DeviceService.SaveConfigAsync(config);
             }
         }
         catch (Exception ex)

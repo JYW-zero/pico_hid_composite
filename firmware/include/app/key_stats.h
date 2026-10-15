@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "board/flash_layout.h"
+#include "features.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -71,6 +72,8 @@ typedef struct __attribute__((packed))
 
 /* ==================== 对外接口 ==================== */
 
+#if FEATURE_KEY_STATS
+
 /**
  * @brief 初始化按键统计模块
  * 从Flash加载最近的统计数据
@@ -123,6 +126,20 @@ void key_stats_tick(void);
  * @return 本次周期内的保存次数
  */
 uint32_t key_stats_get_save_count(void);
+
+#else  /* FEATURE_KEY_STATS == 0：release 空桩，编译期消除、零运行时开销 */
+
+static inline void key_stats_init(void) {}
+static inline void key_stats_increment(uint8_t key_index) { (void)key_index; }
+static inline uint32_t key_stats_get_count(uint8_t key_index) { (void)key_index; return 0; }
+static inline uint32_t key_stats_get_total(void) { return 0; }
+static inline void key_stats_reset(void) {}
+static inline void key_stats_save_to_flash(void) {}
+static inline bool key_stats_load_from_flash(void) { return false; }
+static inline void key_stats_tick(void) {}
+static inline uint32_t key_stats_get_save_count(void) { return 0; }
+
+#endif /* FEATURE_KEY_STATS */
 
 #ifdef __cplusplus
 }

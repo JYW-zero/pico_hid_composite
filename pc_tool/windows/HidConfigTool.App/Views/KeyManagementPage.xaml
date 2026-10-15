@@ -1,8 +1,9 @@
-<UserControl x:Class="HidConfigTool.App.Views.KeyManagementPage"
+﻿<UserControl x:Class="HidConfigTool.App.Views.KeyManagementPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:loc="clr-namespace:HidConfigTool.App.Localization"
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="900">
     <UserControl.Resources>
@@ -21,9 +22,9 @@
 
         <!-- 页面标题 -->
         <StackPanel Grid.Row="0" Margin="0,0,0,16">
-            <TextBlock Text="按键管理"
+            <TextBlock Text="{Binding [Title_KeyManagement], Source={StaticResource LocalizationService}}"
                        Style="{StaticResource PageTitleStyle}" />
-            <TextBlock Text="按键测试、键位映射设置、按键统计，一站式管理"
+            <TextBlock Text="{Binding [Subtitle_KeyManagement], Source={StaticResource LocalizationService}}"
                        Style="{StaticResource PageSubtitleStyle}" />
         </StackPanel>
 
@@ -74,7 +75,7 @@
             </TabControl.Resources>
 
             <!-- 按键测试 -->
-            <TabItem Header="按键测试">
+            <TabItem Header="{Binding [Title_KeyTest], Source={StaticResource LocalizationService}}">
                 <Border Background="{StaticResource CardBackgroundBrush}"
                         CornerRadius="0,8,8,8"
                         Padding="16">
@@ -86,7 +87,7 @@
             </TabItem>
 
             <!-- 按键设置 -->
-            <TabItem Header="按键设置">
+            <TabItem Header="{Binding [Title_KeySettings], Source={StaticResource LocalizationService}}">
                 <Border Background="{StaticResource CardBackgroundBrush}"
                         CornerRadius="0,8,8,8"
                         Padding="16">
@@ -98,7 +99,7 @@
             </TabItem>
 
             <!-- 按键统计 -->
-            <TabItem Header="按键统计">
+            <TabItem Header="{Binding [Title_KeyStats], Source={StaticResource LocalizationService}}">
                 <Border Background="{StaticResource CardBackgroundBrush}"
                         CornerRadius="0,8,8,8"
                         Padding="16">

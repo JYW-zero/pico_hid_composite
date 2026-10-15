@@ -1,0 +1,22 @@
+{
+  "model": "PICO2-HID-COMPOSITE",
+  "description": "Pico 2 (RP2350) USB HID 复合设备 —— 原型产线工装配置",
+  "sn_rule": {
+    "prefix": "P2",
+    "length": 12,
+    "charset": "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+  },
+  "scan": {
+    "barcode_is_serial": true
+  },
+  "tests": [
+    { "test_id": "keypad", "label": "按键矩阵自检", "required": true },
+    { "test_id": "sensor", "label": "光学传感器自检", "required": true }
+  ],
+  "report_dir": "reports",
+  "mock": {
+    "firmware": "0.1.0",
+    "protocol": "0.2",
+    "delay_ms": 30
+  }
+}

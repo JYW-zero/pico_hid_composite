@@ -15,8 +15,8 @@
 extern "C" {
 #endif
 
-/* 模拟Flash大小：8KB（A区4KB + B区4KB） */
-#define MOCK_FLASH_SIZE 8192U
+/* 模拟Flash大小：24KB（配置A/B + Fault A/B + KeyStats + Provisioning 共6个4KB扇区） */
+#define MOCK_FLASH_SIZE 24576U
 
 /* 模拟Flash基地址偏移：对应真实Flash的0x3FE000位置 */
 #define MOCK_FLASH_BASE_OFFSET 0x3FE000U
@@ -38,6 +38,13 @@ extern uint8_t s_mock_flash[MOCK_FLASH_SIZE];
 
 /* 获取模拟Flash数组指针（用于直接访问） */
 const uint8_t* mock_flash_get_ptr(void);
+
+/* 编程/擦除统计（mock_flash.c 已实现，供磨损均衡等测试断言） */
+uint32_t mock_flash_get_program_count(void);
+uint32_t mock_flash_get_last_program_offset(void);
+uint32_t mock_flash_get_erase_count(void);
+void mock_flash_reset_program_count(void);
+void mock_flash_reset_erase_count(void);
 
 #ifdef __cplusplus
 }

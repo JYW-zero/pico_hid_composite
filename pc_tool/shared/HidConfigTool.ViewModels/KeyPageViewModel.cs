@@ -9,9 +9,8 @@ namespace HidConfigTool.ViewModels;
 /// <summary>
 /// 按键设置页面视图模型
 /// </summary>
-public partial class KeyPageViewModel : ObservableObject
+public partial class KeyPageViewModel : PageViewModelBase
 {
-    private readonly IDeviceService _deviceService;
     private readonly IDialogService _dialogService;
     private readonly IKeyPickerService _keyPickerService;
 
@@ -42,10 +41,23 @@ public partial class KeyPageViewModel : ObservableObject
     private string _selectedHand = "Left";
 
     /// <summary>
-    /// 当前层：0=普通层，1=Fn层
+    /// 当前编辑层：0=普通层，1=Fn层（仅用于UI编辑显示）
     /// </summary>
     [ObservableProperty]
     private int _currentLayer;
+
+    /// <summary>
+    /// 当前设备激活层（0-3），通过 CMD_SWITCH_LAYER 实际切换设备当前生效的层
+    /// 与编辑层（CurrentLayer）分离：编辑层用于修改不同层的映射，激活层控制设备当前使用哪层
+    /// </summary>
+    [ObservableProperty]
+    private int _currentActiveLayer;
+
+    /// <summary>
+    /// 是否正在切换激活层
+    /// </summary>
+    [ObservableProperty]
+    private bool _isApplyingLayer;
 
     /// <summary>
     /// 当前选中的键
@@ -64,8 +76,8 @@ public partial class KeyPageViewModel : ObservableObject
     private byte[] _fnKeymap = new byte[64];
 
     public KeyPageViewModel(IDeviceService deviceService, IDialogService dialogService, IKeyPickerService keyPickerService)
+        : base(deviceService)
     {
-        _deviceService = deviceService;
         _dialogService = dialogService;
         _keyPickerService = keyPickerService;
 
@@ -80,6 +92,16 @@ public partial class KeyPageViewModel : ObservableObject
 
         // 刷新显示
         RefreshKeys();
+    }
+
+    /// <summary>
+    /// 设备已连接（重写基类虚方法）
+    /// </summary>
+    protected override Task OnDeviceConnectedAsync()
+    {
+        LoadConfigFromDevice();
+        RefreshKeys();
+        return Task.CompletedTask;
     }
 
     private void InitializeKeys()
@@ -178,10 +200,10 @@ public partial class KeyPageViewModel : ObservableObject
     /// </summary>
     private void LoadConfigFromDevice()
     {
-        if (!_deviceService.IsConnected || _deviceService.CurrentConfig == null)
+        if (!DeviceService.IsConnected || DeviceService.CurrentConfig == null)
             return;
 
-        var config = _deviceService.CurrentConfig;
+        var config = DeviceService.CurrentConfig;
 
         // 复制普通层
         for (int i = 0; i < 64 && i < config.Keymap.Length; i++)
@@ -221,6 +243,51 @@ public partial class KeyPageViewModel : ObservableObject
             CurrentLayer = layerIndex;
         }
     }
+
+    /// <summary>
+    /// 切换设备当前激活层（实际发送 CMD_SWITCH_LAYER 到固件）
+    /// 与编辑层 SwitchLayer 分离：编辑层只切换UI显示，本命令实际切换设备生效层
+    /// </summary>
+    [RelayCommand]
+    private async Task ApplyActiveLayerAsync(string layer)
+    {
+        if (!DeviceService.IsConnected || IsApplyingLayer)
+            return;
+
+        if (!int.TryParse(layer, out int layerIndex) || layerIndex < 0 || layerIndex > 3)
+            return;
+
+        // 已是当前层，无需切换
+        if (layerIndex == CurrentActiveLayer)
+            return;
+
+        // 添加确认对话框，防止误触
+        if (!_dialogService.ShowConfirm($"确定要切换到 Layer {layerIndex} 吗？\n切换后设备将立即使用该层的按键映射。", "确认切换层"))
+            return;
+
+        try
+        {
+            IsApplyingLayer = true;
+
+            bool result = await DeviceService.SwitchLayerAsync((byte)layerIndex);
+            if (result)
+            {
+                CurrentActiveLayer = layerIndex;
+            }
+            else
+            {
+                _dialogService.ShowError($"切换到层 {layerIndex} 失败", "错误");
+            }
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowError($"切换层异常: {ex.Message}", "错误");
+        }
+        finally
+        {
+            IsApplyingLayer = false;
+        }
+    }
     [RelayCommand]
     private void SelectKey(KeyItemViewModel? key)
     {
@@ -251,14 +318,14 @@ public partial class KeyPageViewModel : ObservableObject
     [RelayCommand]
     private async Task SaveToDeviceAsync()
     {
-        if (!_deviceService.IsConnected || _deviceService.CurrentConfig == null)
+        if (!DeviceService.IsConnected || DeviceService.CurrentConfig == null)
         {
             return;
         }
 
         try
         {
-            var config = _deviceService.CurrentConfig;
+            var config = DeviceService.CurrentConfig;
 
             // 把本地映射写回配置
             for (int i = 0; i < 64 && i < config.Keymap.Length; i++)
@@ -266,7 +333,7 @@ public partial class KeyPageViewModel : ObservableObject
             for (int i = 0; i < 64 && i < config.FnKeymap.Length; i++)
                 config.FnKeymap[i] = _fnKeymap[i];
 
-            await _deviceService.SaveConfigAsync(config);
+            await DeviceService.SaveConfigAsync(config);
         }
         catch (Exception)
         {
@@ -277,7 +344,7 @@ public partial class KeyPageViewModel : ObservableObject
     [RelayCommand]
     private async Task ResetDefaultAsync()
     {
-        if (!_deviceService.IsConnected)
+        if (!DeviceService.IsConnected)
         {
             _dialogService.ShowInfo("请先连接设备", "提示");
             return;
@@ -285,7 +352,7 @@ public partial class KeyPageViewModel : ObservableObject
 
         if (_dialogService.ShowConfirm("确定要恢复默认按键映射吗？\n此操作将重置所有配置（包括按键映射、DPI、死区等）。", "确认重置"))
         {
-            bool result = await _deviceService.ResetConfigAsync();
+            bool result = await DeviceService.ResetConfigAsync();
             if (result)
             {
                 LoadConfigFromDevice();
@@ -308,4 +375,5 @@ public partial class KeyPageViewModel : ObservableObject
             return "None";
         return HidKeyConverter.HidUsageToName(keyCode);
     }
+
 }

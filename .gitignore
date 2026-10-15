@@ -263,3 +263,12 @@ core.*
 *.mdmp
 *.hdmp
 # 注意：去掉了 *.core，因为会误杀 HidConfigTool.Core 项目目录
+
+# Screenshots and temp build files
+*.png
+!docs/**/*.png
+*_wpftmp.csproj
+bootloader_debug.png
+host_*.png
+no_device.png
+ui_issue*.png

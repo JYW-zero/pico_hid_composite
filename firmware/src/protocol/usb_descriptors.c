@@ -26,6 +26,7 @@
 #include "bsp/board_api.h"
 #include "tusb.h"
 #include "usb_descriptors.h"
+#include "version.h"
 
 /* A combination of interfaces must have a unique product id, since PC will save device driver after the first plug.
  * Same VID/PID with different interface e.g MSC (first), then CDC (later) will possibly cause system error on PC.
@@ -37,8 +38,22 @@
 // #define USB_PID           (0x4000 | _PID_MAP(CDC, 0) | _PID_MAP(MSC, 1) | _PID_MAP(HID, 2) | \
 //                            _PID_MAP(MIDI, 3) | _PID_MAP(VENDOR, 4) )
 
-#define USB_VID   0xCafe
-#define USB_PID   0x4004  // 固定 PID，不随接口数量变化
+/*
+ * USB VID/PID 配置
+ *
+ * 当前使用 pid.codes 分配的 VID (0x1209)，适合开源项目和小型商业产品。
+ * 如需大规模商业销售，建议购买 USB-IF 独立 VID (~$5000)。
+ *
+ * pid.codes 申请：https://pid.codes/
+ *   - 免费，通过 GitHub PR 申请
+ *   - 每个项目分配一个唯一 PID
+ *   - 申请时需提供项目名称、描述、URL
+ *
+ * 注意：以下 PID 为占位符，使用前请到 pid.codes 申请正式 PID 并替换。
+ * 应用程序和 Bootloader 必须使用不同的 PID，以便上位机区分设备模式。
+ */
+#define USB_VID   0x1209  // pid.codes VID（免费，允许商业使用，详见 docs/USB_COMPLIANCE.md）
+#define USB_PID   0x4004  // 应用程序 PID（需在 pid.codes 注册，项目：指动科技 Pico HID）
 #define USB_BCD   0x0200
 
 //--------------------------------------------------------------------+
@@ -56,7 +71,7 @@ tusb_desc_device_t const desc_device =
 
     .idVendor           = USB_VID,
     .idProduct          = USB_PID,
-    .bcdDevice          = 0x0100,
+    .bcdDevice          = FIRMWARE_VERSION_BCD,  // 固件版本（统一从 version.h 引用）
 
     .iManufacturer      = 0x01,
     .iProduct           = 0x02,
@@ -82,6 +97,38 @@ uint8_t const desc_hid_report[] =
   TUD_HID_REPORT_DESC_MOUSE   ( HID_REPORT_ID(REPORT_ID_MOUSE            )),
   TUD_HID_REPORT_DESC_CONSUMER( HID_REPORT_ID(REPORT_ID_CONSUMER_CONTROL )),
   TUD_HID_REPORT_DESC_GAMEPAD ( HID_REPORT_ID(REPORT_ID_GAMEPAD          )),
+
+  // NKRO 位图键盘报告 (Report ID 22)
+  // 报告格式: [Report ID(1)] [Modifier(1)] [Reserved(1)] [KeyBitmap(32)] = 35 字节
+  // KeyBitmap: 每个 bit 代表一个 HID 键码(0-255)，bit=1 表示按下
+  // 注意: 必须包含完整的 Collection (Application) ... End Collection 包裹，
+  //       否则 Windows HID 解析器会因报告描述符语法错误而导致设备不识别。
+  0x05, 0x01,              // Usage Page (Desktop)
+  0x09, 0x06,              // Usage (Keyboard)
+  0xA1, 0x01,              // Collection (Application)
+  0x85, REPORT_ID_NKRO,    //   Report ID (22)
+  0x05, 0x07,              //   Usage Page (Keyboard)
+  0x19, 0xE0,              //   Usage Minimum (224 = Left Control)
+  0x29, 0xE7,              //   Usage Maximum (231 = Right GUI)
+  0x15, 0x00,              //   Logical Minimum (0)
+  0x25, 0x01,              //   Logical Maximum (1)
+  0x75, 0x01,              //   Report Size (1 bit)
+  0x95, 0x08,              //   Report Count (8)
+  0x81, 0x02,              //   Input (Data,Var,Abs) - Modifier byte
+
+  0x95, 0x01,              //   Report Count (1)
+  0x75, 0x08,              //   Report Size (8 bits)
+  0x81, 0x01,              //   Input (Const,Var,Abs) - Reserved byte
+
+  0x05, 0x07,              //   Usage Page (Keyboard)
+  0x19, 0x00,              //   Usage Minimum (0)
+  0x29, 0xFF,              //   Usage Maximum (255)
+  0x15, 0x00,              //   Logical Minimum (0)
+  0x25, 0x01,              //   Logical Maximum (1)
+  0x75, 0x01,              //   Report Size (1 bit)
+  0x96, 0x00, 0x01,       //   Report Count (256) - 2字节前缀
+  0x81, 0x02,              //   Input (Data,Var,Abs) - Key bitmap (32 bytes)
+  0xC0,                    // End Collection
 };
 
 // 配置接口的 HID 报告描述符（第二个 HID 接口）
@@ -128,14 +175,35 @@ uint8_t const desc_hid_config_report[] =
   0x95, 32,                //   Report Count (32)
   0xB1, 0x02,              //   Feature (Data,Var,Abs)
 
-  // 控制命令 Feature 报告 (Report ID 7, 3 字节: command + param_low + param_high)
+  // 控制命令 Output 报告 (Report ID 7, 8 字节)
+  // v3.1 协议：Output Report 发送命令（中断传输，速度更快，高端游戏外设标准做法）
+  // 格式: [device_idx, cmd, sw_id, param_low, param_high, reserved[3]]
+  //   device_idx=0xFF 表示直连有线设备（无线版本为接收器插槽号）
+  //   sw_id=1~15 循环分配，用于匹配请求响应（0=广播/通知）
+  // 上位机通过 WriteFile 发送，走 USB 中断传输（Interrupt Transfer）
   0x85, 7,                 //   Report ID (7)
   0x09, 0x04,              //   Usage (0x04)
   0x15, 0x00,              //   Logical Minimum (0)
   0x26, 0xFF, 0x00,        //   Logical Maximum (255)
   0x75, 0x08,              //   Report Size (8 bits)
-  0x95, 3,                 //   Report Count (3) - 支持16位参数的命令
-  0xB1, 0x02,              //   Feature (Data,Var,Abs)
+  0x95, 8,                 //   Report Count (8)
+  0x91, 0x02,              //   Output (Data,Var,Abs) - 主机发送给设备（中断传输）
+
+  // 命令响应 Feature 报告 (Report ID 24, 8 字节)
+  // v3.1 协议：同步请求-响应模式（QMK/VIA 风格 + HID++ 风格的 SW ID 匹配）
+  // 上位机发送 Output 命令后，立即 GET_REPORT(24) 读取执行结果
+  // 格式: [status, cmd, sw_id, device_idx, param_low, param_high, reserved[2]]
+  //   status=0 表示成功，非0为错误码（CONFIG_HID_ERR_BUSY=8 表示命令尚未处理完成，应重试）
+  //   sw_id 回显请求的 Software ID，上位机验证匹配防止读到残留响应
+  //   device_idx 回显请求的 Device Index
+  // 替代原异步 ACK Input Report，避免 ACK 丢失导致的命令超时问题
+  0x85, 24,                //   Report ID (24)
+  0x09, 0x13,              //   Usage (0x13) - 独立Usage
+  0x15, 0x00,              //   Logical Minimum (0)
+  0x26, 0xFF, 0x00,        //   Logical Maximum (255)
+  0x75, 0x08,              //   Report Size (8 bits)
+  0x95, 8,                 //   Report Count (8)
+  0xB1, 0x02,              //   Feature (Data,Var,Abs) - 同步读取响应
 
   // 按键统计 0 Feature 报告 (Report ID 10, 32 字节, 键0-15)
   0x85, 10,                //   Report ID (10)
@@ -236,15 +304,46 @@ uint8_t const desc_hid_config_report[] =
   0x95, 8,                 //   Report Count (8)
   0xB1, 0x02,              //   Feature (Data,Var,Abs)
 
-  // v3 配置扩展字段 Feature 报告 (Report ID 21, 12 字节)
+  // v4 配置扩展字段 Feature 报告 (Report ID 21, 18 字节)
   // 包含: joystick_invert_x, joystick_invert_y, encoder_steps,
-  //       encoder_scroll_speed, joystick_sensitivity(2), reserved(6)
+  //       encoder_scroll_speed, joystick_sensitivity(2), reserved(2),
+  //       length(2), write_count(4), crc32(4)
   0x85, 21,                //   Report ID (21)
   0x09, 0x12,              //   Usage (0x12) - 独立Usage
   0x15, 0x00,              //   Logical Minimum (0)
   0x26, 0xFF, 0x00,        //   Logical Maximum (255)
   0x75, 0x08,              //   Report Size (8 bits)
-  0x95, 12,                //   Report Count (12)
+  0x95, 18,                //   Report Count (18)
+  0xB1, 0x02,              //   Feature (Data,Var,Abs)
+
+  // 摇杆校准状态 Feature 报告 (Report ID 23, 10 字节)
+  // byte[0]=校准状态, byte[1-2]=center_x, byte[3-4]=center_y,
+  // byte[5]=calibrated, byte[6-7]=死区值, byte[8-9]=灵敏度
+  // 注意: 必须在描述符中声明，否则 Windows HID 驱动会拒绝此 Report ID
+  0x85, 23,                //   Report ID (23)
+  0x09, 0x14,              //   Usage (0x14) - 独立Usage
+  0x15, 0x00,              //   Logical Minimum (0)
+  0x26, 0xFF, 0x00,        //   Logical Maximum (255)
+  0x75, 0x08,              //   Report Size (8 bits)
+  0x95, 10,                //   Report Count (10)
+  0xB1, 0x02,              //   Feature (Data,Var,Abs)
+
+  // v6/v7 配置扩展块2 Feature 报告 (Report ID 25, 63 字节)
+  // 使用子块索引机制：byte[0]=ReportID, byte[1]=子块索引, byte[2..]=数据
+  // 子块定义：
+  //   0 = v6字段 (偏移1346, 14字节): dpi_slot[4], current_dpi_slot, lod_level, angle_snapping, dpi_switch_key, reserved4[2]
+  //   1 = layer2_keymap[0..31] (偏移1360, 32字节)
+  //   2 = layer2_keymap[32..63] (偏移1392, 32字节)
+  //   3 = layer3_keymap[0..31] (偏移1424, 32字节)
+  //   4 = layer3_keymap[32..63] (偏移1456, 32字节)
+  // 注意：全速USB Feature报告最大64字节（含Report ID），所以keymap需分2个子块传输。
+  // Report Count = 63 = 1字节索引 + 62字节数据
+  0x85, 25,                //   Report ID (25)
+  0x09, 0x15,              //   Usage (0x15) - 独立Usage
+  0x15, 0x00,              //   Logical Minimum (0)
+  0x26, 0xFF, 0x00,        //   Logical Maximum (255)
+  0x75, 0x08,              //   Report Size (8 bits)
+  0x95, 63,                //   Report Count (63) = 1字节索引 + 62字节数据
   0xB1, 0x02,              //   Feature (Data,Var,Abs)
 
   0xC0                     // End Collection
@@ -360,27 +459,64 @@ enum {
   STRID_SERIAL,
 };
 
-// array of pointer to string descriptors
-char const *string_desc_arr[] =
-{
-  (const char[]) { 0x09, 0x04 }, // 0: is supported language is English (0x0409)
-  "JYW",                          // 1: Manufacturer
-  "Pico HID Composite",           // 2: Product
-  NULL,                          // 3: Serials will use unique ID if possible
+/* ==================== USB 字符串多语言支持 ==================== */
+/* 语言ID定义（USB-IF 标准） */
+#define USB_LANGID_ENGLISH_US   0x0409  /* 英语（美国） */
+#define USB_LANGID_CHINESE_SIMPLIFIED 0x0804  /* 中文（简体，中国） */
+
+/* 支持的语言列表（索引0返回此列表） */
+static const uint16_t supported_langids[] = {
+    USB_LANGID_ENGLISH_US,
+    USB_LANGID_CHINESE_SIMPLIFIED,
 };
+#define SUPPORTED_LANGID_COUNT (sizeof(supported_langids) / sizeof(supported_langids[0]))
+
+/* 英文字符串 */
+static char const *string_desc_arr_en[] =
+{
+  NULL,  /* 0: 语言ID列表（特殊处理） */
+  "Zhidong Tech",               /* 1: Manufacturer */
+  "Zhidong HID Composite Device", /* 2: Product */
+  NULL,                            /* 3: Serial（基于芯片唯一ID） */
+};
+
+/* 中文字符串 */
+static char const *string_desc_arr_zh[] =
+{
+  NULL,  /* 0: 语言ID列表（特殊处理） */
+  "指动科技",                      /* 1: Manufacturer */
+  "指动 HID 复合设备",             /* 2: Product */
+  NULL,                            /* 3: Serial（基于芯片唯一ID） */
+};
+
+/* 获取指定语言的字符串数组 */
+static char const **get_string_array_by_langid(uint16_t langid)
+{
+  switch (langid)
+  {
+    case USB_LANGID_CHINESE_SIMPLIFIED:
+      return string_desc_arr_zh;
+    case USB_LANGID_ENGLISH_US:
+    default:
+      return string_desc_arr_en;
+  }
+}
 
 static uint16_t _desc_str[32 + 1];
 
 // Invoked when received GET STRING DESCRIPTOR request
 // Application return pointer to descriptor, whose contents must exist long enough for transfer to complete
 uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
-  (void) langid;
   size_t chr_count;
 
   switch ( index ) {
     case STRID_LANGID:
-      memcpy(&_desc_str[1], string_desc_arr[0], 2);
-      chr_count = 1;
+      /* 返回支持的语言ID列表（英文+中文） */
+      chr_count = 0;
+      for (size_t i = 0; i < SUPPORTED_LANGID_COUNT && chr_count < 32; i++) {
+        _desc_str[1 + chr_count] = supported_langids[i];
+        chr_count++;
+      }
       break;
 
     case STRID_SERIAL:
@@ -391,18 +527,63 @@ uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
       // Note: the 0xEE index string is a Microsoft OS 1.0 Descriptors.
       // https://docs.microsoft.com/en-us/windows-hardware/drivers/usbcon/microsoft-defined-usb-descriptors
 
-      if ( !(index < sizeof(string_desc_arr) / sizeof(string_desc_arr[0])) ) return NULL;
+      /* 根据语言ID选择对应的字符串数组 */
+      char const **str_array = get_string_array_by_langid(langid);
 
-      const char *str = string_desc_arr[index];
+      /* 字符串数组大小（所有语言数组大小相同） */
+      const size_t str_array_size = sizeof(string_desc_arr_en) / sizeof(string_desc_arr_en[0]);
 
-      // Cap at max char
-      chr_count = strlen(str);
+      if ( !(index < str_array_size) ) return NULL;
+
+      const char *str = str_array[index];
+
+      // UTF-8 到 UTF-16LE 转换（支持中文）
+      chr_count = 0;
+      size_t i = 0;
       size_t const max_count = sizeof(_desc_str) / sizeof(_desc_str[0]) - 1; // -1 for string type
-      if ( chr_count > max_count ) chr_count = max_count;
 
-      // Convert ASCII string into UTF-16
-      for ( size_t i = 0; i < chr_count; i++ ) {
-        _desc_str[1 + i] = str[i];
+      while (str[i] != '\0' && chr_count < max_count) {
+        uint16_t utf16_char;
+        uint8_t c = (uint8_t)str[i];
+
+        if (c < 0x80) {
+          // ASCII 字符 (1 字节)
+          utf16_char = c;
+          i += 1;
+        } else if ((c & 0xE0) == 0xC0) {
+          // 2 字节 UTF-8
+          utf16_char = ((c & 0x1F) << 6) | ((uint8_t)str[i+1] & 0x3F);
+          i += 2;
+        } else if ((c & 0xF0) == 0xE0) {
+          // 3 字节 UTF-8 (中文常用)
+          utf16_char = ((c & 0x0F) << 12) |
+                        (((uint8_t)str[i+1] & 0x3F) << 6) |
+                        ((uint8_t)str[i+2] & 0x3F);
+          i += 3;
+        } else if ((c & 0xF8) == 0xF0) {
+          // 4 字节 UTF-8 (需要代理对，此处简化处理)
+          uint32_t codepoint = ((c & 0x07) << 18) |
+                                (((uint8_t)str[i+1] & 0x3F) << 12) |
+                                (((uint8_t)str[i+2] & 0x3F) << 6) |
+                                ((uint8_t)str[i+3] & 0x3F);
+          // 转换为 UTF-16 代理对
+          codepoint -= 0x10000;
+          _desc_str[1 + chr_count] = (uint16_t)(0xD800 + (codepoint >> 10));
+          chr_count++;
+          if (chr_count < max_count) {
+            _desc_str[1 + chr_count] = (uint16_t)(0xDC00 + (codepoint & 0x3FF));
+            chr_count++;
+          }
+          i += 4;
+          continue;
+        } else {
+          // 无效的 UTF-8 字节，跳过
+          i += 1;
+          continue;
+        }
+
+        _desc_str[1 + chr_count] = utf16_char;
+        chr_count++;
       }
       break;
   }

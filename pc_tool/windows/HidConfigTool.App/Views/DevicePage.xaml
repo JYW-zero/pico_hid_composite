@@ -3,8 +3,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:loc="clr-namespace:HidConfigTool.App.Localization"
              mc:Ignorable="d"
-             d:DesignHeight="450" d:DesignWidth="800">
+             d:DesignHeight="450" d:DesignWidth="800"
+             AllowDrop="True"
+             Drop="DevicePage_Drop"
+             DragOver="DevicePage_DragOver">
     <UserControl.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -16,8 +20,8 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
         <StackPanel>
             <!-- 页面标题 -->
-            <TextBlock Text="设备管理" Style="{StaticResource PageTitleStyle}" />
-            <TextBlock Text="管理已连接的 HID 复合设备" Style="{StaticResource PageSubtitleStyle}" />
+            <TextBlock Text="{Binding [Title_DeviceManagement], Source={StaticResource LocalizationService}}" Style="{StaticResource PageTitleStyle}" />
+            <TextBlock Text="{Binding [Subtitle_DeviceManagement], Source={StaticResource LocalizationService}}" Style="{StaticResource PageSubtitleStyle}" />
 
             <!-- 设备列表卡片 -->
             <Border Style="{StaticResource CardStyle}">
@@ -29,14 +33,14 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0"
-                                   Text="已连接设备"
+                                   Text="{Binding [Label_ConnectedDevice], Source={StaticResource LocalizationService}}"
                                    Style="{StaticResource CardTitleStyle}"
                                    Margin="0"
                                    VerticalAlignment="Center" />
                         <Button Grid.Column="1"
                                 Style="{StaticResource IconButtonStyle}"
                                 Command="{Binding RefreshCommand}"
-                                ToolTip="刷新设备列表"
+                                ToolTip="{Binding [ToolTip_RefreshDevice], Source={StaticResource LocalizationService}}"
                                 Padding="8">
                             <Path Data="M12 5V2L7 7l5 5V8a5 5 0 1 1-5 5H5a7 7 0 1 0 7-8z"
                                   Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
@@ -115,7 +119,7 @@
             <!-- 设备信息卡片 -->
             <Border Style="{StaticResource CardStyle}">
                 <StackPanel>
-                    <TextBlock Text="设备信息" Style="{StaticResource CardTitleStyle}" />
+                    <TextBlock Text="{Binding [Label_DeviceInfo], Source={StaticResource LocalizationService}}" Style="{StaticResource CardTitleStyle}" />
 
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -129,20 +133,20 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="设备名称" Style="{StaticResource LabelStyle}" />
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding [Label_DeviceName], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" />
                         <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding DeviceName}" Style="{StaticResource ValueStyle}" />
 
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="固件版本" Style="{StaticResource LabelStyle}" />
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding [Label_FirmwareVersion], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" />
                         <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding FirmwareVersion}" Style="{StaticResource ValueStyle}" FontFamily="Consolas" />
 
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="连接状态" Style="{StaticResource LabelStyle}" />
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding [Label_ConnectionStatus], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" />
                         <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,8">
                             <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,8,0">
                                 <Ellipse.Style>
                                     <Style TargetType="Ellipse">
                                         <Setter Property="Fill" Value="{StaticResource ErrorBrush}" />
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                            <DataTrigger Binding="{Binding IsDeviceConnected}" Value="True">
                                                 <Setter Property="Fill" Value="{StaticResource SuccessBrush}" />
                                             </DataTrigger>
                                         </Style.Triggers>
@@ -154,7 +158,7 @@
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Text" Value="未连接" />
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                            <DataTrigger Binding="{Binding IsDeviceConnected}" Value="True">
                                                 <Setter Property="Text" Value="已连接" />
                                             </DataTrigger>
                                         </Style.Triggers>
@@ -163,7 +167,7 @@
                             </TextBlock>
                         </StackPanel>
 
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="状态消息" Style="{StaticResource LabelStyle}" />
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding [Label_StatusMessage], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" />
                         <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding StatusMessage}" Style="{StaticResource ValueStyle}" TextTrimming="CharacterEllipsis" />
                     </Grid>
                 </StackPanel>
@@ -172,7 +176,7 @@
             <!-- 设备操作卡片 -->
             <Border Style="{StaticResource CardStyle}" Margin="0">
                 <StackPanel>
-                    <TextBlock Text="设备操作" Style="{StaticResource CardTitleStyle}" />
+                    <TextBlock Text="{Binding [Label_DeviceOperations], Source={StaticResource LocalizationService}}" Style="{StaticResource CardTitleStyle}" />
 
                     <StackPanel Orientation="Horizontal">
                         <!-- 重启设备 -->
@@ -185,25 +189,78 @@
                                       Width="14"
                                       Height="14"
                                       Margin="0,0,8,0" />
-                                <TextBlock Text="重启设备" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding [Btn_RebootDevice], Source={StaticResource LocalizationService}}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
 
-                        <!-- 进入烧录模式 -->
-                        <Button Command="{Binding EnterBootselCommand}"
+                        <!-- 固件升级（跳转到固件升级页面，一键升级） -->
+                        <Button Command="{Binding DataContext.NavigateToFirmwareUpdateCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                 Style="{StaticResource PrimaryButtonStyle}">
                             <StackPanel Orientation="Horizontal">
-                                <Path Data="M9 3h6v2h3a2 2 0 0 1 2 2v3h2v2h-2v2h2v2h-2v3a2 2 0 0 1-2 2h-3v2H9v-2H6a2 2 0 0 1-2-2v-3H2v-2h2v-2H2V9h2V6a2 2 0 0 1 2-2h3V2zm0 4v10h6V7H9z"
+                                <Path Data="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"
                                       Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
                                       Width="14"
                                       Height="14"
                                       Margin="0,0,8,0" />
-                                <TextBlock Text="进入烧录模式" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding [Btn_FirmwareUpdate], Source={StaticResource LocalizationService}}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                     </StackPanel>
 
-                    <TextBlock Text="提示：进入烧录模式后，设备将以 USB 大容量存储设备形式出现，可将固件文件拖入完成升级。"
+                    <!-- 固件升级方式说明：一键 DFU 仅在固件编入 bootloader（bit10）时出现；
+                         否则只展示并主推芯片原生 BOOTSEL UF2。 -->
+                    <StackPanel Margin="0,10,0,0">
+                        <TextBlock Text="固件升级方式：" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="SemiBold" Margin="0,0,0,4" />
+                        <TextBlock Text="① 一键升级：点击上方'固件升级'按钮，选择固件文件后自动完成（推荐）"
+                                   FontSize="10" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,0,0,2"
+                                   Visibility="{Binding DataContext.IsDfuUpgradeAvailable, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock FontSize="10" Foreground="{StaticResource TextTertiaryBrush}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="① BOOTSEL UF2（推荐）：点击上方'固件升级'按钮后选择'进入 BOOTSEL 模式'，把 .uf2 拖入出现的 RPI-RP2 盘符；也可按住 BOOTSEL 键上电"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding DataContext.IsDfuUpgradeAvailable, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                            <Setter Property="Text" Value="② BOOTSEL UF2：按住 BOOTSEL 键上电，出现 U 盘后拖拽 .uf2 文件（备用）"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <!-- 配置导入/导出 -->
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <!-- 导出配置 -->
+                        <Button Command="{Binding ExportConfigCommand}"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Margin="0,0,12,0"
+                                IsEnabled="{Binding IsDeviceConnected}">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"
+                                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Width="14"
+                                      Height="14"
+                                      Margin="0,0,8,0" />
+                                <TextBlock Text="{Binding [Btn_ExportConfig], Source={StaticResource LocalizationService}}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- 导入配置 -->
+                        <Button Command="{Binding ImportConfigCommand}"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                IsEnabled="{Binding IsDeviceConnected}">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="M12 21V9m0 0l-4 4m4-4l4 4M4 7V5a2 2 0 012-2h12a2 2 0 012 2v2"
+                                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Width="14"
+                                      Height="14"
+                                      Margin="0,0,8,0" />
+                                <TextBlock Text="{Binding [Btn_ImportConfig], Source={StaticResource LocalizationService}}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding [Hint_DevicePage], Source={StaticResource LocalizationService}}"
                                Style="{StaticResource HintStyle}"
                                Margin="0,12,0,0" />
                 </StackPanel>

@@ -58,148 +58,376 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="App_Title" xml:space="preserve">
-    <value>Pico HID 配置工具</value>
-  </data>
-  <data name="Nav_Device" xml:space="preserve">
-    <value>设备</value>
-  </data>
-  <data name="Nav_Keyboard" xml:space="preserve">
-    <value>键盘</value>
-  </data>
-  <data name="Nav_Mouse" xml:space="preserve">
-    <value>鼠标</value>
-  </data>
-  <data name="Nav_Joystick" xml:space="preserve">
-    <value>摇杆</value>
-  </data>
-  <data name="Nav_Encoder" xml:space="preserve">
-    <value>编码器</value>
-  </data>
-  <data name="Nav_Macro" xml:space="preserve">
-    <value>宏</value>
-  </data>
-  <data name="Nav_Stats" xml:space="preserve">
-    <value>统计</value>
-  </data>
-  <data name="Nav_Settings" xml:space="preserve">
-    <value>设置</value>
-  </data>
-  <data name="Nav_ErrorLog" xml:space="preserve">
-    <value>错误日志</value>
-  </data>
-  <data name="Nav_PerfMonitor" xml:space="preserve">
-    <value>性能监控</value>
-  </data>
-  <data name="Btn_Save" xml:space="preserve">
-    <value>保存</value>
-  </data>
-  <data name="Btn_Reset" xml:space="preserve">
-    <value>恢复默认</value>
-  </data>
-  <data name="Btn_New" xml:space="preserve">
-    <value>新建</value>
-  </data>
-  <data name="Btn_Rename" xml:space="preserve">
-    <value>重命名</value>
-  </data>
-  <data name="Btn_Delete" xml:space="preserve">
-    <value>删除</value>
-  </data>
-  <data name="Btn_Import" xml:space="preserve">
-    <value>导入</value>
-  </data>
-  <data name="Btn_Export" xml:space="preserve">
-    <value>导出</value>
-  </data>
-  <data name="Btn_StartRecord" xml:space="preserve">
-    <value>开始录制</value>
-  </data>
-  <data name="Btn_StopRecord" xml:space="preserve">
-    <value>停止录制</value>
-  </data>
-  <data name="Btn_Play" xml:space="preserve">
-    <value>播放</value>
-  </data>
-  <data name="Btn_Stop" xml:space="preserve">
-    <value>停止</value>
-  </data>
-  <data name="Btn_CheckUpdate" xml:space="preserve">
-    <value>检查更新</value>
-  </data>
-  <data name="Btn_Update" xml:space="preserve">
-    <value>立即更新</value>
-  </data>
-  <data name="Btn_Help" xml:space="preserve">
-    <value>帮助</value>
-  </data>
-  <data name="Label_Theme" xml:space="preserve">
-    <value>主题</value>
-  </data>
-  <data name="Label_Language" xml:space="preserve">
-    <value>语言</value>
-  </data>
-  <data name="Theme_Dark" xml:space="preserve">
-    <value>深色</value>
-  </data>
-  <data name="Theme_Light" xml:space="preserve">
-    <value>浅色</value>
-  </data>
-  <data name="Lang_Chinese" xml:space="preserve">
-    <value>简体中文</value>
-  </data>
-  <data name="Lang_English" xml:space="preserve">
-    <value>English</value>
-  </data>
-  <data name="Status_Connected" xml:space="preserve">
-    <value>已连接</value>
-  </data>
-  <data name="Status_Disconnected" xml:space="preserve">
-    <value>未连接</value>
-  </data>
-  <data name="Status_Saving" xml:space="preserve">
-    <value>保存中...</value>
-  </data>
-  <data name="Status_Saved" xml:space="preserve">
-    <value>已保存</value>
-  </data>
-  <data name="Status_Recording" xml:space="preserve">
-    <value>录制中...</value>
-  </data>
-  <data name="Msg_SaveSuccess" xml:space="preserve">
-    <value>保存成功</value>
-  </data>
-  <data name="Msg_SaveFailed" xml:space="preserve">
-    <value>保存失败</value>
-  </data>
-  <data name="Msg_DeleteConfirm" xml:space="preserve">
-    <value>确定要删除吗？</value>
-  </data>
-  <data name="Msg_UpdateAvailable" xml:space="preserve">
-    <value>发现新版本</value>
-  </data>
-  <data name="Msg_NoUpdate" xml:space="preserve">
-    <value>已是最新版本</value>
-  </data>
-  <data name="Title_Help" xml:space="preserve">
-    <value>帮助文档</value>
-  </data>
-  <data name="Title_About" xml:space="preserve">
-    <value>关于</value>
-  </data>
-  <data name="Title_ProfileManager" xml:space="preserve">
-    <value>配置文件管理</value>
-  </data>
-  <data name="Title_Appearance" xml:space="preserve">
-    <value>外观设置</value>
-  </data>
-  <data name="Title_AppAwareness" xml:space="preserve">
-    <value>应用感知</value>
-  </data>
-  <data name="Title_CloudSync" xml:space="preserve">
-    <value>云同步</value>
-  </data>
-  <data name="Title_AutoUpdate" xml:space="preserve">
-    <value>自动更新</value>
-  </data>
+
+  <!-- 通用 -->
+  <data name="App_Title" xml:space="preserve"><value>Pico HID 配置工具</value></data>
+  <data name="App_Name" xml:space="preserve"><value>HID 配置工具</value></data>
+  <data name="Status_Ready" xml:space="preserve"><value>就绪</value></data>
+
+  <!-- 窗口控制 -->
+  <data name="ToolTip_Minimize" xml:space="preserve"><value>最小化</value></data>
+  <data name="ToolTip_Maximize" xml:space="preserve"><value>最大化</value></data>
+  <data name="ToolTip_Close" xml:space="preserve"><value>关闭</value></data>
+
+  <!-- 导航分组 -->
+  <data name="Label_Config" xml:space="preserve"><value>配置</value></data>
+  <data name="Label_Tools" xml:space="preserve"><value>工具</value></data>
+  <data name="Label_System" xml:space="preserve"><value>系统</value></data>
+
+  <!-- 导航菜单 -->
+  <data name="Nav_Device" xml:space="preserve"><value>设备</value></data>
+  <data name="Nav_KeyManagement" xml:space="preserve"><value>按键管理</value></data>
+  <data name="Nav_MouseSettings" xml:space="preserve"><value>鼠标设置</value></data>
+  <data name="Nav_JoystickSettings" xml:space="preserve"><value>摇杆设置</value></data>
+  <data name="Nav_EncoderSettings" xml:space="preserve"><value>编码器设置</value></data>
+  <data name="Nav_MacroEditor" xml:space="preserve"><value>宏编辑器</value></data>
+  <data name="Nav_ErrorLog" xml:space="preserve"><value>错误日志</value></data>
+  <data name="Nav_PerfMonitor" xml:space="preserve"><value>性能监控</value></data>
+  <data name="Nav_Settings" xml:space="preserve"><value>设置</value></data>
+  <data name="Nav_FirmwareUpdate" xml:space="preserve"><value>固件升级</value></data>
+
+  <!-- 设备状态 -->
+  <data name="Label_DeviceStatus" xml:space="preserve"><value>设备状态</value></data>
+  <data name="Status_Connected" xml:space="preserve"><value>已连接</value></data>
+  <data name="Status_Disconnected" xml:space="preserve"><value>未连接</value></data>
+
+  <!-- 通用按钮 -->
+  <data name="Btn_Save" xml:space="preserve"><value>保存</value></data>
+  <data name="Btn_Reset" xml:space="preserve"><value>恢复默认</value></data>
+  <data name="Btn_New" xml:space="preserve"><value>新建</value></data>
+  <data name="Btn_Rename" xml:space="preserve"><value>重命名</value></data>
+  <data name="Btn_Delete" xml:space="preserve"><value>删除</value></data>
+  <data name="Btn_Import" xml:space="preserve"><value>导入</value></data>
+  <data name="Btn_Export" xml:space="preserve"><value>导出</value></data>
+  <data name="Btn_Cancel" xml:space="preserve"><value>取消</value></data>
+  <data name="Btn_Confirm" xml:space="preserve"><value>确定</value></data>
+  <data name="Btn_Browse" xml:space="preserve"><value>浏览...</value></data>
+  <data name="Btn_All" xml:space="preserve"><value>全部</value></data>
+  <data name="Btn_Clear" xml:space="preserve"><value>清除</value></data>
+  <data name="Btn_Refresh" xml:space="preserve"><value>刷新</value></data>
+  <data name="Btn_StartRecord" xml:space="preserve"><value>开始录制</value></data>
+  <data name="Btn_StopRecord" xml:space="preserve"><value>停止录制</value></data>
+  <data name="Btn_Play" xml:space="preserve"><value>播放</value></data>
+  <data name="Btn_Stop" xml:space="preserve"><value>停止</value></data>
+  <data name="Btn_CheckUpdate" xml:space="preserve"><value>检查更新</value></data>
+  <data name="Btn_Update" xml:space="preserve"><value>立即更新</value></data>
+  <data name="Btn_Help" xml:space="preserve"><value>帮助</value></data>
+  <data name="Btn_OpenFolder" xml:space="preserve"><value>打开目录</value></data>
+  <data name="Btn_SelectFile" xml:space="preserve"><value>选择文件</value></data>
+  <data name="Btn_StartUpgrade" xml:space="preserve"><value>开始升级</value></data>
+  <data name="Btn_AddRule" xml:space="preserve"><value>添加规则</value></data>
+  <data name="Btn_OpenHelp" xml:space="preserve"><value>打开帮助文档</value></data>
+  <data name="Btn_ResetStats" xml:space="preserve"><value>重置统计</value></data>
+  <data name="Btn_AutoRefresh" xml:space="preserve"><value>自动刷新</value></data>
+  <data name="Btn_RebootDevice" xml:space="preserve"><value>重启设备</value></data>
+  <data name="Btn_EnterDfu" xml:space="preserve"><value>进入 DFU 升级模式</value></data>
+  <data name="Btn_ExportConfig" xml:space="preserve"><value>导出配置</value></data>
+  <data name="Btn_ImportConfig" xml:space="preserve"><value>导入配置</value></data>
+  <data name="Btn_SaveToDevice" xml:space="preserve"><value>保存到设备</value></data>
+  <data name="Btn_SwitchDpi" xml:space="preserve"><value>切换 DPI 档位</value></data>
+  <data name="Btn_SaveAdvanced" xml:space="preserve"><value>保存高级设置</value></data>
+  <data name="Btn_DisableAutoExport" xml:space="preserve"><value>断开自动导出</value></data>
+
+  <!-- 通用标签 -->
+  <data name="Label_Theme" xml:space="preserve"><value>主题</value></data>
+  <data name="Label_Language" xml:space="preserve"><value>语言</value></data>
+  <data name="Label_Version" xml:space="preserve"><value>版本</value></data>
+  <data name="Label_Author" xml:space="preserve"><value>作者</value></data>
+  <data name="Label_Email" xml:space="preserve"><value>邮箱</value></data>
+  <data name="Label_TechStack" xml:space="preserve"><value>技术栈</value></data>
+  <data name="Label_CurrentVersion" xml:space="preserve"><value>当前版本</value></data>
+  <data name="Label_LatestVersion" xml:space="preserve"><value>最新版本</value></data>
+  <data name="Label_FirmwareFile" xml:space="preserve"><value>固件文件</value></data>
+  <data name="Label_UpgradeProgress" xml:space="preserve"><value>升级进度</value></data>
+  <data name="Label_UpgradeLog" xml:space="preserve"><value>升级日志</value></data>
+  <data name="Label_CurrentProfile" xml:space="preserve"><value>当前配置文件</value></data>
+  <data name="Label_CurrentForegroundApp" xml:space="preserve"><value>当前前台应用</value></data>
+  <data name="Label_AppRules" xml:space="preserve"><value>应用规则</value></data>
+
+  <!-- 主题/语言选项 -->
+  <data name="Theme_Dark" xml:space="preserve"><value>深色</value></data>
+  <data name="Theme_Light" xml:space="preserve"><value>浅色</value></data>
+  <data name="Lang_Chinese" xml:space="preserve"><value>简体中文</value></data>
+  <data name="Lang_English" xml:space="preserve"><value>English</value></data>
+
+  <!-- 状态消息 -->
+  <data name="Status_Saving" xml:space="preserve"><value>保存中...</value></data>
+  <data name="Status_Saved" xml:space="preserve"><value>已保存</value></data>
+  <data name="Status_Recording" xml:space="preserve"><value>录制中...</value></data>
+
+  <!-- 提示消息 -->
+  <data name="Msg_SaveSuccess" xml:space="preserve"><value>保存成功</value></data>
+  <data name="Msg_SaveFailed" xml:space="preserve"><value>保存失败</value></data>
+  <data name="Msg_DeleteConfirm" xml:space="preserve"><value>确定要删除吗？</value></data>
+  <data name="Msg_UpdateAvailable" xml:space="preserve"><value>发现新版本</value></data>
+  <data name="Msg_NoUpdate" xml:space="preserve"><value>已是最新版本</value></data>
+
+  <!-- 页面标题 -->
+  <data name="Title_Help" xml:space="preserve"><value>帮助文档</value></data>
+  <data name="Title_About" xml:space="preserve"><value>关于</value></data>
+  <data name="Title_Input" xml:space="preserve"><value>输入</value></data>
+  <data name="Title_SelectKey" xml:space="preserve"><value>选择按键</value></data>
+  <data name="Title_ProfileManager" xml:space="preserve"><value>配置文件管理</value></data>
+  <data name="Title_Appearance" xml:space="preserve"><value>外观设置</value></data>
+  <data name="Title_AppAwareness" xml:space="preserve"><value>应用感知</value></data>
+  <data name="Title_CloudSync" xml:space="preserve"><value>云同步</value></data>
+  <data name="Title_AutoUpdate" xml:space="preserve"><value>自动更新</value></data>
+
+  <!-- 设备页面 -->
+  <data name="Title_DeviceManagement" xml:space="preserve"><value>设备管理</value></data>
+  <data name="Subtitle_DeviceManagement" xml:space="preserve"><value>管理已连接的 HID 复合设备</value></data>
+  <data name="Label_ConnectedDevice" xml:space="preserve"><value>已连接设备</value></data>
+  <data name="ToolTip_RefreshDevice" xml:space="preserve"><value>刷新设备列表</value></data>
+  <data name="Label_DeviceInfo" xml:space="preserve"><value>设备信息</value></data>
+  <data name="Label_DeviceName" xml:space="preserve"><value>设备名称</value></data>
+  <data name="Label_FirmwareVersion" xml:space="preserve"><value>固件版本</value></data>
+  <data name="Label_ConnectionStatus" xml:space="preserve"><value>连接状态</value></data>
+  <data name="Label_StatusMessage" xml:space="preserve"><value>状态消息</value></data>
+  <data name="Label_DeviceOperations" xml:space="preserve"><value>设备操作</value></data>
+  <data name="Hint_DevicePage" xml:space="preserve"><value>提示：进入烧录模式后，设备将以 USB 大容量存储设备形式出现，可将固件文件拖入完成升级。也可直接将配置文件（.json/.bin）拖入此页面导入。</value></data>
+
+  <!-- 编码器页面 -->
+  <data name="Title_EncoderSettings" xml:space="preserve"><value>编码器设置</value></data>
+  <data name="Subtitle_EncoderSettings" xml:space="preserve"><value>配置旋转编码器的方向、步长和滚动速度</value></data>
+  <data name="Label_DirectionSettings" xml:space="preserve"><value>方向设置</value></data>
+  <data name="Check_InvertWheel" xml:space="preserve"><value>反转滚轮方向</value></data>
+  <data name="Hint_InvertWheel" xml:space="preserve"><value>开启后，向上滚动变为向下滚动，反之亦然。</value></data>
+  <data name="Label_StepSettings" xml:space="preserve"><value>步长设置</value></data>
+  <data name="Label_StepsPerTick" xml:space="preserve"><value>每格步数</value></data>
+  <data name="Unit_StepsPerTick" xml:space="preserve"><value>步/格</value></data>
+  <data name="Label_ScrollSpeed" xml:space="preserve"><value>滚动速度</value></data>
+  <data name="Label_ScrollSpeedMultiplier" xml:space="preserve"><value>滚动速度倍率</value></data>
+
+  <!-- 错误日志页面 -->
+  <data name="Title_ErrorLog" xml:space="preserve"><value>错误日志</value></data>
+  <data name="Subtitle_ErrorLog" xml:space="preserve"><value>查看设备运行日志和故障记录</value></data>
+  <data name="Label_TotalLogs" xml:space="preserve"><value>总日志数</value></data>
+  <data name="Label_TotalFaults" xml:space="preserve"><value>总故障数</value></data>
+  <data name="Label_Filter" xml:space="preserve"><value>筛选:</value></data>
+  <data name="Label_LogRecords" xml:space="preserve"><value>日志记录</value></data>
+  <data name="Msg_NoErrorLogs" xml:space="preserve"><value>暂无错误日志</value></data>
+  <data name="Msg_DeviceRunningNormal" xml:space="preserve"><value>设备运行正常，没有记录到错误</value></data>
+
+  <!-- 固件升级页面 -->
+  <data name="Title_FirmwareUpdatePage" xml:space="preserve"><value>固件升级</value></data>
+
+  <!-- 摇杆页面 -->
+  <data name="Title_JoystickSettings" xml:space="preserve"><value>摇杆设置</value></data>
+  <data name="Subtitle_JoystickSettings" xml:space="preserve"><value>配置摇杆死区、灵敏度和方向参数</value></data>
+  <data name="Label_DeadzoneSettings" xml:space="preserve"><value>死区设置</value></data>
+  <data name="Label_DeadzoneSize" xml:space="preserve"><value>死区大小</value></data>
+  <data name="Hint_DeadzoneRealtime" xml:space="preserve"><value>拖动滑块实时生效（不写Flash），满意后点击保存到Flash按钮持久化。</value></data>
+  <data name="Label_RealtimeCoords" xml:space="preserve"><value>实时坐标</value></data>
+  <data name="Hint_RealtimeCoords" xml:space="preserve"><value>（拨动摇杆查看实时位置）</value></data>
+  <data name="Label_XAxis" xml:space="preserve"><value>X 轴</value></data>
+  <data name="Label_YAxis" xml:space="preserve"><value>Y 轴</value></data>
+  <data name="Label_Button" xml:space="preserve"><value>按键</value></data>
+  <data name="Hint_DeadzoneCircle" xml:space="preserve"><value>死区圆内的输入将被忽略</value></data>
+  <data name="Label_Sensitivity" xml:space="preserve"><value>灵敏度</value></data>
+  <data name="Label_SensitivityMultiplier" xml:space="preserve"><value>灵敏度倍率</value></data>
+  <data name="Check_InvertX" xml:space="preserve"><value>反转 X 轴</value></data>
+  <data name="Check_InvertY" xml:space="preserve"><value>反转 Y 轴</value></data>
+
+  <!-- 按键管理页面 -->
+  <data name="Title_KeyManagement" xml:space="preserve"><value>按键管理</value></data>
+  <data name="Subtitle_KeyManagement" xml:space="preserve"><value>按键测试、键位映射设置、按键统计，一站式管理</value></data>
+  <data name="Tab_KeyTest" xml:space="preserve"><value>按键测试</value></data>
+  <data name="Tab_KeySettings" xml:space="preserve"><value>按键设置</value></data>
+  <data name="Tab_KeyStats" xml:space="preserve"><value>按键统计</value></data>
+
+  <!-- 按键设置页面 -->
+  <data name="Label_BackKey" xml:space="preserve"><value>后键: </value></data>
+  <data name="Title_KeySettings" xml:space="preserve"><value>按键设置</value></data>
+  <data name="Subtitle_KeySettings" xml:space="preserve"><value>配置每个手指的六向按键映射</value></data>
+  <data name="Label_CurrentLayer" xml:space="preserve"><value>当前层</value></data>
+  <data name="Layer_Normal" xml:space="preserve"><value>普通层</value></data>
+  <data name="Layer_Fn" xml:space="preserve"><value>Fn 层</value></data>
+  <data name="Label_HandAssignment" xml:space="preserve"><value>手部分配</value></data>
+  <data name="Label_LeftHand" xml:space="preserve"><value>左手</value></data>
+  <data name="Label_LeftHandFingers" xml:space="preserve"><value>5 个手指</value></data>
+  <data name="Label_RightHand" xml:space="preserve"><value>右手</value></data>
+  <data name="Label_RightHandFingers" xml:space="preserve"><value>5 个手指</value></data>
+  <data name="Label_FunctionKeys" xml:space="preserve"><value>功能键</value></data>
+  <data name="Label_FingerKeyMapping" xml:space="preserve"><value>手指按键映射</value></data>
+
+  <!-- 按键选择对话框 -->
+  <data name="KeyCat_All" xml:space="preserve"><value>全部</value></data>
+  <data name="KeyCat_Letters" xml:space="preserve"><value>字母</value></data>
+  <data name="KeyCat_Numbers" xml:space="preserve"><value>数字</value></data>
+  <data name="KeyCat_Function" xml:space="preserve"><value>功能键</value></data>
+  <data name="KeyCat_Edit" xml:space="preserve"><value>编辑</value></data>
+  <data name="KeyCat_Direction" xml:space="preserve"><value>方向</value></data>
+  <data name="KeyCat_Modifier" xml:space="preserve"><value>修饰键</value></data>
+  <data name="KeyCat_Symbol" xml:space="preserve"><value>符号</value></data>
+
+  <!-- 按键测试页面 -->
+  <data name="Title_KeyTest" xml:space="preserve"><value>按键测试</value></data>
+  <data name="Subtitle_KeyTest" xml:space="preserve"><value>实时检测64个物理按键的按下状态，用于排查按键故障</value></data>
+  <data name="Label_PressedCount" xml:space="preserve"><value>按下数量</value></data>
+  <data name="Label_CurrentPressed" xml:space="preserve"><value>当前按下</value></data>
+  <data name="Label_KeyMatrix" xml:space="preserve"><value>按键矩阵（8×8，按下时高亮）</value></data>
+  <data name="Hint_KeyTest" xml:space="preserve"><value>提示：按下设备上的任意按键，对应位置会高亮显示。如果某个按键按下后无反应，可能是硬件焊接问题或引脚配置错误。</value></data>
+
+  <!-- 宏页面 -->
+  <data name="Title_MacroList" xml:space="preserve"><value>宏列表</value></data>
+  <data name="Label_MacroName" xml:space="preserve"><value>宏名称</value></data>
+  <data name="Label_LoopSettings" xml:space="preserve"><value>循环设置</value></data>
+  <data name="Label_LoopCount" xml:space="preserve"><value>循环次数</value></data>
+  <data name="Check_LoopHoldRepeat" xml:space="preserve"><value>按住重复，松开停止</value></data>
+  <data name="Label_ActionList" xml:space="preserve"><value>动作列表</value></data>
+  <data name="Label_TotalDuration" xml:space="preserve"><value>总时长:</value></data>
+  <data name="ToolTip_MoveUp" xml:space="preserve"><value>上移</value></data>
+  <data name="ToolTip_MoveDown" xml:space="preserve"><value>下移</value></data>
+  <data name="Action_Key" xml:space="preserve"><value>按键</value></data>
+  <data name="Action_Delay" xml:space="preserve"><value>延时</value></data>
+  <data name="ToolTip_Delete" xml:space="preserve"><value>删除</value></data>
+  <data name="ToolTip_ClearAll" xml:space="preserve"><value>清空所有</value></data>
+  <data name="Label_ActionProperties" xml:space="preserve"><value>动作属性</value></data>
+  <data name="Label_ActionType" xml:space="preserve"><value>动作类型</value></data>
+  <data name="Label_Parameter" xml:space="preserve"><value>参数</value></data>
+  <data name="Label_DelayMs" xml:space="preserve"><value>延时(ms):</value></data>
+  <data name="Label_Key" xml:space="preserve"><value>按键</value></data>
+
+  <!-- 鼠标页面 -->
+  <data name="Title_MouseSettings" xml:space="preserve"><value>鼠标设置</value></data>
+  <data name="Subtitle_MouseSettings" xml:space="preserve"><value>配置 DPI 档位和指针加速参数</value></data>
+  <data name="Label_DpiPresets" xml:space="preserve"><value>DPI 档位</value></data>
+  <data name="Label_CurrentDpi" xml:space="preserve"><value>当前 DPI</value></data>
+  <data name="Label_SupportCustom" xml:space="preserve"><value>支持自定义</value></data>
+  <data name="Label_CustomDpi" xml:space="preserve"><value>自定义 DPI</value></data>
+  <data name="Hint_CustomDpi" xml:space="preserve"><value>拖动滑块设置任意 DPI（100-6400，自动对齐到25的倍数），或点击上方预设档位快速选择。</value></data>
+  <data name="Label_AdvancedSettings" xml:space="preserve"><value>高级设置</value></data>
+  <data name="Label_DpiPresetConfig" xml:space="preserve"><value>DPI 档位配置</value></data>
+  <data name="Label_Preset1" xml:space="preserve"><value>档位 1</value></data>
+  <data name="Label_Preset2" xml:space="preserve"><value>档位 2</value></data>
+  <data name="Label_Preset3" xml:space="preserve"><value>档位 3</value></data>
+  <data name="Label_Preset4" xml:space="preserve"><value>档位 4</value></data>
+  <data name="Label_CurrentDpiPreset" xml:space="preserve"><value>当前 DPI 档位</value></data>
+  <data name="Label_Lod" xml:space="preserve"><value>静默高度 (LOD)</value></data>
+  <data name="Lod_Low" xml:space="preserve"><value>低</value></data>
+  <data name="Lod_Medium" xml:space="preserve"><value>中</value></data>
+  <data name="Lod_High" xml:space="preserve"><value>高</value></data>
+  <data name="Check_AngleSnapping" xml:space="preserve"><value>角度捕捉 (Angle Snapping)</value></data>
+  <data name="Hint_AdvancedSettings" xml:space="preserve"><value>提示：修改 DPI 档位值后需点击保存按钮生效。静默高度决定鼠标抬起多高时停止跟踪，角度捕捉会将移动方向吸附到最近的45°。</value></data>
+  <data name="Label_PointerAcceleration" xml:space="preserve"><value>指针加速</value></data>
+  <data name="Check_EnablePointerAccel" xml:space="preserve"><value>启用指针加速</value></data>
+  <data name="Label_AccelThreshold" xml:space="preserve"><value>加速阈值</value></data>
+  <data name="Label_AccelRatio" xml:space="preserve"><value>加速比</value></data>
+  <data name="Hint_PointerAccel" xml:space="preserve"><value>提示：指针加速会在鼠标移动速度超过阈值时，按比例放大指针移动距离，适合需要快速定位的场景。</value></data>
+
+  <!-- 性能监控页面 -->
+  <data name="Title_PerfMonitor" xml:space="preserve"><value>性能监控</value></data>
+  <data name="Subtitle_PerfMonitor" xml:space="preserve"><value>实时监控设备 CPU、循环频率和任务执行情况</value></data>
+  <data name="Label_Interval" xml:space="preserve"><value>间隔:</value></data>
+  <data name="Unit_Seconds" xml:space="preserve"><value>秒</value></data>
+  <data name="Label_CpuUsage" xml:space="preserve"><value>CPU 使用率</value></data>
+  <data name="Label_MainLoopFreq" xml:space="preserve"><value>主循环频率</value></data>
+  <data name="Label_LoopFreqDetail" xml:space="preserve"><value>每秒循环次数  |  10s平均: </value></data>
+  <data name="Label_Runtime" xml:space="preserve"><value>运行时间</value></data>
+  <data name="Label_DeviceUptime" xml:space="preserve"><value>设备启动后累计运行</value></data>
+  <data name="Label_MonitorTasks" xml:space="preserve"><value>监控任务</value></data>
+  <data name="Unit_TaskCount" xml:space="preserve"><value>个</value></data>
+  <data name="Label_RegisteredTasks" xml:space="preserve"><value>已注册的监控任务</value></data>
+  <data name="Label_CpuUsageTrend" xml:space="preserve"><value>CPU 使用率趋势</value></data>
+  <data name="Label_TaskDetails" xml:space="preserve"><value>任务详情</value></data>
+  <data name="Col_TaskName" xml:space="preserve"><value>任务名称</value></data>
+  <data name="Col_ExecCount" xml:space="preserve"><value>执行次数</value></data>
+  <data name="Col_CpuRatio" xml:space="preserve"><value>CPU占比</value></data>
+  <data name="Col_MinUs" xml:space="preserve"><value>最小(us)</value></data>
+  <data name="Col_MaxUs" xml:space="preserve"><value>最大(us)</value></data>
+  <data name="Col_AvgUs" xml:space="preserve"><value>平均(us)</value></data>
+  <data name="Col_LastUs" xml:space="preserve"><value>最近(us)</value></data>
+  <data name="Col_TimeoutCount" xml:space="preserve"><value>超时次数</value></data>
+
+  <!-- 设置页面 -->
+  <data name="Title_Settings" xml:space="preserve"><value>设置</value></data>
+  <data name="Subtitle_Settings" xml:space="preserve"><value>配置应用行为、外观和设备管理选项</value></data>
+  <data name="Section_General" xml:space="preserve"><value>通用</value></data>
+  <data name="Desc_General" xml:space="preserve"><value>启动行为、系统托盘</value></data>
+  <data name="Section_ConfigManagement" xml:space="preserve"><value>配置管理</value></data>
+  <data name="Desc_ConfigManagement" xml:space="preserve"><value>导出、导入、恢复默认配置</value></data>
+  <data name="Section_Profiles" xml:space="preserve"><value>配置文件</value></data>
+  <data name="Desc_Profiles" xml:space="preserve"><value>管理多个配置方案</value></data>
+  <data name="Section_AppAwareness" xml:space="preserve"><value>应用感知</value></data>
+  <data name="Desc_AppAwareness" xml:space="preserve"><value>根据前台应用自动切换配置</value></data>
+  <data name="Section_FirmwareUpdate" xml:space="preserve"><value>固件升级</value></data>
+  <data name="Desc_FirmwareUpdate" xml:space="preserve"><value>检查并更新设备固件</value></data>
+  <data name="Btn_FirmwareUpdate" xml:space="preserve"><value>固件升级</value></data>
+  <data name="Section_Appearance" xml:space="preserve"><value>外观</value></data>
+  <data name="Desc_Appearance" xml:space="preserve"><value>主题、语言</value></data>
+  <data name="Section_About" xml:space="preserve"><value>关于</value></data>
+  <data name="Desc_About" xml:space="preserve"><value>版本信息、帮助文档</value></data>
+  <data name="Btn_BackToSettings" xml:space="preserve"><value>返回设置</value></data>
+  <data name="Title_General" xml:space="preserve"><value>通用</value></data>
+  <data name="Subtitle_General" xml:space="preserve"><value>配置应用启动行为和系统托盘</value></data>
+  <data name="Check_MinimizeToTray" xml:space="preserve"><value>最小化到系统托盘</value></data>
+  <data name="Hint_MinimizeToTray" xml:space="preserve"><value>关闭窗口时最小化到托盘</value></data>
+  <data name="Check_AutoStart" xml:space="preserve"><value>开机自动启动</value></data>
+  <data name="Hint_AutoStart" xml:space="preserve"><value>系统启动时自动运行</value></data>
+  <data name="Check_CheckUpdateOnStart" xml:space="preserve"><value>启动时检查更新</value></data>
+  <data name="Hint_CheckUpdateOnStart" xml:space="preserve"><value>应用启动时自动检查新版本</value></data>
+  <data name="Title_ConfigManagement" xml:space="preserve"><value>配置管理</value></data>
+  <data name="Subtitle_ConfigManagement" xml:space="preserve"><value>导出、导入或恢复设备配置</value></data>
+  <data name="Title_Profiles" xml:space="preserve"><value>配置文件</value></data>
+  <data name="Subtitle_Profiles" xml:space="preserve"><value>管理多个配置方案，快速切换</value></data>
+  <data name="Subtitle_AppAwareness" xml:space="preserve"><value>根据前台应用自动切换配置</value></data>
+  <data name="Check_EnableAppAwareness" xml:space="preserve"><value>启用应用感知</value></data>
+  <data name="Hint_AppAwareness" xml:space="preserve"><value>根据前台应用自动切换配置</value></data>
+  <data name="Title_FirmwareUpdate" xml:space="preserve"><value>固件升级</value></data>
+  <data name="Subtitle_FirmwareUpdate" xml:space="preserve"><value>检查并更新设备固件</value></data>
+  <data name="Title_AppearancePage" xml:space="preserve"><value>外观</value></data>
+  <data name="Subtitle_Appearance" xml:space="preserve"><value>自定义应用外观和语言</value></data>
+  <data name="Title_AboutPage" xml:space="preserve"><value>关于</value></data>
+  <data name="Subtitle_About" xml:space="preserve"><value>应用信息和帮助文档</value></data>
+
+  <!-- 统计页面 -->
+  <data name="Title_KeyStats" xml:space="preserve"><value>按键统计</value></data>
+  <data name="Label_TotalKeys" xml:space="preserve"><value>总按键数</value></data>
+  <data name="Desc_TotalKeys" xml:space="preserve"><value>累计所有按键次数</value></data>
+  <data name="Label_TodayKeys" xml:space="preserve"><value>今日按键数</value></data>
+  <data name="Desc_TodayKeys" xml:space="preserve"><value>今天的输入量</value></data>
+  <data name="Label_AvgKpm" xml:space="preserve"><value>平均 KPM</value></data>
+  <data name="Desc_AvgKpm" xml:space="preserve"><value>每分钟按键数</value></data>
+  <data name="Label_TimeRange" xml:space="preserve"><value>时间范围</value></data>
+  <data name="Range_Today" xml:space="preserve"><value>今日</value></data>
+  <data name="Range_ThisWeek" xml:space="preserve"><value>本周</value></data>
+  <data name="Range_ThisMonth" xml:space="preserve"><value>本月</value></data>
+  <data name="Range_All" xml:space="preserve"><value>全部</value></data>
+  <data name="Label_KeyHeatmap" xml:space="preserve"><value>按键热力图</value></data>
+  <data name="Hint_Heatmap" xml:space="preserve"><value>颜色越深表示使用频率越高</value></data>
+  <data name="Unit_Count" xml:space="preserve"><value>次数: {0:N0}</value></data>
+  <data name="Label_TopKeys" xml:space="preserve"><value>最常用按键 Top 10</value></data>
+  <data name="Unit_Times" xml:space="preserve"><value>{0:N0} 次</value></data>
+
+  <!-- 输入对话框 -->
+  <data name="Label_PleaseInput" xml:space="preserve"><value>请输入：</value></data>
+
+  <data name="Nav_Diagnostics" xml:space="preserve"><value>设备诊断</value></data>
+  <data name="Title_Diagnostics" xml:space="preserve"><value>设备诊断</value></data>
+  <data name="Subtitle_Diagnostics" xml:space="preserve"><value>查看设备健康状态、故障日志和性能信息</value></data>
+  <data name="Btn_ReadDiagnostics" xml:space="preserve"><value>读取诊断</value></data>
+  <data name="Btn_SaveReport" xml:space="preserve"><value>保存报告</value></data>
+  <data name="Label_ReadingProgress" xml:space="preserve"><value>正在读取诊断数据...</value></data>
+  <data name="Label_DeviceHealth" xml:space="preserve"><value>设备健康状态</value></data>
+  <data name="Label_ProtocolVersion" xml:space="preserve"><value>协议版本</value></data>
+  <data name="Label_ErrorLogs" xml:space="preserve"><value>错误日志</value></data>
+  <data name="Label_PerformanceStats" xml:space="preserve"><value>性能统计</value></data>
+  <data name="Label_LoopFrequency" xml:space="preserve"><value>主循环频率</value></data>
+  <data name="Label_Uptime" xml:space="preserve"><value>运行时间</value></data>
+  <data name="Label_ConfigCrc" xml:space="preserve"><value>配置 CRC</value></data>
+  <data name="Label_ConfigVersion" xml:space="preserve"><value>配置版本</value></data>
+  <data name="Label_WriteCount" xml:space="preserve"><value>写入次数</value></data>
+  <data name="Label_CrcStatus" xml:space="preserve"><value>CRC 状态</value></data>
+  <data name="Label_StoredCrc" xml:space="preserve"><value>存储 CRC</value></data>
+  <data name="Label_HidInterface" xml:space="preserve"><value>HID 接口信息</value></data>
+  <data name="Label_Manufacturer" xml:space="preserve"><value>厂商</value></data>
+  <data name="Label_Product" xml:space="preserve"><value>产品</value></data>
+  <data name="Label_SerialNumber" xml:space="preserve"><value>序列号</value></data>
+  <data name="Label_ReportIdCount" xml:space="preserve"><value>Report ID 数量</value></data>
+  <data name="Label_DevicePath" xml:space="preserve"><value>设备路径</value></data>
+  <data name="Nav_Presets" xml:space="preserve"><value>配置预设</value></data>
+  <data name="Title_Presets" xml:space="preserve"><value>配置预设</value></data>
+  <data name="Subtitle_Presets" xml:space="preserve"><value>选择并应用常用配置模板，或从当前设备配置创建自定义预设</value></data>
+  <data name="Btn_CreatePreset" xml:space="preserve"><value>从当前创建</value></data>
+  <data name="Btn_Apply" xml:space="preserve"><value>应用</value></data>
 </root>

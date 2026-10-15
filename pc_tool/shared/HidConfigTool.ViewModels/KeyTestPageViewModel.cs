@@ -25,11 +25,9 @@ public partial class KeyTestItem : ObservableObject
 /// <summary>
 /// 按键测试页面视图模型
 /// </summary>
-public partial class KeyTestPageViewModel : ObservableObject, IDisposable
+public partial class KeyTestPageViewModel : PageViewModelBase
 {
-    private readonly IDeviceService _deviceService;
     private readonly ITimerService _refreshTimer;
-    private bool _disposed;
 
     /// <summary>
     /// 64个按键的状态
@@ -55,12 +53,6 @@ public partial class KeyTestPageViewModel : ObservableObject, IDisposable
     private bool _isLoading;
 
     /// <summary>
-    /// 是否有设备连接
-    /// </summary>
-    [ObservableProperty]
-    private bool _isDeviceConnected;
-
-    /// <summary>
     /// 是否自动刷新
     /// </summary>
     [ObservableProperty]
@@ -70,12 +62,9 @@ public partial class KeyTestPageViewModel : ObservableObject, IDisposable
     /// 构造函数
     /// </summary>
     public KeyTestPageViewModel(IDeviceService deviceService, ITimerService timerService)
+        : base(deviceService)
     {
-        _deviceService = deviceService;
         _refreshTimer = timerService;
-        _deviceService.DeviceConnectionChanged += OnDeviceConnectionChanged;
-
-        IsDeviceConnected = _deviceService.IsConnected;
 
         // 初始化64个按键
         for (int i = 0; i < 64; i++)
@@ -93,27 +82,31 @@ public partial class KeyTestPageViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// 设备连接状态变化
+    /// 设备已连接（重写基类虚方法）
     /// </summary>
-    private void OnDeviceConnectionChanged(object? sender, bool isConnected)
+    protected override Task OnDeviceConnectedAsync()
     {
-        IsDeviceConnected = isConnected;
-
-        if (isConnected && AutoRefresh)
+        if (AutoRefresh)
         {
             _refreshTimer.Start();
         }
-        else
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 设备已断开（重写基类虚方法）
+    /// </summary>
+    protected override Task OnDeviceDisconnectedAsync()
+    {
+        _refreshTimer.Stop();
+        // 清空按键状态
+        foreach (var item in KeyItems)
         {
-            _refreshTimer.Stop();
-            // 清空按键状态
-            foreach (var item in KeyItems)
-            {
-                item.IsPressed = false;
-            }
-            PressedCount = 0;
-            PressedKeysText = "无";
+            item.IsPressed = false;
         }
+        PressedCount = 0;
+        PressedKeysText = "无";
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -136,9 +129,16 @@ public partial class KeyTestPageViewModel : ObservableObject, IDisposable
     /// </summary>
     private async void OnRefreshTimerTick(object? sender, EventArgs e)
     {
-        if (!IsLoading && IsDeviceConnected)
+        try
         {
-            await RefreshCoreAsync();
+            if (!IsLoading && IsDeviceConnected)
+            {
+                await RefreshCoreAsync();
+            }
+        }
+        catch
+        {
+            // async void 定时器回调必须捕获异常，防止未观察异常导致应用崩溃
         }
     }
 
@@ -162,7 +162,7 @@ public partial class KeyTestPageViewModel : ObservableObject, IDisposable
         IsLoading = true;
         try
         {
-            var keyState = await _deviceService.GetKeyStateAsync();
+            var keyState = await DeviceService.GetKeyStateAsync();
             if (keyState.HasValue)
             {
                 ulong keys = keyState.Value;
@@ -197,15 +197,11 @@ public partial class KeyTestPageViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// 释放资源，取消事件订阅，防止内存泄漏
+    /// 释放子类特有资源（重写基类虚方法）
     /// </summary>
-    public void Dispose()
+    protected override void DisposeManagedResources()
     {
-        if (_disposed) return;
-        _disposed = true;
-
         _refreshTimer.Stop();
         _refreshTimer.Tick -= OnRefreshTimerTick;
-        _deviceService.DeviceConnectionChanged -= OnDeviceConnectionChanged;
     }
 }

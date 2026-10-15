@@ -68,6 +68,21 @@ int optical_sensor_reg_read(const optical_sensor_cfg_t *cfg, uint8_t addr, uint8
 /* 鍐欏叆瀵勫瓨鍣紙璋冭瘯鐢級 */
 int optical_sensor_reg_write(const optical_sensor_cfg_t *cfg, uint8_t addr, uint8_t val);
 
+/* LOD (Lift-Off Distance) 静默高度等级 */
+typedef enum
+{
+    OPTICAL_SENSOR_LOD_LOW = 0,    /* 低静默高度 */
+    OPTICAL_SENSOR_LOD_MEDIUM,     /* 中等静默高度 */
+    OPTICAL_SENSOR_LOD_HIGH,       /* 高静默高度 */
+    OPTICAL_SENSOR_LOD_MAX
+} optical_sensor_lod_e;
+
+/* 设置 LOD 静默高度 */
+int optical_sensor_set_lod(const optical_sensor_cfg_t *cfg, optical_sensor_lod_e level);
+
+/* 设置角度捕捉 (Angle Snapping) 开关 */
+int optical_sensor_set_angle_snapping(const optical_sensor_cfg_t *cfg, bool enabled);
+
 #ifdef __cplusplus
 }
 #endif

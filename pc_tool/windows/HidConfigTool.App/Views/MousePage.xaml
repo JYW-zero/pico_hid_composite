@@ -1,8 +1,9 @@
-<UserControl x:Class="HidConfigTool.App.Views.MousePage"
+﻿<UserControl x:Class="HidConfigTool.App.Views.MousePage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:loc="clr-namespace:HidConfigTool.App.Localization"
              mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
     <UserControl.Resources>
@@ -16,13 +17,13 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
         <StackPanel>
             <!-- 页面标题 -->
-            <TextBlock Text="鼠标设置" Style="{StaticResource PageTitleStyle}" />
-            <TextBlock Text="配置 DPI 档位和指针加速参数" Style="{StaticResource PageSubtitleStyle}" />
+            <TextBlock Text="{Binding [Title_MouseSettings], Source={StaticResource LocalizationService}}" Style="{StaticResource PageTitleStyle}" />
+            <TextBlock Text="{Binding [Subtitle_MouseSettings], Source={StaticResource LocalizationService}}" Style="{StaticResource PageSubtitleStyle}" />
 
             <!-- DPI 设置卡片 -->
             <Border Style="{StaticResource CardStyle}">
                 <StackPanel>
-                    <TextBlock Text="DPI 档位" Style="{StaticResource CardTitleStyle}" />
+                    <TextBlock Text="{Binding [Label_DpiPresets], Source={StaticResource LocalizationService}}" Style="{StaticResource CardTitleStyle}" />
 
                     <!-- 大号 DPI 显示 -->
                     <Grid Margin="0,0,0,20">
@@ -36,7 +37,7 @@
                                        FontSize="36"
                                        FontWeight="Bold"
                                        Foreground="{StaticResource AccentBrush}" />
-                            <TextBlock Text="当前 DPI"
+                            <TextBlock Text="{Binding [Label_CurrentDpi], Source={StaticResource LocalizationService}}"
                                        FontSize="12"
                                        Foreground="{StaticResource TextTertiaryBrush}"
                                        HorizontalAlignment="Center"
@@ -51,7 +52,7 @@
                                     CornerRadius="6"
                                     Padding="10,6"
                                     Margin="0,0,8,0">
-                                <TextBlock Text="支持自定义"
+                                <TextBlock Text="{Binding [Label_SupportCustom], Source={StaticResource LocalizationService}}"
                                            FontSize="11"
                                            Foreground="{StaticResource AccentBrush}"
                                            FontWeight="Medium" />
@@ -115,7 +116,7 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0"
-                                       Text="自定义 DPI"
+                                       Text="{Binding [Label_CustomDpi], Source={StaticResource LocalizationService}}"
                                        FontSize="13"
                                        Foreground="{StaticResource TextSecondaryBrush}"
                                        VerticalAlignment="Center" />
@@ -135,20 +136,122 @@
                                 Maximum="6400"
                                 TickFrequency="100"
                                 IsSnapToTickEnabled="False" />
-                        <TextBlock Text="拖动滑块设置任意 DPI（100-6400，自动对齐到25的倍数），或点击上方预设档位快速选择。"
+                        <TextBlock Text="{Binding [Hint_CustomDpi], Source={StaticResource LocalizationService}}"
                                    Style="{StaticResource HintStyle}"
                                    Margin="0,8,0,0" />
                     </StackPanel>
+
+                    <!-- DPI 切换按钮 -->
+                    <Button Content="{Binding [Btn_SwitchDpi], Source={StaticResource LocalizationService}}"
+                            Command="{Binding SwitchDpiSlotCommand}"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Margin="0,16,0,0"
+                            HorizontalAlignment="Stretch" />
+                </StackPanel>
+            </Border>
+
+            <!-- 高级设置卡片 -->
+            <Border Style="{StaticResource CardStyle}" Margin="0,16,0,0">
+                <StackPanel>
+                    <TextBlock Text="{Binding [Label_AdvancedSettings], Source={StaticResource LocalizationService}}" Style="{StaticResource CardTitleStyle}" />
+
+                    <!-- 4档 DPI 值配置 -->
+                    <TextBlock Text="{Binding [Label_DpiPresetConfig], Source={StaticResource LocalizationService}}"
+                               FontSize="13"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               Margin="0,0,0,12" />
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                            <TextBlock Text="{Binding [Label_Preset1], Source={StaticResource LocalizationService}}" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,0,0,4" />
+                            <TextBox Text="{Binding DpiSlot0}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                            <TextBlock Text="{Binding [Label_Preset2], Source={StaticResource LocalizationService}}" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,0,0,4" />
+                            <TextBox Text="{Binding DpiSlot1}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Margin="0,0,8,0">
+                            <TextBlock Text="{Binding [Label_Preset3], Source={StaticResource LocalizationService}}" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,0,0,4" />
+                            <TextBox Text="{Binding DpiSlot2}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="3">
+                            <TextBlock Text="{Binding [Label_Preset4], Source={StaticResource LocalizationService}}" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,0,0,4" />
+                            <TextBox Text="{Binding DpiSlot3}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- 当前 DPI 档位选择 -->
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   Text="{Binding [Label_CurrentDpiPreset], Source={StaticResource LocalizationService}}"
+                                   FontSize="13"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   VerticalAlignment="Center" />
+                        <ComboBox Grid.Column="1"
+                                  SelectedIndex="{Binding CurrentDpiSlot}"
+                                  Width="120">
+                            <ComboBoxItem Content="{Binding [Label_Preset1], Source={StaticResource LocalizationService}}" />
+                            <ComboBoxItem Content="{Binding [Label_Preset2], Source={StaticResource LocalizationService}}" />
+                            <ComboBoxItem Content="{Binding [Label_Preset3], Source={StaticResource LocalizationService}}" />
+                            <ComboBoxItem Content="{Binding [Label_Preset4], Source={StaticResource LocalizationService}}" />
+                        </ComboBox>
+                    </Grid>
+
+                    <!-- LOD 静默高度 -->
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   Text="{Binding [Label_Lod], Source={StaticResource LocalizationService}}"
+                                   FontSize="13"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   VerticalAlignment="Center" />
+                        <ComboBox Grid.Column="1"
+                                  SelectedIndex="{Binding LodLevel}"
+                                  Width="120">
+                            <ComboBoxItem Content="{Binding [Lod_Low], Source={StaticResource LocalizationService}}" />
+                            <ComboBoxItem Content="{Binding [Lod_Medium], Source={StaticResource LocalizationService}}" />
+                            <ComboBoxItem Content="{Binding [Lod_High], Source={StaticResource LocalizationService}}" />
+                        </ComboBox>
+                    </Grid>
+
+                    <!-- 角度捕捉 -->
+                    <CheckBox Content="{Binding [Check_AngleSnapping], Source={StaticResource LocalizationService}}"
+                              IsChecked="{Binding AngleSnapping}"
+                              Style="{StaticResource ToggleSwitchStyle}"
+                              Margin="0,0,0,16" />
+
+                    <!-- 保存按钮 -->
+                    <Button Content="{Binding [Btn_SaveAdvanced], Source={StaticResource LocalizationService}}"
+                            Command="{Binding SaveAdvancedConfigCommand}"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            HorizontalAlignment="Stretch" />
+
+                    <!-- 提示 -->
+                    <TextBlock Text="{Binding [Hint_AdvancedSettings], Source={StaticResource LocalizationService}}"
+                               Style="{StaticResource HintStyle}"
+                               Margin="0,12,0,0" />
                 </StackPanel>
             </Border>
 
             <!-- 指针加速卡片 -->
             <Border Style="{StaticResource CardStyle}" Margin="0">
                 <StackPanel>
-                    <TextBlock Text="指针加速" Style="{StaticResource CardTitleStyle}" />
+                    <TextBlock Text="{Binding [Label_PointerAcceleration], Source={StaticResource LocalizationService}}" Style="{StaticResource CardTitleStyle}" />
 
                     <!-- 启用开关 -->
-                    <CheckBox Content="启用指针加速"
+                    <CheckBox Content="{Binding [Check_EnablePointerAccel], Source={StaticResource LocalizationService}}"
                               IsChecked="{Binding AccelerationEnabled}"
                               Style="{StaticResource ToggleSwitchStyle}"
                               Margin="0,0,0,20" />
@@ -160,7 +263,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0"
-                                   Text="加速阈值"
+                                   Text="{Binding [Label_AccelThreshold], Source={StaticResource LocalizationService}}"
                                    FontSize="13"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    VerticalAlignment="Center" />
@@ -188,7 +291,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0"
-                                   Text="加速比"
+                                   Text="{Binding [Label_AccelRatio], Source={StaticResource LocalizationService}}"
                                    FontSize="13"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    VerticalAlignment="Center" />
@@ -210,7 +313,7 @@
                             IsEnabled="{Binding AccelerationEnabled}" />
 
                     <!-- 提示 -->
-                    <TextBlock Text="提示：指针加速会在鼠标移动速度超过阈值时，按比例放大指针移动距离，适合需要快速定位的场景。"
+                    <TextBlock Text="{Binding [Hint_PointerAccel], Source={StaticResource LocalizationService}}"
                                Style="{StaticResource HintStyle}"
                                Margin="0,16,0,0" />
                 </StackPanel>

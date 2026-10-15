@@ -3,18 +3,18 @@ using System.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HidConfigTool.Core.Interfaces;
+using HidConfigTool.Core.Services;
 
 namespace HidConfigTool.ViewModels;
 
 /// <summary>
 /// 设备页面视图模型
 /// </summary>
-public partial class DevicePageViewModel : ObservableObject, IDisposable
+public partial class DevicePageViewModel : PageViewModelBase
 {
-    private readonly IDeviceService _deviceService;
     private readonly MainViewModel _mainViewModel;
-    private readonly SynchronizationContext? _uiContext;
-    private bool _disposed;
+    private readonly IFileDialogService _fileDialogService;
+    private readonly ConfigImportExportService _configImportExport;
 
     /// <summary>
     /// 设备列表
@@ -35,40 +35,31 @@ public partial class DevicePageViewModel : ObservableObject, IDisposable
     private string _statusMessage = "未连接设备";
 
     /// <summary>
-    /// 是否已连接
-    /// </summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanConnect))]
-    private bool _isConnected;
-
-    /// <summary>
     /// 是否可以连接（选中了设备且未连接）
     /// </summary>
-    public bool CanConnect => !IsConnected && SelectedDevice != null;
+    public bool CanConnect => !IsDeviceConnected && SelectedDevice != null;
 
     /// <summary>
     /// 固件版本
     /// </summary>
-    public string FirmwareVersion => _deviceService.FirmwareVersion ?? "—";
+    public string FirmwareVersion => DeviceService.FirmwareVersion ?? "—";
 
     /// <summary>
     /// 设备名称
     /// </summary>
-    public string DeviceName => _deviceService.DeviceName ?? "—";
+    public string DeviceName => DeviceService.DeviceName ?? "—";
 
-    public DevicePageViewModel(IDeviceService deviceService, MainViewModel mainViewModel)
+    public DevicePageViewModel(IDeviceService deviceService, MainViewModel mainViewModel,
+        IFileDialogService fileDialogService, ConfigImportExportService configImportExport)
+        : base(deviceService)
     {
-        _deviceService = deviceService;
         _mainViewModel = mainViewModel;
-        _uiContext = SynchronizationContext.Current;
-
-        // 订阅连接状态变化事件（自动连接/热插拔时更新UI）
-        _deviceService.DeviceConnectionChanged += OnDeviceConnectionChanged;
+        _fileDialogService = fileDialogService;
+        _configImportExport = configImportExport;
 
         // 如果已经连接，更新状态
-        if (_deviceService.IsConnected)
+        if (DeviceService.IsConnected)
         {
-            IsConnected = true;
             StatusMessage = "已连接";
             OnPropertyChanged(nameof(FirmwareVersion));
             OnPropertyChanged(nameof(DeviceName));
@@ -79,35 +70,28 @@ public partial class DevicePageViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// 设备连接状态变化（由自动连接/热插拔触发）
+    /// 设备已连接（重写基类虚方法）
     /// </summary>
-    private async void OnDeviceConnectionChanged(object? sender, bool isConnected)
+    protected override async Task OnDeviceConnectedAsync()
     {
-        IsConnected = isConnected;
-        if (isConnected)
-        {
-            StatusMessage = "已连接";
-            _mainViewModel.NotifyDeviceConnected();
-        }
-        else
-        {
-            StatusMessage = "已断开连接";
-            _mainViewModel.NotifyDeviceDisconnected();
-        }
+        StatusMessage = "已连接";
+        _mainViewModel.NotifyDeviceConnected();
         OnPropertyChanged(nameof(FirmwareVersion));
         OnPropertyChanged(nameof(DeviceName));
 
-        // 连接状态变化后刷新设备列表（确保已连接设备显示在列表中）
-        // 延迟300ms确保设备完全枚举，并用UI上下文切回主线程修改ObservableCollection
+        // 延迟300ms确保设备完全枚举，然后刷新设备列表
         await Task.Delay(300);
-        if (_uiContext != null)
-        {
-            _uiContext.Post(async _ => await RefreshAsync(), null);
-        }
-        else
-        {
-            await RefreshAsync();
-        }
+        await RunOnUiThreadAsync(RefreshAsync);
+    }
+
+    /// <summary>
+    /// 设备已断开（重写基类虚方法）
+    /// </summary>
+    protected override Task OnDeviceDisconnectedAsync()
+    {
+        StatusMessage = "已断开连接";
+        _mainViewModel.NotifyDeviceDisconnected();
+        return Task.CompletedTask;
     }
 
     [RelayCommand]
@@ -117,7 +101,7 @@ public partial class DevicePageViewModel : ObservableObject, IDisposable
 
         try
         {
-            var devices = await _deviceService.GetDevicesAsync();
+            var devices = await DeviceService.GetDevicesAsync();
             foreach (var device in devices)
             {
                 Devices.Add(device);
@@ -126,7 +110,7 @@ public partial class DevicePageViewModel : ObservableObject, IDisposable
             StatusMessage = $"发现 {devices.Count} 个设备";
 
             // 如果有设备且当前未连接，自动连接第一个
-            if (devices.Count > 0 && !_deviceService.IsConnected)
+            if (devices.Count > 0 && !DeviceService.IsConnected)
             {
                 SelectedDevice = devices[0];
                 await ConnectAsync();
@@ -149,7 +133,7 @@ public partial class DevicePageViewModel : ObservableObject, IDisposable
 
         try
         {
-            bool result = await _deviceService.ConnectAsync(SelectedDevice);
+            bool result = await DeviceService.ConnectAsync(SelectedDevice);
             if (result)
             {
                 // ConnectAsync 内部会触发 DeviceConnectionChanged 事件，这里不需要重复设置
@@ -173,18 +157,18 @@ public partial class DevicePageViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void Disconnect()
     {
-        _deviceService.Disconnect();
+        DeviceService.Disconnect();
         // Disconnect 内部会触发 DeviceConnectionChanged 事件
     }
 
     [RelayCommand]
     private async Task RebootAsync()
     {
-        if (!IsConnected)
+        if (!IsDeviceConnected)
             return;
 
         StatusMessage = "正在重启设备...";
-        bool result = await _deviceService.RebootAsync();
+        bool result = await DeviceService.RebootAsync();
 
         if (result)
         {
@@ -199,11 +183,11 @@ public partial class DevicePageViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task EnterBootselAsync()
     {
-        if (!IsConnected)
+        if (!IsDeviceConnected)
             return;
 
         StatusMessage = "正在进入烧录模式...";
-        bool result = await _deviceService.EnterBootselAsync();
+        bool result = await DeviceService.EnterBootselAsync();
 
         if (result)
         {
@@ -216,12 +200,143 @@ public partial class DevicePageViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// 释放资源，取消事件订阅
+    /// 导出配置为 JSON 文件
     /// </summary>
-    public void Dispose()
+    [RelayCommand]
+    private async Task ExportConfigAsync()
     {
-        if (_disposed) return;
-        _disposed = true;
-        _deviceService.DeviceConnectionChanged -= OnDeviceConnectionChanged;
+        if (!IsDeviceConnected || DeviceService.CurrentConfig == null)
+        {
+            StatusMessage = "未连接设备或无配置可导出";
+            return;
+        }
+
+        try
+        {
+            // 打开保存文件对话框
+            string defaultFileName = $"hid_config_{DateTime.Now:yyyyMMdd_HHmmss}.json";
+            string? filePath = _fileDialogService.SaveFile("导出配置",
+                ConfigImportExportService.GetFileFilter(), ".json");
+
+            if (string.IsNullOrEmpty(filePath))
+                return;
+
+            StatusMessage = "正在导出配置...";
+
+            // 导出为 JSON
+            bool success = await _configImportExport.ExportToJsonAsync(DeviceService.CurrentConfig, filePath);
+
+            if (success)
+            {
+                StatusMessage = $"配置已导出到: {Path.GetFileName(filePath)}";
+            }
+            else
+            {
+                StatusMessage = "导出配置失败";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"导出配置异常: {ex.Message}";
+        }
     }
+
+    /// <summary>
+    /// 从文件导入配置
+    /// </summary>
+    [RelayCommand]
+    private async Task ImportConfigAsync()
+    {
+        if (!IsDeviceConnected)
+        {
+            StatusMessage = "未连接设备";
+            return;
+        }
+
+        try
+        {
+            // 打开文件对话框
+            string? filePath = _fileDialogService.OpenFile("导入配置",
+                ConfigImportExportService.GetFileFilter());
+
+            if (string.IsNullOrEmpty(filePath))
+                return;
+
+            await ImportConfigFromFileAsync(filePath);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"导入配置异常: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// 从指定文件路径导入配置（用于拖拽导入）
+    /// </summary>
+    public async Task ImportConfigFromFileAsync(string filePath)
+    {
+        if (!IsDeviceConnected)
+        {
+            StatusMessage = "未连接设备";
+            return;
+        }
+
+        if (!File.Exists(filePath))
+        {
+            StatusMessage = "文件不存在";
+            return;
+        }
+
+        try
+        {
+            StatusMessage = "正在导入配置...";
+
+            // 根据文件格式选择导入方式
+            if (_configImportExport.IsJsonFile(filePath))
+            {
+                // JSON 格式导入
+                var result = await _configImportExport.ImportFromJsonAsync(filePath);
+                if (result == null || !result.Success || result.Config == null)
+                {
+                    StatusMessage = $"导入失败: {result?.ErrorMessage ?? "未知错误"}";
+                    return;
+                }
+
+                // 版本警告
+                if (result.HasVersionWarning)
+                {
+                    StatusMessage = $"警告: 配置版本 v{result.Version} 高于当前支持版本，部分字段可能不兼容";
+                }
+
+                // 写入设备
+                bool writeSuccess = await DeviceService.SaveConfigAsync(result.Config);
+                if (writeSuccess)
+                {
+                    StatusMessage = $"配置已导入并写入设备（v{result.Version}）";
+                }
+                else
+                {
+                    StatusMessage = "配置导入成功，但写入设备失败";
+                }
+            }
+            else
+            {
+                // 二进制格式导入（使用 DeviceService 的 ImportConfigAsync）
+                bool success = await DeviceService.ImportConfigAsync(filePath);
+                if (success)
+                {
+                    StatusMessage = $"配置已导入并写入设备: {Path.GetFileName(filePath)}";
+                }
+                else
+                {
+                    StatusMessage = "导入配置失败（文件格式错误或校验失败）";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"导入配置异常: {ex.Message}";
+        }
+    }
+
 }

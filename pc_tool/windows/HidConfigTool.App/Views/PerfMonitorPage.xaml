@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:loc="clr-namespace:HidConfigTool.App.Localization"
              xmlns:vm="clr-namespace:HidConfigTool.ViewModels;assembly=HidConfigTool.ViewModels"
              xmlns:conv="clr-namespace:HidConfigTool.App.Converters"
              mc:Ignorable="d"
@@ -27,7 +28,7 @@
 
                 <StackPanel Grid.Column="0">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="性能监控" Style="{StaticResource PageTitleStyle}" Margin="0" />
+                        <TextBlock Text="{Binding [Title_PerfMonitor], Source={StaticResource LocalizationService}}" Style="{StaticResource PageTitleStyle}" Margin="0" />
                         <Ellipse Width="8"
                                  Height="8"
                                  Fill="{StaticResource AccentBrush}"
@@ -45,7 +46,7 @@
                             </Ellipse.Style>
                         </Ellipse>
                     </StackPanel>
-                    <TextBlock Text="实时监控设备 CPU、循环频率和任务执行情况" Style="{StaticResource PageSubtitleStyle}" Margin="0" />
+                    <TextBlock Text="{Binding [Subtitle_PerfMonitor], Source={StaticResource LocalizationService}}" Style="{StaticResource PageSubtitleStyle}" Margin="0" />
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -70,7 +71,7 @@
                         </Button.Style>
                     </Button>
 
-                    <TextBlock Text="间隔:"
+                    <TextBlock Text="{Binding [Label_Interval], Source={StaticResource LocalizationService}}"
                                Foreground="{StaticResource TextSecondaryBrush}"
                                VerticalAlignment="Center"
                                Margin="0,0,8,0"
@@ -84,7 +85,7 @@
                               BorderBrush="{StaticResource BorderBrush}"
                               BorderThickness="1"
                               Padding="8,4" />
-                    <TextBlock Text="秒"
+                    <TextBlock Text="{Binding [Unit_Seconds], Source={StaticResource LocalizationService}}"
                                Foreground="{StaticResource TextSecondaryBrush}"
                                VerticalAlignment="Center"
                                Margin="0,0,16,0"
@@ -109,7 +110,7 @@
                         </Button.Style>
                     </Button>
                     <Button Command="{Binding ResetCommand}"
-                            Content="重置"
+                            Content="{Binding [Btn_Reset], Source={StaticResource LocalizationService}}"
                             IsEnabled="{Binding IsDeviceConnected}"
                             Padding="14,8"
                             FontSize="12"
@@ -142,7 +143,7 @@
                 <!-- CPU使用率 -->
                 <Border Grid.Column="0" Style="{StaticResource CardStyle}" Padding="16">
                     <StackPanel>
-                        <TextBlock Text="CPU 使用率"
+                        <TextBlock Text="{Binding [Label_CpuUsage], Source={StaticResource LocalizationService}}"
                                    FontSize="12"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    Margin="0,0,0,12" />
@@ -184,7 +185,7 @@
                 <!-- 循环频率 -->
                 <Border Grid.Column="2" Style="{StaticResource CardStyle}" Padding="16">
                     <StackPanel>
-                        <TextBlock Text="主循环频率"
+                        <TextBlock Text="{Binding [Label_MainLoopFreq], Source={StaticResource LocalizationService}}"
                                    FontSize="12"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    Margin="0,0,0,12" />
@@ -209,7 +210,7 @@
                         <TextBlock FontSize="11"
                                    Foreground="{StaticResource TextTertiaryBrush}"
                                    Margin="0,12,0,0">
-                            <Run Text="每秒循环次数  |  10s平均: " />
+                            <Run Text="{Binding [Label_LoopFreqDetail], Source={StaticResource LocalizationService}}" />
                             <Run Text="{Binding LoopFreqAvg10sText, Mode=OneWay}" />
                             <Run Text=" Hz" />
                         </TextBlock>
@@ -219,7 +220,7 @@
                 <!-- 运行时间 -->
                 <Border Grid.Column="4" Style="{StaticResource CardStyle}" Padding="16">
                     <StackPanel>
-                        <TextBlock Text="运行时间"
+                        <TextBlock Text="{Binding [Label_Runtime], Source={StaticResource LocalizationService}}"
                                    FontSize="12"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    Margin="0,0,0,12" />
@@ -228,7 +229,7 @@
                                    FontWeight="Bold"
                                    Foreground="{StaticResource WarningBrush}"
                                    FontFamily="Consolas" />
-                        <TextBlock Text="设备启动后累计运行"
+                        <TextBlock Text="{Binding [Label_DeviceUptime], Source={StaticResource LocalizationService}}"
                                    FontSize="11"
                                    Foreground="{StaticResource TextTertiaryBrush}"
                                    Margin="0,12,0,0" />
@@ -238,7 +239,7 @@
                 <!-- 任务数量 -->
                 <Border Grid.Column="6" Style="{StaticResource CardStyle}" Padding="16">
                     <StackPanel>
-                        <TextBlock Text="监控任务"
+                        <TextBlock Text="{Binding [Label_MonitorTasks], Source={StaticResource LocalizationService}}"
                                    FontSize="12"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    Margin="0,0,0,12" />
@@ -254,13 +255,13 @@
                                        Foreground="#BB9AF7"
                                        VerticalAlignment="Bottom" />
                             <TextBlock Grid.Column="1"
-                                       Text="个"
+                                       Text="{Binding [Unit_TaskCount], Source={StaticResource LocalizationService}}"
                                        FontSize="16"
                                        Foreground="{StaticResource TextSecondaryBrush}"
                                        VerticalAlignment="Bottom"
                                        Margin="4,0,0,6" />
                         </Grid>
-                        <TextBlock Text="已注册的监控任务"
+                        <TextBlock Text="{Binding [Label_RegisteredTasks], Source={StaticResource LocalizationService}}"
                                    FontSize="11"
                                    Foreground="{StaticResource TextTertiaryBrush}"
                                    Margin="0,12,0,0" />
@@ -278,7 +279,7 @@
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0"
-                               Text="CPU 使用率趋势"
+                               Text="{Binding [Label_CpuUsageTrend], Source={StaticResource LocalizationService}}"
                                Style="{StaticResource CardTitleStyle}"
                                Margin="0" />
 
@@ -328,7 +329,7 @@
             <!-- 任务详情 -->
             <Border Style="{StaticResource CardStyle}" Margin="0">
                 <StackPanel>
-                    <TextBlock Text="任务详情"
+                    <TextBlock Text="{Binding [Label_TaskDetails], Source={StaticResource LocalizationService}}"
                                Style="{StaticResource CardTitleStyle}"
                                Margin="0,0,0,16" />
 
@@ -337,33 +338,34 @@
                             BorderThickness="1"
                             CornerRadius="8">
                         <ListView ItemsSource="{Binding TaskStats}"
+                                  SelectedIndex="{Binding SelectedTaskIndex, Mode=TwoWay}"
                                   Background="Transparent"
                                   Foreground="{StaticResource TextPrimaryBrush}"
                                   BorderThickness="0">
                             <ListView.View>
                                 <GridView>
-                                    <GridViewColumn Header="任务名称"
+                                    <GridViewColumn Header="{Binding [Col_TaskName], Source={StaticResource LocalizationService}}"
                                                     Width="140"
                                                     DisplayMemberBinding="{Binding Name}" />
-                                    <GridViewColumn Header="执行次数"
+                                    <GridViewColumn Header="{Binding [Col_ExecCount], Source={StaticResource LocalizationService}}"
                                                     Width="90"
                                                     DisplayMemberBinding="{Binding ExecutionCount}" />
-                                    <GridViewColumn Header="CPU占比"
+                                    <GridViewColumn Header="{Binding [Col_CpuRatio], Source={StaticResource LocalizationService}}"
                                                     Width="80"
                                                     DisplayMemberBinding="{Binding CpuPercent, StringFormat={}{0}%}" />
-                                    <GridViewColumn Header="最小(us)"
+                                    <GridViewColumn Header="{Binding [Col_MinUs], Source={StaticResource LocalizationService}}"
                                                     Width="80"
                                                     DisplayMemberBinding="{Binding MinTimeUsDisplay}" />
-                                    <GridViewColumn Header="最大(us)"
+                                    <GridViewColumn Header="{Binding [Col_MaxUs], Source={StaticResource LocalizationService}}"
                                                     Width="80"
                                                     DisplayMemberBinding="{Binding MaxTimeUsDisplay}" />
-                                    <GridViewColumn Header="平均(us)"
+                                    <GridViewColumn Header="{Binding [Col_AvgUs], Source={StaticResource LocalizationService}}"
                                                     Width="80"
                                                     DisplayMemberBinding="{Binding AvgTimeUsDisplay}" />
-                                    <GridViewColumn Header="最近(us)"
+                                    <GridViewColumn Header="{Binding [Col_LastUs], Source={StaticResource LocalizationService}}"
                                                     Width="80"
                                                     DisplayMemberBinding="{Binding LastTimeUsDisplay}" />
-                                    <GridViewColumn Header="超时次数"
+                                    <GridViewColumn Header="{Binding [Col_TimeoutCount], Source={StaticResource LocalizationService}}"
                                                     Width="80"
                                                     DisplayMemberBinding="{Binding OverrunCount}" />
                                 </GridView>
@@ -387,6 +389,97 @@
                             </ListView.ItemContainerStyle>
                         </ListView>
                     </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- 阈值设置 -->
+            <Border Style="{StaticResource CardStyle}" Margin="0,16,0,0">
+                <StackPanel>
+                    <TextBlock Text="超时阈值设置"
+                               Style="{StaticResource CardTitleStyle}"
+                               Margin="0,0,0,16" />
+
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0"
+                                   Text="选中任务:"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,8,0"
+                                   Foreground="{StaticResource TextSecondaryBrush}" />
+
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding SelectedTaskIndex, StringFormat='任务 {0}'}"
+                                   VerticalAlignment="Center"
+                                   Foreground="{StaticResource TextPrimaryBrush}" />
+
+                        <TextBlock Grid.Column="2"
+                                   Text="(在上方任务列表中点击选择)"
+                                   VerticalAlignment="Center"
+                                   Margin="16,0,0,0"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="11" />
+                    </Grid>
+
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0"
+                                   Text="阈值(us):"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,8,0"
+                                   Foreground="{StaticResource TextSecondaryBrush}" />
+
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding ThresholdInput, Mode=TwoWay}"
+                                 VerticalContentAlignment="Center"
+                                 Padding="8,4"
+                                 Margin="0,0,8,0"
+                                 Style="{StaticResource InputBoxStyle}" />
+
+                        <ComboBox Grid.Column="2"
+                                  ItemsSource="{Binding ThresholdPresets}"
+                                  SelectedValue="{Binding ThresholdInput, Mode=TwoWay}"
+                                  Width="100"
+                                  VerticalContentAlignment="Center"
+                                  Style="{StaticResource ComboBoxStyle}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding StringFormat={}{0} us}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+
+                    <TextBlock Text="范围: 0-25500 微秒 (0=禁用告警, 最大25.5ms)"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="11"
+                               Margin="0,0,0,12" />
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button Command="{Binding SetThresholdCommand}"
+                                IsEnabled="{Binding IsDeviceConnected}"
+                                Content="设置阈值"
+                                Padding="16,8"
+                                Margin="0,0,12,0"
+                                MinWidth="90"
+                                Style="{StaticResource PrimaryButtonStyle}" />
+
+                        <Button Command="{Binding DisableThresholdCommand}"
+                                IsEnabled="{Binding IsDeviceConnected}"
+                                Content="禁用告警"
+                                Padding="16,8"
+                                MinWidth="90"
+                                Style="{StaticResource SecondaryButtonStyle}" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
         </StackPanel>

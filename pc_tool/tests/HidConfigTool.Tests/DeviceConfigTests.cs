@@ -1,4 +1,4 @@
-using HidConfigTool.Core.Models;
+﻿using HidConfigTool.Core.Models;
 using System.Text.Json;
 
 namespace HidConfigTool.Tests;
@@ -10,7 +10,7 @@ public class DeviceConfigTests
     {
         var config = new DeviceConfig();
 
-        Assert.Equal(1, config.Version);
+        Assert.Equal(8, config.Version);
         Assert.Equal(800, config.Dpi);
         Assert.Equal(1, config.DpiIndex);
         Assert.NotNull(config.DpiLevels);

@@ -1,4 +1,4 @@
-namespace HidConfigTool.Core;
+﻿namespace HidConfigTool.Core;
 
 /// <summary>
 /// Win32 虚拟键码(VK) → USB HID Usage 码 转换器

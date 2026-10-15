@@ -1,204 +1,153 @@
 /*
  * src/middleware/fault.c
- * 统一故障处理中间件实现
- * 完整版本：分级处理 + Flash持久化存储
- * 掉电不丢失，最多保留最近64条错误日志
+ * Unified Fault Handling Middleware - common framework
+ *
+ * 本文件只保留与“落盘形态”无关的公共逻辑：
+ *   - 多核串口互斥（log_printf / log_lock / log_unlock）
+ *   - 分级处理、Core1 串口限频、ERROR Flash 写限频
+ *   - 对外公共 API（fault_record / fault_get_log / fault_clear ...）
+ * 具体的 Flash 持久化由后端实现，见 fault_backend.h：
+ *   - dev  全量档（fault_full.c）   ：256B/条文本日志
+ *   - release 紧凑档（fault_compact.c）：16B/条环形 + 磨损均衡
  */
 
 #include "middleware/fault.h"
-#include "middleware/flash_service.h"
+#include "middleware/fault_backend.h"
 #include "board/flash_layout.h"
 #include <stdio.h>
 #include <string.h>
 #include <stddef.h>
+#include <stdarg.h>
 
-#include "hardware/flash.h"
 #include "hardware/sync.h"
 #include "hardware/watchdog.h"
 #include "pico/time.h"
 #include "pico/platform.h"
 
-/* ==================== 静态变量 ==================== */
+/* ==================== Constant Definitions ==================== */
 
-static uint32_t s_total_count = 0;     /* 总故障计数 */
-static uint32_t s_log_count = 0;       /* 当前日志条数 */
-static uint32_t s_write_index = 0;     /* 下一个写入位置 */
+/* Flash write rate limit interval for ERROR level logs (milliseconds)
+ * Prevents frequent errors from causing Flash write storms, FATAL level is not rate-limited
+ * 100ms interval limits worst-case write frequency to 10 times/second
+ */
+#define FAULT_ERROR_RATE_LIMIT_MS  (100U)
+
+/* Core1 serial output rate limit interval (milliseconds) */
+#define FAULT_CORE1_LOG_RATE_LIMIT_MS (500U)
+
+/* ==================== Serial Output Mutex ==================== */
+/* In multi-core environment, Core0 and Core1 may call printf simultaneously, causing interleaved garbled characters.
+ * Use spin_lock to protect all serial output, ensuring each log is output completely.
+ */
+static spin_lock_t *s_log_spinlock = NULL;
+static uint32_t     s_log_spinlock_num = 0;
+static bool         s_log_lock_inited = false;
+
+static void log_lock_init(void)
+{
+    if (s_log_lock_inited) return;
+    s_log_spinlock_num = spin_lock_claim_unused(true);
+    s_log_spinlock = spin_lock_init(s_log_spinlock_num);
+    s_log_lock_inited = true;
+}
+
+uint32_t log_lock(void)
+{
+    if (!s_log_lock_inited) return 0;
+    return spin_lock_blocking(s_log_spinlock);
+}
+
+void log_unlock(uint32_t irq_state)
+{
+    if (!s_log_lock_inited) return;
+    spin_unlock(s_log_spinlock, irq_state);
+}
+
+void log_printf(const char* fmt, ...)
+{
+    va_list args;
+    uint32_t irq = log_lock();
+    va_start(args, fmt);
+    vprintf(fmt, args);
+    va_end(args);
+    log_unlock(irq);
+}
+
+/* ==================== Static Variables ==================== */
+
+static uint32_t s_total_count = 0;     /* Total fault count (including non-persisted) */
 static bool     s_initialized = false;
 
-/* ==================== 内部函数 ==================== */
-
-/* 扫描Flash，找到下一个可写入的位置
- * 同时统计有效日志条数
- */
-static void scan_flash_logs(void)
-{
-    const fault_log_entry_t* flash_logs = (const fault_log_entry_t*)FAULT_LOG_FLASH_ADDR;
-
-    s_log_count = 0;
-    s_write_index = 0;
-
-    /* 逐个扫描，找到第一条无效的 */
-    for (uint32_t i = 0; i < FAULT_LOG_MAX_COUNT; i++)
-    {
-        if (flash_logs[i].magic == FAULT_LOG_MAGIC)
-        {
-            s_log_count++;
-            s_write_index = i + 1;
-        }
-        else
-        {
-            /* 遇到无效的，后面的都无效了（顺序写入） */
-            break;
-        }
-    }
-
-    /* 如果写满了，就从0开始（下次写入前会先擦除） */
-    if (s_write_index >= FAULT_LOG_MAX_COUNT)
-    {
-        s_write_index = 0;
-    }
-}
-
-/* 擦除整个日志扇区 */
-static void erase_log_flash(void)
-{
-    flash_service_erase(FAULT_LOG_FLASH_OFFSET, FAULT_LOG_FLASH_SIZE);
-}
-
-/* 写入一条日志到Flash指定位置 */
-static void write_log_to_flash(uint32_t index, const fault_log_entry_t* entry)
-{
-    if (index >= FAULT_LOG_MAX_COUNT)
-    {
-        return;
-    }
-
-    /* 使用静态缓冲区，避免传入栈指针（flash_range_program要求RAM指针） */
-    static uint8_t write_buf[FAULT_LOG_ENTRY_SIZE];
-    memset(write_buf, 0xFF, sizeof(write_buf));
-    memcpy(write_buf, entry, sizeof(fault_log_entry_t));
-
-    uint32_t offset = FAULT_LOG_FLASH_OFFSET + index * FAULT_LOG_ENTRY_SIZE;
-    flash_service_program(offset, write_buf, FAULT_LOG_ENTRY_SIZE);
-}
-
-/* ==================== 对外接口 ==================== */
+/* ==================== Public API ==================== */
 
 void fault_init(void)
 {
-    /* 确保Flash布局已初始化（检测Flash大小） */
+    /* Initialize serial output mutex first (must be before any printf) */
+    log_lock_init();
+
+    /* Ensure Flash layout is initialized (detect Flash size) */
     flash_layout_init();
 
-    scan_flash_logs();
-    s_initialized = true;
-    s_total_count = s_log_count;  /* 初始计数等于日志条数 */
+    /* Initialize persistence backend (scan history; compact backend also appends boot event) */
+    fault_backend_init();
 
-    printf("[FAULT] 初始化完成，历史日志: %d 条\n", s_log_count);
+    s_initialized = true;
+    s_total_count = fault_backend_get_log_count();  /* Initial count equals visible log count */
+
+    log_printf("[INFO] fault: init complete, history logs: %d\n", (int)s_total_count);
 }
 
 void fault_record(fault_level_e level, const char *module, const char *msg)
 {
     s_total_count++;
 
-    /* 串口输出（Phase 1 兼容） */
+    /* Serial output with correct level prefix.
+     * Core1 rate limiting: ERROR/WARN at most once per 500ms to avoid serial storm;
+     * FATAL is never rate-limited and is always printed.
+     */
     const char *level_str = fault_level_name(level);
-    printf("[FAULT][%s] %s: %s\n", level_str, module ? module : "?", msg ? msg : "?");
+    if (get_core_num() == 1 && level < FAULT_LEVEL_FATAL)
+    {
+        static uint32_t s_core1_last_log_ms = 0;
+        uint32_t now_ms = (uint32_t)to_ms_since_boot(get_absolute_time());
+        if ((now_ms - s_core1_last_log_ms) < FAULT_CORE1_LOG_RATE_LIMIT_MS)
+        {
+            /* Core1 rate limited: skip serial; Core1 never writes Flash. */
+            return;
+        }
+        s_core1_last_log_ms = now_ms;
+    }
+    log_printf("[%s] %s: %s\n", level_str, module ? module : "?", msg ? msg : "?");
 
-    /* 如果未初始化，只输出串口，不写Flash */
+    /* If not initialized, serial only, no Flash */
     if (!s_initialized)
     {
         return;
     }
 
-    /* 参数检查 */
     if (module == NULL) module = "unknown";
     if (msg == NULL) msg = "unknown";
 
-    /* 构造日志条目 */
-    fault_log_entry_t entry;
-    memset(&entry, 0, sizeof(entry));
-    entry.magic = FAULT_LOG_MAGIC;
-    entry.timestamp_ms = (uint32_t)to_ms_since_boot(get_absolute_time());
-    entry.level = (uint8_t)level;
-
-    /* 复制模块名 */
-    size_t module_len = strlen(module);
-    if (module_len > 31) module_len = 31;
-    entry.module_len = (uint8_t)module_len;
-    memcpy(entry.module, module, module_len);
-    entry.module[module_len] = '\0';
-
-    /* 复制消息 */
-    size_t msg_len = strlen(msg);
-    if (msg_len > 199) msg_len = 199;
-    entry.msg_len = (uint16_t)msg_len;
-    memcpy(entry.msg, msg, msg_len);
-    entry.msg[msg_len] = '\0';
-
-    /* 只在Core0中写Flash，避免Core1和Core0同时调用flash_safe_execute导致死锁 */
-    /* Core1中发生的错误只输出串口，由Core0统一处理Flash写入 */
+    /* Only Core0 writes Flash, avoiding concurrent flash_safe_execute deadlock. */
     if (level >= FAULT_LEVEL_ERROR && get_core_num() == 0)
     {
-        /* 全局限频：ERROR级别最多每100ms写一条Flash，防止频繁错误导致写入风暴
-         * FATAL级别不限频，必须立即记录
-         */
+        /* Global rate limit for ERROR Flash writes; FATAL is never limited. */
         static uint32_t s_last_flash_write_ms = 0;
         uint32_t now_ms = (uint32_t)to_ms_since_boot(get_absolute_time());
 
-        if (level < FAULT_LEVEL_FATAL && (now_ms - s_last_flash_write_ms) < 100U)
+        if (level < FAULT_LEVEL_FATAL && (now_ms - s_last_flash_write_ms) < FAULT_ERROR_RATE_LIMIT_MS)
         {
-            /* 限频：跳过Flash写入，只输出串口 */
             return;
         }
         s_last_flash_write_ms = now_ms;
 
-        if (s_write_index == 0 && s_log_count >= FAULT_LOG_MAX_COUNT)
-        {
-            /* 写满后需要擦除整个扇区。为避免瞬间丢失全部历史，
-             * 先将最近一半日志读取到RAM，擦除后重新写入
-             */
-            const fault_log_entry_t* flash_logs = (const fault_log_entry_t*)FAULT_LOG_FLASH_ADDR;
-            fault_log_entry_t recent_logs[FAULT_LOG_MAX_COUNT / 2];
-            uint32_t keep_count = FAULT_LOG_MAX_COUNT / 2;
-
-            /* 读取最近的keep_count条日志（从末尾向前） */
-            for (uint32_t i = 0; i < keep_count; i++)
-            {
-                uint32_t src_idx = (FAULT_LOG_MAX_COUNT - keep_count) + i;
-                memcpy(&recent_logs[i], &flash_logs[src_idx], sizeof(fault_log_entry_t));
-            }
-
-            /* 擦除整个扇区 */
-            erase_log_flash();
-
-            /* 重新写入保留的历史日志 */
-            for (uint32_t i = 0; i < keep_count; i++)
-            {
-                write_log_to_flash(i, &recent_logs[i]);
-            }
-
-            /* 更新状态：从keep_count位置继续写 */
-            s_write_index = keep_count;
-            s_log_count = keep_count;
-        }
-
-        write_log_to_flash(s_write_index, &entry);
-
-        s_write_index++;
-        if (s_log_count < FAULT_LOG_MAX_COUNT)
-        {
-            s_log_count++;
-        }
-
-        if (s_write_index >= FAULT_LOG_MAX_COUNT)
-        {
-            s_write_index = 0;
-        }
+        fault_backend_record(level, module, msg);
     }
 
-    /* 致命错误：触发看门狗复位（10ms后复位，确保日志写入完成） */
+    /* Fatal error: force-flush pending records, then watchdog reset (10ms, enough to finish writing) */
     if (level == FAULT_LEVEL_FATAL)
     {
+        fault_backend_flush();
         watchdog_reboot(0, 0, 10);
     }
 }
@@ -210,7 +159,7 @@ uint32_t fault_get_count(void)
 
 uint32_t fault_get_log_count(void)
 {
-    return s_log_count;
+    return fault_backend_get_log_count();
 }
 
 bool fault_get_log(uint32_t index, fault_log_entry_t* out_entry)
@@ -219,14 +168,7 @@ bool fault_get_log(uint32_t index, fault_log_entry_t* out_entry)
     {
         return false;
     }
-    if (index >= s_log_count)
-    {
-        return false;
-    }
-
-    const fault_log_entry_t* flash_logs = (const fault_log_entry_t*)FAULT_LOG_FLASH_ADDR;
-    memcpy(out_entry, &flash_logs[index], sizeof(fault_log_entry_t));
-    return true;
+    return fault_backend_get_log(index, out_entry);
 }
 
 uint32_t fault_get_latest_logs(fault_log_entry_t* out_entries, uint32_t max_count)
@@ -236,13 +178,14 @@ uint32_t fault_get_latest_logs(fault_log_entry_t* out_entries, uint32_t max_coun
         return 0;
     }
 
-    uint32_t count = (max_count < s_log_count) ? max_count : s_log_count;
+    uint32_t count = (max_count < fault_backend_get_log_count()) ? max_count : fault_backend_get_log_count();
 
-    /* 最新的在后面，倒序复制 */
+    /* Newest entries are at the end, copy in reverse order */
     for (uint32_t i = 0; i < count; i++)
     {
-        uint32_t src_index = s_log_count - 1 - i;
-        fault_get_log(src_index, &out_entries[i]);
+        uint32_t log_count = fault_backend_get_log_count();
+        uint32_t src_index = log_count - 1 - i;
+        fault_backend_get_log(src_index, &out_entries[i]);
     }
 
     return count;
@@ -250,9 +193,7 @@ uint32_t fault_get_latest_logs(fault_log_entry_t* out_entries, uint32_t max_coun
 
 void fault_clear(void)
 {
-    erase_log_flash();
-    s_log_count = 0;
-    s_write_index = 0;
+    fault_backend_clear();
     s_total_count = 0;
 }
 

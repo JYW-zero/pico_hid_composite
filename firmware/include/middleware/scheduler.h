@@ -20,6 +20,9 @@ typedef void (*sched_task_cb)(void);
 #define SCHED_PRIORITY_LOW       192
 #define SCHED_PRIORITY_LOWEST    255
 
+/* 调度器最大支持任务数（ready_indices 数组大小），超过会被静默丢弃 */
+#define SCHED_MAX_TASKS           16
+
 /* 任务描述结构体 */
 typedef struct
 {

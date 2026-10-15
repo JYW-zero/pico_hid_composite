@@ -1,0 +1,90 @@
+# Codecov 配置文件
+# 文档: https://docs.codecov.com/docs/codecovyml-reference
+
+codecov:
+  require_ci_to_pass: yes
+  notify:
+    wait_for_ci: yes
+
+coverage:
+  # 覆盖率精度（小数位数）
+  precision: 2
+  # 舍入方式
+  round: down
+  # 覆盖率颜色范围（红→黄→绿）
+  range: "60...100"
+
+  # 状态检查
+  status:
+    # 项目整体覆盖率
+    project:
+      default:
+        target: 60%          # 目标覆盖率
+        threshold: 5%        # 允许下降的阈值
+        if_no_uploads: error
+        if_not_found: success
+        if_ci_failed: error
+
+    # 新增代码覆盖率（patch）
+    patch:
+      default:
+        target: 60%          # 新增代码目标覆盖率
+        threshold: 5%
+        if_no_uploads: error
+        if_not_found: success
+        if_ci_failed: error
+
+    # 变更文件覆盖率
+    changes:
+      default:
+        target: 60%
+        threshold: 5%
+        if_no_uploads: error
+        if_not_found: success
+        if_ci_failed: error
+
+# 标志（用于区分不同项目的覆盖率）
+flags:
+  firmware:
+    paths:
+      - firmware/src/
+    carryforward: true
+
+  pc-tool:
+    paths:
+      - pc_tool/shared/
+    carryforward: true
+
+# 忽略的文件/目录
+ignore:
+  # 固件测试和 mock
+  - "firmware/tests/"
+  - "firmware/**/mock/"
+  - "firmware/**/unity/"
+
+  # 上位机测试
+  - "pc_tool/tests/"
+
+  # 构建产物
+  - "**/obj/**"
+  - "**/bin/**"
+  - "**/build/**"
+
+  # 自动生成的文件
+  - "**/*.g.cs"
+  - "**/*.g.i.cs"
+
+# 评论配置
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: false
+  require_base: false
+  require_head: true
+  hide_project_coverage: false
+
+# PR 评论
+pull_requests:
+  comment:
+    on: yes
+    behavior: default

@@ -1,4 +1,4 @@
-namespace HidConfigTool.Core;
+﻿namespace HidConfigTool.Core;
 
 /// <summary>
 /// 跨平台二维点，用于替代 WPF 的 Point/PointCollection

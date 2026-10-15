@@ -25,6 +25,8 @@
 #ifndef USB_DESCRIPTORS_H_
 #define USB_DESCRIPTORS_H_
 
+#include "version.h"  /* 统一版本号和配置常量管理 */
+
 enum
 {
   REPORT_ID_KEYBOARD = 1,
@@ -47,14 +49,15 @@ enum
   REPORT_ID_FAULT_LOG = 18,      /* 错误日志 - 读取日志 */
   REPORT_ID_KEY_STATE = 19,      /* 实时按键状态 (64位bitmap) */
   REPORT_ID_JOYSTICK_STATE = 20, /* 实时摇杆状态 */
-  REPORT_ID_CONFIG_EXT = 21,     /* v3配置扩展字段 (偏移1326+, 12字节) */
+  REPORT_ID_CONFIG_EXT = 21,     /* v3/v4/v5配置扩展字段 (偏移1326+, 18字节) */
+  REPORT_ID_NKRO = 22,            /* NKRO 位图键盘报告 (6KRO/NKRO 切换) */
+  REPORT_ID_JOYSTICK_CALIB = 23,  /* 摇杆校准状态查询 (GET_REPORT) */
+  REPORT_ID_ACK = 24,              /* ACK/NACK 响应（固件主动发送，Input报告） */
+  REPORT_ID_CONFIG_EXT2 = 25,      /* v6/v7配置扩展块2（子块索引机制） */
   REPORT_ID_COUNT
 };
 
-/* 配置块大小 */
-#define CONFIG_BLOCK_SIZE 62
-/* 配置总大小 */
-#define CONFIG_TOTAL_SIZE 146
+/* 注意：CONFIG_BLOCK_SIZE、CONFIG_TOTAL_SIZE、CONFIG_BLOCK_COUNT 已在 version.h 中统一定义 */
 
 /* HID 接口编号 */
 enum

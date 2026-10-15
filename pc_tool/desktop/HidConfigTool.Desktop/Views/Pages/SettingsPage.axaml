@@ -23,6 +23,7 @@
         <CheckBox Content="开机自启动" IsChecked="{Binding AutoStart}" />
         <CheckBox Content="OSD 提示" IsChecked="{Binding OsdEnabled}" />
         <CheckBox Content="应用感知" IsChecked="{Binding AppAwarenessEnabled}" />
+        <CheckBox Content="开发者模式（显示性能监控/错误日志/设备诊断等工程页面）" IsChecked="{Binding IsDeveloperMode}" />
       </StackPanel>
     </Border>
   </StackPanel>

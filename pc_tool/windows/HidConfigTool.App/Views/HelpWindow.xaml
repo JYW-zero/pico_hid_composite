@@ -1,7 +1,7 @@
-<Window x:Class="HidConfigTool.App.Views.HelpWindow"
+﻿<Window x:Class="HidConfigTool.App.Views.HelpWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="帮助文档"
+        Title="{Binding [Title_Help], Source={StaticResource LocalizationService}}"
         Width="700"
         Height="600"
         WindowStartupLocation="CenterOwner"
@@ -18,7 +18,7 @@
                 <Path Data="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm0 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm0 4a1 1 0 0 1 1 1v4a1 1 0 0 1-2 0v-4a1 1 0 0 1 1-1z"
                       Fill="{StaticResource AccentBrush}"
                       Width="24" Height="24" Margin="0,0,12,0" />
-                <TextBlock Text="Pico HID 复合设备 - 帮助文档" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding [Help_Title], Source={StaticResource LocalizationService}}" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
             </StackPanel>
         </Border>
 
@@ -28,93 +28,134 @@
                 <!-- 快速开始 -->
                 <Border Style="{StaticResource CardStyle}">
                     <StackPanel>
-                        <TextBlock Text="快速开始" Style="{StaticResource CardTitleStyle}" />
-                        <TextBlock Text="1. 连接设备" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
-                        <TextBlock Text="使用 USB 线将 Pico 开发板连接到电脑。设备会自动被识别为 HID 复合设备（键盘+鼠标+游戏手柄）。" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" Margin="0,0,0,12" />
-                        <TextBlock Text="2. 打开配置工具" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
-                        <TextBlock Text="运行 HidConfigTool.exe，程序会自动检测并连接设备。连接成功后，状态栏会显示设备信息。" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" Margin="0,0,0,12" />
-                        <TextBlock Text="3. 修改配置" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
-                        <TextBlock Text="在各个页面修改按键映射、鼠标 DPI、摇杆参数等。修改会自动保存到设备 Flash。" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_QuickStart], Source={StaticResource LocalizationService}}" Style="{StaticResource CardTitleStyle}" />
+                        <TextBlock Text="{Binding [Help_Step1_Title], Source={StaticResource LocalizationService}}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                        <TextBlock Text="{Binding [Help_Step1_Content], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                        <TextBlock Text="{Binding [Help_Step2_Title], Source={StaticResource LocalizationService}}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                        <TextBlock Text="{Binding [Help_Step2_Content], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                        <TextBlock Text="{Binding [Help_Step3_Title], Source={StaticResource LocalizationService}}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                        <TextBlock Text="{Binding [Help_Step3_Content], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
 
                 <!-- 按键配置 -->
                 <Border Style="{StaticResource CardStyle}">
                     <StackPanel>
-                        <TextBlock Text="按键配置" Style="{StaticResource CardTitleStyle}" />
-                        <TextBlock Text="• 点击按键图标可以修改该键的映射" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
-                        <TextBlock Text="• 支持标准键、修饰键、多媒体键、鼠标键" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
-                        <TextBlock Text="• Fn 层：按住 Fn 键后，按键使用 Fn 层映射" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
-                        <TextBlock Text="• 恢复默认：点击右上角的恢复默认按钮" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_KeyConfig_Title], Source={StaticResource LocalizationService}}" Style="{StaticResource CardTitleStyle}" />
+                        <TextBlock Text="{Binding [Help_KeyConfig_1], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_KeyConfig_2], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_KeyConfig_3], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_KeyConfig_4], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
 
                 <!-- 鼠标配置 -->
                 <Border Style="{StaticResource CardStyle}">
                     <StackPanel>
-                        <TextBlock Text="鼠标配置" Style="{StaticResource CardTitleStyle}" />
-                        <TextBlock Text="• DPI 档位：支持 4 档 DPI 切换（400/800/1600/3200）" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
-                        <TextBlock Text="• DPI 切换键：默认是数字 3 键，按下循环切换 DPI" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
-                        <TextBlock Text="• 回报率：固定 1000Hz" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
-                        <TextBlock Text="• 角度捕捉：可启用/禁用" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_MouseConfig_Title], Source={StaticResource LocalizationService}}" Style="{StaticResource CardTitleStyle}" />
+                        <TextBlock Text="{Binding [Help_MouseConfig_1], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_MouseConfig_2], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_MouseConfig_3], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_MouseConfig_4], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
 
                 <!-- 宏功能 -->
                 <Border Style="{StaticResource CardStyle}">
                     <StackPanel>
-                        <TextBlock Text="宏功能" Style="{StaticResource CardTitleStyle}" />
-                        <TextBlock Text="• 最多支持 8 个宏，每个宏最多 32 个动作" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
-                        <TextBlock Text="• 动作类型：按键按下/释放、延迟、鼠标移动/点击/滚轮、按键点击、文本输入" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
-                        <TextBlock Text="• 触发键：可以为每个宏设置一个物理触发键，按下触发宏，松开停止宏" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
-                        <TextBlock Text="• 循环：支持固定次数循环或无限循环（直到松开触发键）" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
-                        <TextBlock Text="• 注意：触发键本身不会作为普通按键发送" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_Macro_Title], Source={StaticResource LocalizationService}}" Style="{StaticResource CardTitleStyle}" />
+                        <TextBlock Text="{Binding [Help_Macro_1], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_Macro_2], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_Macro_3], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_Macro_4], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_Macro_5], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
 
                 <!-- 配置文件管理 -->
                 <Border Style="{StaticResource CardStyle}">
                     <StackPanel>
-                        <TextBlock Text="配置文件管理" Style="{StaticResource CardTitleStyle}" />
-                        <TextBlock Text="• 新建：创建一个新的配置文件" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
-                        <TextBlock Text="• 重命名：双击配置名称或点击重命名按钮" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
-                        <TextBlock Text="• 删除：删除当前选中的配置文件" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
-                        <TextBlock Text="• 导入/导出：支持 JSON 格式的配置文件备份和恢复" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_Profile_Title], Source={StaticResource LocalizationService}}" Style="{StaticResource CardTitleStyle}" />
+                        <TextBlock Text="{Binding [Help_Profile_1], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_Profile_2], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_Profile_3], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_Profile_4], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
 
                 <!-- 应用感知 -->
                 <Border Style="{StaticResource CardStyle}">
                     <StackPanel>
-                        <TextBlock Text="应用感知" Style="{StaticResource CardTitleStyle}" />
-                        <TextBlock Text="• 启用应用感知后，程序会自动检测前台应用" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
-                        <TextBlock Text="• 可以为不同应用设置不同的配置文件" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
-                        <TextBlock Text="• 切换到对应应用时，自动加载该应用的配置" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Title_AppAwareness], Source={StaticResource LocalizationService}}" Style="{StaticResource CardTitleStyle}" />
+                        <TextBlock Text="{Binding [Help_AppAwareness_1], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_AppAwareness_2], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_AppAwareness_3], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
 
                 <!-- 常见问题 -->
                 <Border Style="{StaticResource CardStyle}">
                     <StackPanel>
-                        <TextBlock Text="常见问题" Style="{StaticResource CardTitleStyle}" />
-                        <TextBlock Text="Q: 设备连接不上怎么办？" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4" />
-                        <TextBlock Text="A: 检查 USB 线是否为数据线（不是充电线），检查设备管理器中是否有未知设备，尝试重新插拔。" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" Margin="0,0,0,12" />
-                        <TextBlock Text="Q: 配置不保存怎么办？" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4" />
-                        <TextBlock Text="A: 确保设备连接正常，修改后等待 1 秒让配置自动保存。可以在错误日志页面查看是否有保存错误。" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" Margin="0,0,0,12" />
-                        <TextBlock Text="Q: 如何进入烧录模式？" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4" />
-                        <TextBlock Text="A: 在设备页面点击&quot;进入烧录模式&quot;按钮，或按住 BOOTSEL 键再按 RESET 键。" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" Margin="0,0,0,12" />
-                        <TextBlock Text="Q: 摇杆不工作怎么办？" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4" />
-                        <TextBlock Text="A: 在摇杆页面检查死区设置和校准值。确保摇杆接线正确（X=ADC0, Y=ADC1, SW=GPIO28）。" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_FAQ_Title], Source={StaticResource LocalizationService}}" Style="{StaticResource CardTitleStyle}" />
+                        <TextBlock Text="{Binding [Help_FAQ_Q1], Source={StaticResource LocalizationService}}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4" />
+                        <TextBlock Text="{Binding [Help_FAQ_A1], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                        <TextBlock Text="{Binding [Help_FAQ_Q2], Source={StaticResource LocalizationService}}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4" />
+                        <TextBlock Text="{Binding [Help_FAQ_A2], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                        <TextBlock Text="{Binding [Help_FAQ_Q3], Source={StaticResource LocalizationService}}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4" />
+                        <TextBlock Text="{Binding [Help_FAQ_A3], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                        <TextBlock Text="{Binding [Help_FAQ_Q4], Source={StaticResource LocalizationService}}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4" />
+                        <TextBlock Text="{Binding [Help_FAQ_A4], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
 
                 <!-- 技术支持 -->
                 <Border Style="{StaticResource CardStyle}">
                     <StackPanel>
-                        <TextBlock Text="技术支持" Style="{StaticResource CardTitleStyle}" />
-                        <TextBlock Text="项目地址：https://github.com/JYW-zero/pico_hid_composite" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
-                        <TextBlock Text="问题反馈：在 GitHub 提交 Issue" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
-                        <TextBlock Text="固件版本：v0.2.0" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_Support_Title], Source={StaticResource LocalizationService}}" Style="{StaticResource CardTitleStyle}" />
+                        <TextBlock Text="{Binding [Help_Support_1], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_Support_2], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding [Help_Support_3], Source={StaticResource LocalizationService}}" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 关于与第三方库致谢 -->
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="关于本软件" Style="{StaticResource CardTitleStyle}" />
+                        <TextBlock Text="指动 HID 复合设备配置工具" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4" />
+                        <TextBlock Text="版本：v1.0.0" Style="{StaticResource LabelStyle}" Margin="0,0,0,4" />
+                        <TextBlock Text="厂商：指动科技" Style="{StaticResource LabelStyle}" Margin="0,0,0,12" />
+
+                        <TextBlock Text="第三方库致谢" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,8" />
+                        <TextBlock Text="本软件使用了以下开源第三方库，在此向各项目贡献者表示感谢：" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" Margin="0,0,0,8" />
+
+                        <!-- UI 框架 -->
+                        <TextBlock Text="UI 框架" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" Margin="0,4,0,4" />
+                        <TextBlock Text="• Avalonia UI (MIT) - 跨平台 UI 框架" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="• CommunityToolkit.Mvvm (MIT) - MVVM 工具包" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+
+                        <!-- 系统服务 -->
+                        <TextBlock Text="系统服务" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" Margin="0,8,0,4" />
+                        <TextBlock Text="• Microsoft.Extensions.DependencyInjection (MIT) - 依赖注入" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="• Microsoft.Extensions.Hosting (MIT) - 应用程序宿主" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+
+                        <!-- 硬件通信 -->
+                        <TextBlock Text="硬件通信" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" Margin="0,8,0,4" />
+                        <TextBlock Text="• HidSharp (Apache 2.0) - 跨平台 HID 设备访问" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+
+                        <!-- 测试框架 -->
+                        <TextBlock Text="测试框架（开发时使用）" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" Margin="0,8,0,4" />
+                        <TextBlock Text="• xUnit (Apache 2.0) - 单元测试框架" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="• Moq (BSD 3-Clause) - Mock 框架" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="• coverlet.collector (MIT) - 代码覆盖率收集" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+
+                        <!-- 许可证说明 -->
+                        <TextBlock Text="许可证说明" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" Margin="0,8,0,4" />
+                        <TextBlock Text="所有第三方库均使用宽松开源许可证（MIT / BSD 3-Clause / Apache 2.0），允许商业使用、修改和分发。完整许可证信息请参阅随软件分发的 THIRD_PARTY_LICENSES.txt 文件。" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" />
+
+                        <!-- 项目链接 -->
+                        <TextBlock Text="项目主页" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" Margin="0,8,0,4" />
+                        <TextBlock Text="https://github.com/JYW-zero/pico_hid_composite" Style="{StaticResource LabelStyle}" TextWrapping="Wrap" Foreground="{StaticResource AccentBrush}" />
                     </StackPanel>
                 </Border>
             </StackPanel>

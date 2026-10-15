@@ -1,4 +1,4 @@
-namespace HidConfigTool.Core;
+﻿namespace HidConfigTool.Core;
 
 /// <summary>
 /// HID Usage 码显示名称（跨平台，不依赖 Win32）

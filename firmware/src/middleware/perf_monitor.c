@@ -1,12 +1,17 @@
-/*
+﻿/*
  * src/middleware/perf_monitor.c
  * 性能监控模块实现
  * 任务执行时间统计、CPU使用率、主循环频率
  */
 
+#include "features.h"
+
+#if FEATURE_PERF_MONITOR
+
 #include "middleware/perf_monitor.h"
 #include "middleware/fault.h"
 #include "pico/time.h"
+#include "hardware/sync.h"
 #include <stdio.h>
 #include <string.h>
 #include <stddef.h>
@@ -17,6 +22,18 @@ static perf_task_stat_t s_tasks[PERF_MAX_TASKS];
 static uint8_t s_task_count = 0;       /* 最大索引+1，用于数组边界检查 */
 static uint8_t s_registered_count = 0; /* 实际注册的任务数 */
 static uint32_t s_task_start_us[PERF_MAX_TASKS];  /* 每个任务的开始时间 */
+
+/* 多核同步自旋锁
+ * 保护 s_busy_us_total / s_current_sec_busy_us 等被 Core0 和 Core1
+ * 同时更新的共享变量。perf_end() 执行时间极短（<1us），
+ * 自旋锁开销可忽略。
+ *
+ * 注意：s_tasks[i] 按核分区使用（Core0: 0-3, Core1: 8-11），
+ * 索引不重叠，不需要锁保护；32位读取在 Cortex-M33 上是原子的，
+ * perf_loop_tick() 读取 total_us 不会读到撕裂值。
+ */
+static spin_lock_t *s_perf_lock = NULL;
+static uint8_t s_perf_lock_num = 0;
 
 static uint32_t s_init_time_us = 0;     /* 初始化时间 */
 static uint32_t s_last_loop_us = 0;     /* 上一次循环时间 */
@@ -61,6 +78,10 @@ bool perf_is_enabled(void)
 
 void perf_init(void)
 {
+    /* 初始化多核同步自旋锁（使用 striped spin lock 自动分配） */
+    s_perf_lock_num = next_striped_spin_lock_num();
+    s_perf_lock = spin_lock_init(s_perf_lock_num);
+
     memset(s_tasks, 0, sizeof(s_tasks));
     s_task_count = 0;
     s_loop_count = 0;
@@ -128,6 +149,10 @@ void perf_end(uint8_t index)
     uint32_t now = time_us_32();
     uint32_t elapsed = now - s_task_start_us[index];
 
+    /* 获取自旋锁，保护所有共享变量的读-改-写操作
+     * （s_busy_us_total / s_current_sec_busy_us 被两核同时更新） */
+    uint32_t irq_state = spin_lock_blocking(s_perf_lock);
+
     perf_task_stat_t* task = &s_tasks[index];
     task->count++;
     task->total_us += elapsed;
@@ -151,18 +176,27 @@ void perf_end(uint8_t index)
         if (now - last_log_us[index] > 1000000U)
         {
             last_log_us[index] = now;
+            /* 先释放锁再调用 fault_record（避免锁持有时间过长，
+             * 且 fault_record 可能写 Flash，不能在锁内调用） */
+            spin_unlock(s_perf_lock, irq_state);
+
             char msg[64];
             snprintf(msg, sizeof(msg), "任务[%s]执行超时: %lu us (阈值: %lu us)",
                      task->name ? task->name : "?",
                      (unsigned long)elapsed,
                      (unsigned long)task->threshold_us);
             fault_record(FAULT_LEVEL_WARN, "perf_monitor", msg);
+
+            /* 重新获取锁，继续后面的共享变量更新 */
+            irq_state = spin_lock_blocking(s_perf_lock);
         }
     }
 
-    /* 累加到总忙碌时间 */
+    /* 累加到总忙碌时间（两核共享，必须在锁内更新） */
     s_busy_us_total += elapsed;
     s_current_sec_busy_us += elapsed;
+
+    spin_unlock(s_perf_lock, irq_state);
 }
 
 uint8_t perf_get_task_count(void)
@@ -242,6 +276,24 @@ void perf_set_threshold(uint8_t index, uint32_t threshold_us)
         return;
     }
     s_tasks[index].threshold_us = threshold_us;
+}
+
+void perf_load_thresholds(const uint16_t* thresholds, uint8_t count)
+{
+    if (!s_initialized || thresholds == NULL || count == 0)
+    {
+        return;
+    }
+    if (count > PERF_MAX_TASKS)
+    {
+        count = PERF_MAX_TASKS;
+    }
+    for (uint8_t i = 0; i < count; i++)
+    {
+        /* 配置中存储的阈值单位是100us，转换为us */
+        uint32_t threshold_us = (uint32_t)thresholds[i] * 100U;
+        s_tasks[i].threshold_us = threshold_us;
+    }
 }
 
 void perf_loop_tick(void)
@@ -392,3 +444,5 @@ void perf_print_stats(void)
     }
     printf("==============================\n\n");
 }
+
+#endif /* FEATURE_PERF_MONITOR */

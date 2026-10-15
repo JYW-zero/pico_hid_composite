@@ -1,4 +1,4 @@
-﻿/*
+/*
  * include/middleware/ipc.h
  * 核间通信（Inter-Processor Communication）命令定义
  * 使用 RP2350 SIO FIFO 传递命令
@@ -35,7 +35,8 @@ extern "C" {
 typedef enum
 {
     IPC_CMD_NOP     = 0x00,  /* 空操作，回ACK */
-    IPC_CMD_SET_DPI = 0x01,  /* 设置DPI，参数：optical_sensor_dpi_e值 */
+    IPC_CMD_SET_DPI = 0x01,  /* 设置DPI，参数：optical_sensor_dpi_e枚举值 */
+    IPC_CMD_SET_DPI_RAW = 0x07,  /* 设置DPI原始值，参数：DPI数值（如1600） */
     IPC_CMD_SLEEP   = 0x02,  /* Core1进入休眠（WFE） */
     IPC_CMD_PAUSE   = 0x03,  /* 暂停扫描，进入等待循环 */
     IPC_CMD_RESUME  = 0x04,  /* 恢复扫描 */
@@ -45,8 +46,9 @@ typedef enum
 } ipc_cmd_type_e;
 
 /* 响应码 */
-#define IPC_ACK_OK     0x00000000U
-#define IPC_ACK_ERR    0xFFFFFFFFU
+#define IPC_ACK_OK       0x00000000U
+#define IPC_ACK_ERR      0xFFFFFFFFU
+#define IPC_ACK_TIMEOUT  0xFFFFFFFEU  /* 本地超时标记（不会由Core1发送，仅Core0内部使用） */
 
 #ifdef __cplusplus
 }

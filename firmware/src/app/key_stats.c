@@ -4,6 +4,10 @@
  * 完整版本：RAM统计 + Flash持久化 + 磨损均衡
  */
 
+#include "features.h"
+
+#if FEATURE_KEY_STATS
+
 #include "app/key_stats.h"
 #include "board/flash_layout.h"
 #include "middleware/fault.h"
@@ -275,3 +279,5 @@ uint32_t key_stats_get_save_count(void)
 {
     return s_save_count;
 }
+
+#endif /* FEATURE_KEY_STATS */

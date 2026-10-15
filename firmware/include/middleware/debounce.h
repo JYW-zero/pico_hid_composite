@@ -24,6 +24,14 @@ typedef struct
 /* 初始化消抖实例 */
 void debounce_64key_init(debounce_64key_t *db, uint8_t threshold);
 
+/* 设置消抖阈值（采样次数）
+ * 运行时修改阈值，无需重新初始化
+ */
+void debounce_64key_set_threshold(debounce_64key_t *db, uint8_t threshold);
+
+/* 获取当前消抖阈值（采样次数） */
+uint8_t debounce_64key_get_threshold(const debounce_64key_t *db);
+
 /* 输入原始按键值，返回消抖后的稳定状态 */
 uint64_t debounce_64key_update(debounce_64key_t *db, uint64_t raw);
 

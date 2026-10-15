@@ -12,7 +12,7 @@
 
 /* ==================== 私有变量 ==================== */
 
-/* 宏定义存储（先存在RAM里，后续加Flash持久化） */
+/* 宏定义存储（RAM中运行，配置持久化通过 macro_load_from_config/macro_save_to_config 接口） */
 static macro_def_t s_macros[MACRO_MAX_COUNT];
 
 /* 当前运行的宏 */
@@ -227,141 +227,109 @@ static void release_all_keys(void)
     s_press_modifier = 0;
 }
 
+/* ==================== 宏动作处理子函数 ==================== */
+
+/* 处理延迟动作：计算结束时间戳，进入延迟状态 */
+static bool execute_action_delay(const macro_action_t* action)
+{
+    uint16_t delay = action->param2 | (action->param3 << 8);
+    s_delay_end_ms = to_ms_since_boot(get_absolute_time()) + delay;
+    s_state = MACRO_STATE_DELAY;
+    return false;  /* 返回false，表示需要等待 */
+}
+
+/* 处理按键点击动作（两阶段：按下→等下一帧→释放） */
+static bool execute_action_key_press(const macro_action_t* action)
+{
+    if (s_press_phase == MACRO_PHASE_PRESS) {
+        uint8_t keycode = action->param1;
+        add_key(keycode);
+        s_press_keycode = keycode;
+        s_press_phase = MACRO_PHASE_RELEASE;
+        return false;  /* 等待下一帧 */
+    } else {
+        remove_key(s_press_keycode);
+        s_press_keycode = 0;
+        s_press_phase = MACRO_PHASE_PRESS;
+        return true;   /* 完成 */
+    }
+}
+
+/* 处理输入字符动作（两阶段：ASCII转HID键码，按下→等下一帧→释放） */
+static bool execute_action_text_char(const macro_action_t* action)
+{
+    if (s_press_phase == MACRO_PHASE_PRESS) {
+        uint8_t modifier = 0;
+        uint8_t keycode = ascii_to_hid((char)action->param1, &modifier);
+        if (keycode != 0) {
+            if (modifier != 0) {
+                s_kb_modifier |= modifier;
+            }
+            add_key(keycode);
+            s_press_keycode = keycode;
+            s_press_modifier = modifier;
+            s_press_phase = MACRO_PHASE_RELEASE;
+        }
+        return false;  /* 等待下一帧（即使keycode为0也跳过该字符） */
+    } else {
+        if (s_press_keycode != 0) {
+            remove_key(s_press_keycode);
+        }
+        if (s_press_modifier != 0) {
+            s_kb_modifier &= ~s_press_modifier;
+        }
+        s_press_keycode = 0;
+        s_press_modifier = 0;
+        s_press_phase = MACRO_PHASE_PRESS;
+        s_kb_changed = true;
+        return true;   /* 完成 */
+    }
+}
+
 /* 执行单个动作 */
 static bool execute_action(const macro_action_t* action)
 {
-    switch (action->type)
-    {
+    switch (action->type) {
         case MACRO_ACTION_KEY_DOWN:
-        {
-            uint8_t keycode = action->param1;
-            add_key(keycode);
+            add_key(action->param1);
             break;
-        }
-
         case MACRO_ACTION_KEY_UP:
-        {
-            uint8_t keycode = action->param1;
-            remove_key(keycode);
+            remove_key(action->param1);
             break;
-        }
-
         case MACRO_ACTION_DELAY:
-        {
-            /* 延迟动作：计算结束时间戳，进入延迟状态 */
-            uint16_t delay = action->param2 | (action->param3 << 8);
-            s_delay_end_ms = to_ms_since_boot(get_absolute_time()) + delay;
-            s_state = MACRO_STATE_DELAY;
-            return false;  /* 返回false，表示需要等待 */
-        }
-
-        case MACRO_ACTION_MOUSE_MOVE:
-        {
-            /* 鼠标移动：相对移动，直接发送报告 */
+            return execute_action_delay(action);
+        case MACRO_ACTION_MOUSE_MOVE: {
             int8_t dx = (int8_t)action->param2;
             int8_t dy = (int8_t)action->param3;
-            if (tud_hid_ready())
-            {
+            if (tud_hid_ready()) {
                 tud_hid_mouse_report(REPORT_ID_MOUSE, s_mouse_buttons, dx, dy, 0, 0);
             }
             break;
         }
-
-        case MACRO_ACTION_MOUSE_CLICK:
-        {
-            /* 鼠标点击：按下+释放 */
+        case MACRO_ACTION_MOUSE_CLICK: {
             uint8_t button = action->param1;
-            s_mouse_buttons |= button;
+            if (action->param2 != 0) {
+                s_mouse_buttons |= button;  /* 按下 */
+            } else {
+                s_mouse_buttons &= ~button; /* 释放 */
+            }
             s_mouse_changed = true;
-            /* 注意：点击需要按下和释放两个动作分开，这里只处理按下或释放，由param2决定 */
-            if (action->param2 != 0)
-            {
-                /* 按下 */
-            }
-            else
-            {
-                /* 释放 */
-                s_mouse_buttons &= ~button;
-            }
             break;
         }
-
-        case MACRO_ACTION_MOUSE_SCROLL:
-        {
-            /* 鼠标滚轮 */
+        case MACRO_ACTION_MOUSE_SCROLL: {
             int8_t scroll = (int8_t)action->param1;
-            if (tud_hid_ready())
-            {
+            if (tud_hid_ready()) {
                 tud_hid_mouse_report(REPORT_ID_MOUSE, s_mouse_buttons, 0, 0, scroll, 0);
             }
             break;
         }
-
         case MACRO_ACTION_KEY_PRESS:
-        {
-            /* 按键点击：两阶段——先按下，等下一帧HID报告发送后再释放 */
-            if (s_press_phase == MACRO_PHASE_PRESS)
-            {
-                /* 第一帧：按下 */
-                uint8_t keycode = action->param1;
-                add_key(keycode);
-                s_press_keycode = keycode;
-                s_press_phase = MACRO_PHASE_RELEASE;
-                return false;  /* 等待下一帧 */
-            }
-            else
-            {
-                /* 第二帧：释放 */
-                remove_key(s_press_keycode);
-                s_press_keycode = 0;
-                s_press_phase = MACRO_PHASE_PRESS;
-                return true;   /* 完成 */
-            }
-        }
-
+            return execute_action_key_press(action);
         case MACRO_ACTION_TEXT_CHAR:
-        {
-            /* 输入字符：两阶段——ASCII转HID键码，按下后等下一帧再释放 */
-            if (s_press_phase == MACRO_PHASE_PRESS)
-            {
-                uint8_t modifier = 0;
-                uint8_t keycode = ascii_to_hid((char)action->param1, &modifier);
-                if (keycode != 0)
-                {
-                    if (modifier != 0)
-                    {
-                        s_kb_modifier |= modifier;
-                    }
-                    add_key(keycode);
-                    s_press_keycode = keycode;
-                    s_press_modifier = modifier;
-                    s_press_phase = MACRO_PHASE_RELEASE;
-                }
-                return false;  /* 等待下一帧（即使keycode为0也跳过该字符） */
-            }
-            else
-            {
-                /* 第二帧：释放 */
-                if (s_press_keycode != 0)
-                {
-                    remove_key(s_press_keycode);
-                }
-                if (s_press_modifier != 0)
-                {
-                    s_kb_modifier &= ~s_press_modifier;
-                }
-                s_press_keycode = 0;
-                s_press_modifier = 0;
-                s_press_phase = MACRO_PHASE_PRESS;
-                s_kb_changed = true;
-                return true;   /* 完成 */
-            }
-        }
-
+            return execute_action_text_char(action);
         default:
             break;
     }
-
     return true;  /* 返回true，表示动作执行完成，可以继续下一个 */
 }
 
@@ -369,7 +337,7 @@ static bool execute_action(const macro_action_t* action)
 
 void macro_init(void)
 {
-    /* TODO: 从Flash加载宏配置 */
+    /* 宏配置从 Flash 加载在 main.c 中调用 macro_load_from_config() 完成 */
     load_default_macros();
 }
 
@@ -478,7 +446,7 @@ int macro_set(uint8_t macro_id, const macro_def_t* macro)
         result = 1;  /* 1=部分成功：动作被截断 */
     }
 
-    /* TODO: 保存到Flash */
+    /* 宏配置保存由 config_hid.c 中的延迟保存机制处理（s_macro_dirty 标志 + 1秒延迟） */
 
     return result;
 }

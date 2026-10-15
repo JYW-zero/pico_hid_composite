@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.IO;
 using System.Text;
 using HidConfigTool.Core.Interfaces;
+using HidConfigTool.Core.Utils;
 using Microsoft.Win32.SafeHandles;
 
 namespace HidConfigTool.App.Drivers;
@@ -9,9 +10,34 @@ namespace HidConfigTool.App.Drivers;
 /// <summary>
 /// HID 驱动实现（P/Invoke 调用 Windows 原生 HID API）
 /// 100% 官方 Windows 系统 API，无需额外 NuGet 包
+/// 
+/// 增强特性：
+/// - 所有 HID 读写默认超时 1 秒
+/// - 失败自动重试 2 次，指数退避（100ms → 200ms）
+/// - 错误码映射为用户可读信息
+/// - 多线程访问加锁（SemaphoreSlim），避免并发冲突
+/// - 完整 CancellationToken 支持
 /// </summary>
 public class HidDriver : IHidDriver
 {
+    #region 配置常量
+
+    /// <summary>
+    /// 默认单次操作超时（毫秒）
+    /// </summary>
+    private const int DefaultTimeoutMs = 1000;
+
+    /// <summary>
+    /// 默认最大重试次数
+    /// </summary>
+    private const int DefaultMaxRetries = 2;
+
+    /// <summary>
+    /// 默认初始重试延迟（毫秒）
+    /// </summary>
+    private const int DefaultInitialDelayMs = 100;
+
+    #endregion
     #region Win32 API 定义
 
     private const uint GENERIC_READ = 0x80000000;
@@ -124,6 +150,46 @@ public class HidDriver : IHidDriver
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool DeviceIoControl(SafeFileHandle hDevice, uint dwIoControlCode, byte[] lpInBuffer, uint nInBufferSize, byte[] lpOutBuffer, uint nOutBufferSize, out uint lpBytesReturned, IntPtr lpOverlapped);
 
+    // 重叠IO相关（用于读取 Input 报告）
+    private const uint FILE_FLAG_OVERLAPPED = 0x40000000;
+    private const uint INFINITE = 0xFFFFFFFF;
+    private const uint WAIT_OBJECT_0 = 0x00000000;
+    private const uint WAIT_TIMEOUT = 0x00000102;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct OVERLAPPED
+    {
+        public IntPtr Internal;
+        public IntPtr InternalHigh;
+        public uint Offset;
+        public uint OffsetHigh;
+        public IntPtr hEvent;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr CreateEvent(IntPtr lpEventAttributes, bool bManualReset, bool bInitialState, string? lpName);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CloseHandle(IntPtr hObject);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool ResetEvent(IntPtr hEvent);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetOverlappedResult(SafeFileHandle hFile, ref OVERLAPPED lpOverlapped, out uint lpNumberOfBytesTransferred, bool bWait);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool ReadFile(SafeFileHandle hFile, byte[] lpBuffer, uint nNumberOfBytesToRead, out uint lpNumberOfBytesRead, ref OVERLAPPED lpOverlapped);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool WriteFile(SafeFileHandle hFile, byte[] lpBuffer, uint nNumberOfBytesToWrite, out uint lpNumberOfBytesWritten, ref OVERLAPPED lpOverlapped);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CancelIo(SafeFileHandle hFile);
+
     private const uint DIGCF_PRESENT = 0x00000002;
     private const uint DIGCF_DEVICEINTERFACE = 0x00000010;
 
@@ -131,6 +197,18 @@ public class HidDriver : IHidDriver
 
     private SafeFileHandle? _deviceHandle;
     private uint _featureReportSize = 65;  // 默认 65 字节（Report ID + 64 数据），OpenAsync 时探测实际值
+    private uint _inputReportSize = 65;    // 默认 65 字节，OpenAsync 时探测实际值
+    private uint _outputReportSize = 65;   // 默认 65 字节，OpenAsync 时探测实际值（用于 Output Report 中断传输）
+
+    /// <summary>
+    /// I/O 操作并发锁（确保同一时间只有一个线程访问设备）
+    /// </summary>
+    private readonly SemaphoreSlim _ioLock = new(1, 1);
+
+    /// <summary>
+    /// 是否已释放
+    /// </summary>
+    private bool _disposed;
 
     /// <summary>
     /// 写日志到文件
@@ -301,8 +379,8 @@ public class HidDriver : IHidDriver
         {
             try
             {
-                // 独占访问：防止其他程序同时操作设备（竞争条件/信息泄露）
-                _deviceHandle = CreateFile(devicePath, GENERIC_READ | GENERIC_WRITE, 0, IntPtr.Zero, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, IntPtr.Zero);
+                // 独占访问 + 重叠IO（重叠IO用于支持可取消的 Input 报告读取）
+                _deviceHandle = CreateFile(devicePath, GENERIC_READ | GENERIC_WRITE, 0, IntPtr.Zero, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED, IntPtr.Zero);
 
                 if (_deviceHandle.IsInvalid)
                     return false;
@@ -323,6 +401,10 @@ public class HidDriver : IHidDriver
                     {
                         _featureReportSize = caps.FeatureReportByteLength;
                         if (_featureReportSize == 0) _featureReportSize = 65;
+                        _inputReportSize = caps.InputReportByteLength;
+                        if (_inputReportSize == 0) _inputReportSize = 65;
+                        _outputReportSize = caps.OutputReportByteLength;
+                        if (_outputReportSize == 0) _outputReportSize = 65;
                     }
                     HidD_FreePreparsedData(preparsed);
                 }
@@ -346,39 +428,7 @@ public class HidDriver : IHidDriver
     /// <inheritdoc />
     public async Task<bool> SendFeatureReportAsync(byte reportId, byte[] data)
     {
-        if (!IsConnected)
-            return false;
-
-        return await Task.Run(() =>
-        {
-            try
-            {
-                // 使用局部变量捕获句柄，避免 IsConnected 检查与使用之间的 TOCTOU 竞态
-                SafeFileHandle? handle = _deviceHandle;
-                if (handle == null || handle.IsInvalid)
-                    return false;
-
-                // 构造 Feature 报告缓冲区，使用探测到的 FeatureReportByteLength
-                byte[] buffer = new byte[_featureReportSize];
-                buffer[0] = reportId;
-                Array.Copy(data, 0, buffer, 1, Math.Min(data.Length, buffer.Length - 1));
-
-                bool result = HidD_SetFeature(handle, buffer, (uint)buffer.Length);
-
-                if (!result)
-                {
-                    int err = Marshal.GetLastWin32Error();
-                    Log($"SendFeatureReportAsync failed: reportId={reportId}, error={err}");
-                }
-
-                return result;
-            }
-            catch (Exception ex)
-            {
-                Log($"SendFeatureReportAsync exception: {ex.Message}");
-                return false;
-            }
-        });
+        return await SendFeatureReportAsync(reportId, data, CancellationToken.None);
     }
 
     /// <inheritdoc />
@@ -389,32 +439,69 @@ public class HidDriver : IHidDriver
 
         try
         {
-            return await Task.Run(() =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                // 使用局部变量捕获句柄，避免 TOCTOU 竞态
-                SafeFileHandle? handle = _deviceHandle;
-                if (handle == null || handle.IsInvalid)
-                    return false;
-                byte[] buffer = new byte[_featureReportSize];
-                buffer[0] = reportId;
-                Array.Copy(data, 0, buffer, 1, Math.Min(data.Length, buffer.Length - 1));
-                bool result = HidD_SetFeature(handle, buffer, (uint)buffer.Length);
-                if (!result)
+            // 使用重试策略：超时 1 秒，重试 2 次，指数退避
+            return await RetryPolicy.ExecuteWithRetryAndTimeoutAsync(
+                async (ct) =>
                 {
-                    int err = Marshal.GetLastWin32Error();
-                    Log($"SendFeatureReportAsync(cancel) failed: reportId={reportId}, error={err}");
-                }
-                return result;
-            }, cancellationToken);
+                    // 获取并发锁
+                    await _ioLock.WaitAsync(ct);
+                    try
+                    {
+                        ct.ThrowIfCancellationRequested();
+
+                        // 使用局部变量捕获句柄，避免 TOCTOU 竞态
+                        SafeFileHandle? handle = _deviceHandle;
+                        if (handle == null || handle.IsInvalid)
+                            return false;
+
+                        // 构造 Feature 报告缓冲区
+                        byte[] buffer = new byte[_featureReportSize];
+                        buffer[0] = reportId;
+                        Array.Copy(data, 0, buffer, 1, Math.Min(data.Length, buffer.Length - 1));
+
+                        bool result = HidD_SetFeature(handle, buffer, (uint)buffer.Length);
+
+                        if (!result)
+                        {
+                            int err = Marshal.GetLastWin32Error();
+                            string errMsg = HidErrorMapper.GetErrorMessage(err);
+                            Log($"SendFeatureReportAsync failed: reportId={reportId}, error={err} ({errMsg})");
+
+                            // 如果是可重试错误，抛出异常触发重试
+                            if (HidErrorMapper.IsRetryable(err))
+                                throw new IOException($"HID 写入失败: {errMsg} (错误码: {err})");
+                        }
+
+                        return result;
+                    }
+                    finally
+                    {
+                        _ioLock.Release();
+                    }
+                },
+                timeoutMs: DefaultTimeoutMs,
+                maxRetries: DefaultMaxRetries,
+                initialDelayMs: DefaultInitialDelayMs,
+                shouldRetry: HidErrorMapper.IsRetryable,
+                onRetry: (attempt, ex) =>
+                {
+                    Log($"SendFeatureReportAsync retry {attempt}/{DefaultMaxRetries}: reportId={reportId}, {ex.Message}");
+                },
+                cancellationToken: cancellationToken);
         }
         catch (OperationCanceledException)
         {
+            Log($"SendFeatureReportAsync cancelled: reportId={reportId}");
+            return false;
+        }
+        catch (TimeoutException ex)
+        {
+            Log($"SendFeatureReportAsync timeout: reportId={reportId}, {ex.Message}");
             return false;
         }
         catch (Exception ex)
         {
-            Log($"SendFeatureReportAsync(cancel) exception: {ex.Message}");
+            Log($"SendFeatureReportAsync exception: reportId={reportId}, {ex.Message}");
             return false;
         }
     }
@@ -422,40 +509,7 @@ public class HidDriver : IHidDriver
     /// <inheritdoc />
     public async Task<byte[]?> GetFeatureReportAsync(byte reportId)
     {
-        if (!IsConnected)
-            return null;
-
-        return await Task.Run(() =>
-        {
-            try
-            {
-                // 使用局部变量捕获句柄，避免 TOCTOU 竞态
-                SafeFileHandle? handle = _deviceHandle;
-                if (handle == null || handle.IsInvalid)
-                    return null;
-
-                // Feature 报告缓冲区，使用探测到的 FeatureReportByteLength
-                byte[] buffer = new byte[_featureReportSize];
-                buffer[0] = reportId;
-
-                if (!HidD_GetFeature(handle, buffer, (uint)buffer.Length))
-                {
-                    int err = Marshal.GetLastWin32Error();
-                    Log($"GetFeatureReportAsync failed: reportId={reportId}, error={err}");
-                    return null;
-                }
-
-                // 返回数据（去掉 Report ID）
-                byte[] result = new byte[buffer.Length - 1];
-                Array.Copy(buffer, 1, result, 0, result.Length);
-                return result;
-            }
-            catch (Exception ex)
-            {
-                Log($"GetFeatureReportAsync exception: {ex.Message}");
-                return null;
-            }
-        });
+        return await GetFeatureReportAsync(reportId, CancellationToken.None);
     }
 
     /// <inheritdoc />
@@ -466,30 +520,314 @@ public class HidDriver : IHidDriver
 
         try
         {
-            return await Task.Run(() =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                // 使用局部变量捕获句柄，避免 TOCTOU 竞态
-                SafeFileHandle? handle = _deviceHandle;
-                if (handle == null || handle.IsInvalid)
-                    return null;
-                byte[] buffer = new byte[_featureReportSize];
-                buffer[0] = reportId;
-                if (!HidD_GetFeature(handle, buffer, (uint)buffer.Length))
-                    return null;
-                byte[] result = new byte[buffer.Length - 1];
-                Array.Copy(buffer, 1, result, 0, result.Length);
-                return result;
-            }, cancellationToken);
+            // 使用重试策略：超时 1 秒，重试 2 次，指数退避
+            return await RetryPolicy.ExecuteWithRetryAndTimeoutAsync(
+                async (ct) =>
+                {
+                    // 获取并发锁
+                    await _ioLock.WaitAsync(ct);
+                    try
+                    {
+                        ct.ThrowIfCancellationRequested();
+
+                        // 使用局部变量捕获句柄，避免 TOCTOU 竞态
+                        SafeFileHandle? handle = _deviceHandle;
+                        if (handle == null || handle.IsInvalid)
+                            return null!;
+
+                        // Feature 报告缓冲区
+                        byte[] buffer = new byte[_featureReportSize];
+                        buffer[0] = reportId;
+
+                        if (!HidD_GetFeature(handle, buffer, (uint)buffer.Length))
+                        {
+                            int err = Marshal.GetLastWin32Error();
+                            string errMsg = HidErrorMapper.GetErrorMessage(err);
+                            Log($"GetFeatureReportAsync failed: reportId={reportId}, error={err} ({errMsg})");
+
+                            // 如果是可重试错误，抛出异常触发重试
+                            if (HidErrorMapper.IsRetryable(err))
+                                throw new IOException($"HID 读取失败: {errMsg} (错误码: {err})");
+
+                            return null!;
+                        }
+
+                        // 返回数据（去掉 Report ID）
+                        byte[] result = new byte[buffer.Length - 1];
+                        Array.Copy(buffer, 1, result, 0, result.Length);
+                        return result;
+                    }
+                    finally
+                    {
+                        _ioLock.Release();
+                    }
+                },
+                timeoutMs: DefaultTimeoutMs,
+                maxRetries: DefaultMaxRetries,
+                initialDelayMs: DefaultInitialDelayMs,
+                shouldRetry: HidErrorMapper.IsRetryable,
+                onRetry: (attempt, ex) =>
+                {
+                    Log($"GetFeatureReportAsync retry {attempt}/{DefaultMaxRetries}: reportId={reportId}, {ex.Message}");
+                },
+                cancellationToken: cancellationToken);
         }
         catch (OperationCanceledException)
         {
+            Log($"GetFeatureReportAsync cancelled: reportId={reportId}");
+            return null;
+        }
+        catch (TimeoutException ex)
+        {
+            Log($"GetFeatureReportAsync timeout: reportId={reportId}, {ex.Message}");
             return null;
         }
         catch (Exception ex)
         {
-            Log($"GetFeatureReportAsync(cancel) exception: {ex.Message}");
+            Log($"GetFeatureReportAsync exception: reportId={reportId}, {ex.Message}");
             return null;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<byte[]?> ReadInputReportAsync(CancellationToken cancellationToken = default)
+    {
+        if (!IsConnected)
+            return null;
+
+        try
+        {
+            return await Task.Run(() =>
+            {
+                SafeFileHandle? handle = _deviceHandle;
+                if (handle == null || handle.IsInvalid)
+                    return null;
+
+                IntPtr hEvent = CreateEvent(IntPtr.Zero, true, false, null);
+                if (hEvent == IntPtr.Zero)
+                {
+                    Log("ReadInputReportAsync: CreateEvent failed");
+                    return null;
+                }
+
+                try
+                {
+                    byte[] buffer = new byte[_inputReportSize];
+                    var overlapped = new OVERLAPPED
+                    {
+                        hEvent = hEvent
+                    };
+
+                    // 发起重叠IO读取
+                    bool result = ReadFile(handle, buffer, (uint)buffer.Length, out uint bytesRead, ref overlapped);
+
+                    if (result)
+                    {
+                        // 数据已就绪，直接返回
+                        if (bytesRead > 0)
+                        {
+                            byte[] data = new byte[bytesRead];
+                            Array.Copy(buffer, 0, data, 0, bytesRead);
+                            return data;
+                        }
+                        return null;
+                    }
+
+                    int err = Marshal.GetLastWin32Error();
+                    const int ERROR_IO_PENDING = 997;
+                    if (err != ERROR_IO_PENDING)
+                    {
+                        string errMsg = HidErrorMapper.GetErrorMessage(err);
+                        Log($"ReadInputReportAsync: ReadFile failed, error={err} ({errMsg})");
+                        return null;
+                    }
+
+                    // IO 挂起，等待完成或取消
+                    while (!cancellationToken.IsCancellationRequested)
+                    {
+                        uint waitResult = WaitForSingleObject(hEvent, 100); // 100ms 超时，便于检查取消
+
+                        if (waitResult == WAIT_OBJECT_0)
+                        {
+                            // IO 完成
+                            if (GetOverlappedResult(handle, ref overlapped, out bytesRead, false))
+                            {
+                                if (bytesRead > 0)
+                                {
+                                    byte[] data = new byte[bytesRead];
+                                    Array.Copy(buffer, 0, data, 0, bytesRead);
+                                    return data;
+                                }
+                                return null;
+                            }
+                            else
+                            {
+                                int ioErr = Marshal.GetLastWin32Error();
+                                string ioErrMsg = HidErrorMapper.GetErrorMessage(ioErr);
+                                Log($"ReadInputReportAsync: GetOverlappedResult failed, error={ioErr} ({ioErrMsg})");
+                                return null;
+                            }
+                        }
+                        else if (waitResult == WAIT_TIMEOUT)
+                        {
+                            // 超时，继续循环检查取消令牌
+                            continue;
+                        }
+                        else
+                        {
+                            Log($"ReadInputReportAsync: WaitForSingleObject failed, result=0x{waitResult:X}");
+                            return null;
+                        }
+                    }
+
+                    // 被取消，取消挂起的IO
+                    if (!cancellationToken.IsCancellationRequested)
+                    {
+                        CancelIo(handle);
+                    }
+                    Log("ReadInputReportAsync: cancelled");
+                    return null;
+                }
+                finally
+                {
+                    CloseHandle(hEvent);
+                }
+            }, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            Log("ReadInputReportAsync: operation cancelled");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Log($"ReadInputReportAsync: exception: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> SendOutputReportAsync(byte reportId, byte[] data)
+    {
+        return await SendOutputReportAsync(reportId, data, CancellationToken.None);
+    }
+
+    /// <inheritdoc />
+    /// <summary>
+    /// 发送 Output 报告（中断传输，比 Feature Report 速度更快）
+    /// 使用 WriteFile + 重叠IO，走 USB 中断传输（Interrupt Transfer）
+    /// 适用于高端游戏外设的高速命令发送
+    /// </summary>
+    public async Task<bool> SendOutputReportAsync(byte reportId, byte[] data, CancellationToken cancellationToken)
+    {
+        if (!IsConnected)
+            return false;
+
+        // 输入验证：防止空数据导致发送全零无效命令
+        if (data == null)
+            throw new ArgumentNullException(nameof(data));
+        if (data.Length == 0)
+        {
+            Log($"SendOutputReportAsync: data is empty, reportId={reportId}");
+            return false;
+        }
+
+        try
+        {
+            return await Task.Run(() =>
+            {
+                SafeFileHandle? handle = _deviceHandle;
+                if (handle == null || handle.IsInvalid)
+                    return false;
+
+                // 构造 Output 报告缓冲区（第一个字节为 Report ID）
+                byte[] buffer = new byte[_outputReportSize];
+                buffer[0] = reportId;
+                Array.Copy(data, 0, buffer, 1, Math.Min(data.Length, buffer.Length - 1));
+
+                IntPtr hEvent = CreateEvent(IntPtr.Zero, true, false, null);
+                if (hEvent == IntPtr.Zero)
+                {
+                    Log("SendOutputReportAsync: CreateEvent failed");
+                    return false;
+                }
+
+                try
+                {
+                    var overlapped = new OVERLAPPED
+                    {
+                        hEvent = hEvent
+                    };
+
+                    // 发起重叠IO写入（Output Report 走中断传输）
+                    bool result = WriteFile(handle, buffer, (uint)buffer.Length, out uint bytesWritten, ref overlapped);
+
+                    if (result)
+                    {
+                        // 数据已直接写入完成
+                        return bytesWritten == buffer.Length;
+                    }
+
+                    int err = Marshal.GetLastWin32Error();
+                    const int ERROR_IO_PENDING = 997;
+                    if (err != ERROR_IO_PENDING)
+                    {
+                        string errMsg = HidErrorMapper.GetErrorMessage(err);
+                        Log($"SendOutputReportAsync: WriteFile failed, error={err} ({errMsg})");
+                        return false;
+                    }
+
+                    // IO 挂起，等待完成或取消
+                    while (!cancellationToken.IsCancellationRequested)
+                    {
+                        uint waitResult = WaitForSingleObject(hEvent, 100); // 100ms 超时，便于检查取消
+
+                        if (waitResult == WAIT_OBJECT_0)
+                        {
+                            // IO 完成
+                            if (GetOverlappedResult(handle, ref overlapped, out bytesWritten, false))
+                            {
+                                return bytesWritten == buffer.Length;
+                            }
+                            else
+                            {
+                                int ioErr = Marshal.GetLastWin32Error();
+                                string ioErrMsg = HidErrorMapper.GetErrorMessage(ioErr);
+                                Log($"SendOutputReportAsync: GetOverlappedResult failed, error={ioErr} ({ioErrMsg})");
+                                return false;
+                            }
+                        }
+                        else if (waitResult == WAIT_TIMEOUT)
+                        {
+                            // 超时，继续循环检查取消令牌
+                            continue;
+                        }
+                        else
+                        {
+                            Log($"SendOutputReportAsync: WaitForSingleObject failed, result={waitResult}");
+                            return false;
+                        }
+                    }
+
+                    // 被取消
+                    CancelIo(handle);
+                    return false;
+                }
+                finally
+                {
+                    CloseHandle(hEvent);
+                }
+            }, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            Log($"SendOutputReportAsync cancelled: reportId={reportId}");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Log($"SendOutputReportAsync exception: reportId={reportId}, {ex.Message}");
+            return false;
         }
     }
 
@@ -582,7 +920,12 @@ public class HidDriver : IHidDriver
     /// <inheritdoc />
     public void Dispose()
     {
+        if (_disposed)
+            return;
+
+        _disposed = true;
         Close();
+        _ioLock.Dispose();
         GC.SuppressFinalize(this);
     }
 }

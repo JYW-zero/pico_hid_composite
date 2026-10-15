@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using HidConfigTool.Core.Models;
 
 namespace HidConfigTool.Core;

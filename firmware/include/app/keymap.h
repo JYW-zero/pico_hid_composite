@@ -1,7 +1,7 @@
 /*
  * include/app/keymap.h
  * 按键映射模块
- * 支持普通层 + Fn层 两层映射
+ * 支持 4 层按键映射：Layer0(普通) / Layer1(Fn临时) / Layer2(扩展1) / Layer3(扩展2)
  * 映射表从Flash配置加载，支持掉电保存
  */
 
@@ -20,10 +20,26 @@ extern "C" {
 /* 按键数量 */
 #define KEYMAP_KEY_COUNT  64
 
+/* 层数 */
+#define KEYMAP_LAYER_COUNT  4
+
+/* 层索引 */
+#define KEYMAP_LAYER_0  0  /* 普通层（默认） */
+#define KEYMAP_LAYER_1  1  /* Fn 临时层（按住 Fn 键时） */
+#define KEYMAP_LAYER_2  2  /* 扩展层 1（持久激活） */
+#define KEYMAP_LAYER_3  3  /* 扩展层 2（持久激活） */
+
 /* 特殊键码标记 */
 #define KEYMAP_KEY_NONE     0x00  /* 空键 */
 #define KEYMAP_KEY_MODIFIER 0xFF  /* 修饰键标记（具体修饰键查物理位置表，向后兼容） */
 #define KEYMAP_KEY_FN       0xFE  /* Fn键标记 */
+
+/* 层切换键标记（在映射表中使用，表示切换到指定层） */
+#define KEYMAP_KEY_LAYER_0  0xFD  /* 切换到 Layer 0 */
+#define KEYMAP_KEY_LAYER_1  0xFC  /* 切换到 Layer 1 */
+#define KEYMAP_KEY_LAYER_2  0xFB  /* 切换到 Layer 2 */
+#define KEYMAP_KEY_LAYER_3  0xFA  /* 切换到 Layer 3 */
+#define KEYMAP_KEY_LAYER_NEXT 0xF9 /* 循环切换到下一层 */
 
 /* 修饰键编码（0xE0~0xE7）：直接编码修饰键类型，无需查物理位置表
  * 支持用户将任意键位映射为任意修饰键
@@ -51,6 +67,7 @@ typedef enum
     KEYMAP_TYPE_MODIFIER,     /* 修饰键 */
     KEYMAP_TYPE_FN,           /* Fn键本身 */
     KEYMAP_TYPE_CONSUMER,     /* 多媒体键（Consumer Report） */
+    KEYMAP_TYPE_LAYER_SWITCH, /* 层切换键 */
 } keymap_type_e;
 
 /* ==================== 常用多媒体键码（Consumer Usage ID） ==================== */
@@ -95,6 +112,34 @@ uint8_t keymap_get_fn_key(void);
 
 /* 检查是否是Fn键 */
 bool keymap_is_fn_key(uint8_t key_index);
+
+/* ==================== 多层映射接口 ==================== */
+
+/* 获取当前持久活跃层（Layer 0/2/3，不包含临时的 Fn 层） */
+uint8_t keymap_get_active_layer(void);
+
+/* 设置当前持久活跃层（0-3） */
+void keymap_set_active_layer(uint8_t layer);
+
+/* 循环切换到下一层（0→2→3→0，跳过 Layer1 因为它是临时层） */
+void keymap_cycle_layer(void);
+
+/* 查询按键映射（自动处理层和 Fn 键）
+ * key_index: 按键索引 (0-63)
+ * fn_pressed: Fn键是否按下（临时切换到 Layer1）
+ * out_result: 输出结果
+ * 返回值：true=有效，false=空键
+ */
+bool keymap_lookup(uint8_t key_index, bool fn_pressed, keymap_result_t* out_result);
+
+/* 直接查询指定层的按键映射（不处理 Fn 键逻辑） */
+bool keymap_lookup_layer(uint8_t key_index, uint8_t layer, keymap_result_t* out_result);
+
+/* 获取指定层的映射表指针（用于配置读写） */
+const uint8_t* keymap_get_layer_table(uint8_t layer);
+
+/* 设置指定层的映射表 */
+void keymap_set_layer_table(uint8_t layer, const uint8_t* table);
 
 #ifdef __cplusplus
 }

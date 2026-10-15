@@ -1,4 +1,4 @@
-﻿/*
+/*
  * src/device/optical_sensor.c
  * optical_sensor 鍏夊榧犳爣浼犳劅鍣ㄩ┍鍔ㄥ疄鐜?
  * 涓ユ牸閬靛惊 MISRA-like 绾︽潫锛氬崟杩斿洖鐐广€佹樉寮忕被鍨嬭浆鎹€佺姝㈠姩鎬佸唴瀛?
@@ -39,7 +39,9 @@ enum
 #define optical_sensor_REG_DELTA_X_H    (0x04u)
 #define optical_sensor_REG_DELTA_Y_L    (0x05u)
 #define optical_sensor_REG_DELTA_Y_H    (0x06u)
-#define optical_sensor_REG_CONFIG1      (0x0Du)  /* DPI閰嶇疆瀵勫瓨鍣?*/
+#define optical_sensor_REG_CONFIG1      (0x0Du)
+#define optical_sensor_REG_LIFT_CONFIG  (0x1Eu)
+#define optical_sensor_REG_ANGLE_SNAP   (0x3Cu)  /* DPI閰嶇疆瀵勫瓨鍣?*/
 #define optical_sensor_REG_POWER_UP_RESET (0x3Au) /* 涓婄數澶嶄綅瀵勫瓨鍣紝鍐?x5A瑙﹀彂杞浣?*/
 
 /* optical_sensor 鏍囧噯 Product ID */
@@ -376,6 +378,57 @@ int optical_sensor_read_motion(const optical_sensor_cfg_t *cfg, optical_sensor_m
                 }
             }
         }
+    }
+
+    return status;
+}
+
+/* 设置 LOD 静默高度 */
+int optical_sensor_set_lod(const optical_sensor_cfg_t *cfg, optical_sensor_lod_e level)
+{
+    int status = optical_sensor_OK;
+
+    if (cfg == NULL)
+    {
+        fault_record(FAULT_LEVEL_ERROR, "optical_sensor", "set_lod null cfg");
+        return optical_sensor_ERR_INVALID_PARAM;
+    }
+
+    if (level >= OPTICAL_SENSOR_LOD_MAX)
+    {
+        level = OPTICAL_SENSOR_LOD_MEDIUM;
+    }
+
+    /* LOD 寄存器值：0=低, 1=中, 2=高 */
+    uint8_t reg_val = (uint8_t)level;
+    status = optical_sensor_reg_write(cfg, optical_sensor_REG_LIFT_CONFIG, reg_val);
+
+    if (status == optical_sensor_OK)
+    {
+        fault_record(FAULT_LEVEL_INFO, "optical_sensor", "LOD set");
+    }
+
+    return status;
+}
+
+/* 设置角度捕捉开关 */
+int optical_sensor_set_angle_snapping(const optical_sensor_cfg_t *cfg, bool enabled)
+{
+    int status = optical_sensor_OK;
+
+    if (cfg == NULL)
+    {
+        fault_record(FAULT_LEVEL_ERROR, "optical_sensor", "set_angle_snapping null cfg");
+        return optical_sensor_ERR_INVALID_PARAM;
+    }
+
+    /* 角度捕捉寄存器：bit0 = 使能位 */
+    uint8_t reg_val = enabled ? 0x01u : 0x00u;
+    status = optical_sensor_reg_write(cfg, optical_sensor_REG_ANGLE_SNAP, reg_val);
+
+    if (status == optical_sensor_OK)
+    {
+        fault_record(FAULT_LEVEL_INFO, "optical_sensor", "angle snapping set");
     }
 
     return status;

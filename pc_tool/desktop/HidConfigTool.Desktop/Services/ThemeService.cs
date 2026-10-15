@@ -1,4 +1,4 @@
-using HidConfigTool.Core;
+﻿using HidConfigTool.Core;
 using HidConfigTool.Core.Interfaces;
 
 namespace HidConfigTool.Desktop.Services;

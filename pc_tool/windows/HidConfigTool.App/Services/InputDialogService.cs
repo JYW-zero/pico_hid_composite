@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using HidConfigTool.App.Views;
 using HidConfigTool.Core.Interfaces;
 

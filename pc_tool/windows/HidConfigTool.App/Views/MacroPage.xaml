@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:loc="clr-namespace:HidConfigTool.App.Localization"
              xmlns:vm="clr-namespace:HidConfigTool.ViewModels;assembly=HidConfigTool.ViewModels"
              mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
@@ -34,7 +35,7 @@
 
                 <!-- 标题 -->
                 <TextBlock Grid.Row="0"
-                           Text="宏列表"
+                           Text="{Binding [Title_MacroList], Source={StaticResource LocalizationService}}"
                            FontSize="15"
                            FontWeight="SemiBold"
                            Foreground="{StaticResource TextPrimaryBrush}"
@@ -104,13 +105,13 @@
 
                         <!-- 底部按钮 -->
                         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="8,8,8,4">
-                            <Button Content="清空"
+                            <Button Content="{Binding [Btn_Clear], Source={StaticResource LocalizationService}}"
                                     Style="{StaticResource DangerButtonStyle}"
                                     Command="{Binding ClearMacroCommand}"
                                     Padding="12,6"
                                     Margin="0,0,8,0"
                                     FontSize="12" />
-                            <Button Content="刷新"
+                            <Button Content="{Binding [Btn_Refresh], Source={StaticResource LocalizationService}}"
                                     Style="{StaticResource SecondaryButtonStyle}"
                                     Command="{Binding RefreshMacrosCommand}"
                                     Padding="12,6"
@@ -144,7 +145,7 @@
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Grid.Column="0">
-                            <TextBlock Text="宏名称"
+                            <TextBlock Text="{Binding [Label_MacroName], Source={StaticResource LocalizationService}}"
                                        FontSize="12"
                                        Foreground="{StaticResource TextSecondaryBrush}"
                                        Margin="0,0,0,8" />
@@ -152,7 +153,7 @@
                                 <TextBox Text="{Binding CurrentMacroName}"
                                          Width="240"
                                          HorizontalAlignment="Left" />
-                                <Button Content="保存"
+                                <Button Content="{Binding [Btn_Save], Source={StaticResource LocalizationService}}"
                                         Style="{StaticResource PrimaryButtonStyle}"
                                         Command="{Binding SaveCurrentMacroCommand}"
                                         Padding="16,8"
@@ -227,7 +228,7 @@
                                                  Fill="White"
                                                  VerticalAlignment="Center"
                                                  Margin="0,0,8,0" />
-                                        <TextBlock Grid.Column="1" Text="开始录制" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="{Binding [Btn_StartRecord], Source={StaticResource LocalizationService}}" VerticalAlignment="Center" />
                                     </Grid>
                                     <!-- 停止录制 -->
                                     <Grid>
@@ -251,7 +252,7 @@
                                                    Fill="White"
                                                    VerticalAlignment="Center"
                                                    Margin="0,0,8,0" />
-                                        <TextBlock Grid.Column="1" Text="停止" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="{Binding [Btn_Stop], Source={StaticResource LocalizationService}}" VerticalAlignment="Center" />
                                     </Grid>
                                 </Grid>
                             </Button.Content>
@@ -261,7 +262,7 @@
                     <Separator Margin="0,20,0,20" />
 
                     <!-- 循环设置 -->
-                    <TextBlock Text="循环设置"
+                    <TextBlock Text="{Binding [Label_LoopSettings], Source={StaticResource LocalizationService}}"
                                FontSize="14"
                                FontWeight="SemiBold"
                                Foreground="{StaticResource TextPrimaryBrush}"
@@ -276,7 +277,7 @@
                         </Grid.ColumnDefinitions>
 
                         <TextBlock Grid.Column="0"
-                                   Text="循环次数"
+                                   Text="{Binding [Label_LoopCount], Source={StaticResource LocalizationService}}"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    VerticalAlignment="Center"
                                    FontSize="13" />
@@ -295,7 +296,7 @@
                             </TextBox.Style>
                         </TextBox>
                         <CheckBox Grid.Column="3"
-                                  Content="按住重复，松开停止"
+                                  Content="{Binding [Check_LoopHoldRepeat], Source={StaticResource LocalizationService}}"
                                   IsChecked="{Binding CurrentMacro.RepeatUntilReleased}"
                                   Style="{StaticResource ToggleSwitchStyle}"
                                   VerticalAlignment="Center" />
@@ -321,7 +322,7 @@
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="动作列表"
+                            <TextBlock Text="{Binding [Label_ActionList], Source={StaticResource LocalizationService}}"
                                        FontSize="14"
                                        FontWeight="SemiBold"
                                        Foreground="{StaticResource TextPrimaryBrush}"
@@ -336,7 +337,7 @@
                                            Foreground="{StaticResource AccentBrush}"
                                            FontWeight="SemiBold" />
                             </Border>
-                            <TextBlock Text="总时长:"
+                            <TextBlock Text="{Binding [Label_TotalDuration], Source={StaticResource LocalizationService}}"
                                        FontSize="12"
                                        Foreground="{StaticResource TextSecondaryBrush}"
                                        VerticalAlignment="Center"
@@ -352,7 +353,7 @@
                             <Button Style="{StaticResource IconButtonStyle}"
                                     Command="{Binding MoveUpActionCommand}"
                                     CommandParameter="{Binding SelectedAction}"
-                                    ToolTip="上移"
+                                    ToolTip="{Binding [ToolTip_MoveUp], Source={StaticResource LocalizationService}}"
                                     Padding="8"
                                     Margin="0,0,4,0">
                                 <Path Data="M12 4l8 8h-5v8h-6v-8H4l8-8z"
@@ -363,7 +364,7 @@
                             <Button Style="{StaticResource IconButtonStyle}"
                                     Command="{Binding MoveDownActionCommand}"
                                     CommandParameter="{Binding SelectedAction}"
-                                    ToolTip="下移"
+                                    ToolTip="{Binding [ToolTip_MoveDown], Source={StaticResource LocalizationService}}"
                                     Padding="8"
                                     Margin="0,0,8,0">
                                 <Path Data="M12 20l-8-8h5V4h6v8h5l-8 8z"
@@ -371,13 +372,13 @@
                                       Width="14"
                                       Height="14" />
                             </Button>
-                            <Button Content="按键"
+                            <Button Content="{Binding [Label_Button], Source={StaticResource LocalizationService}}"
                                     Style="{StaticResource PrimaryButtonStyle}"
                                     Command="{Binding AddKeyActionCommand}"
                                     Padding="12,7"
                                     Margin="0,0,6,0"
                                     FontSize="12" />
-                            <Button Content="延时"
+                            <Button Content="{Binding [Action_Delay], Source={StaticResource LocalizationService}}"
                                     Style="{StaticResource SecondaryButtonStyle}"
                                     Command="{Binding AddDelayActionCommand}"
                                     Padding="12,7"
@@ -386,7 +387,7 @@
                             <Button Style="{StaticResource IconButtonStyle}"
                                     Command="{Binding DeleteActionCommand}"
                                     CommandParameter="{Binding SelectedAction}"
-                                    ToolTip="删除"
+                                    ToolTip="{Binding [Btn_Delete], Source={StaticResource LocalizationService}}"
                                     Padding="8"
                                     Margin="0,0,4,0">
                                 <Path Data="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L6 9zm3 2v8h2v-8H9zm4 0v8h2v-8h-2z"
@@ -396,7 +397,7 @@
                             </Button>
                             <Button Style="{StaticResource IconButtonStyle}"
                                     Command="{Binding ClearActionsCommand}"
-                                    ToolTip="清空所有"
+                                    ToolTip="{Binding [ToolTip_ClearAll], Source={StaticResource LocalizationService}}"
                                     Padding="8">
                                 <Path Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
                                       Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
@@ -472,7 +473,7 @@
                     Style="{StaticResource CardStyle}"
                     Margin="0">
                 <StackPanel>
-                    <TextBlock Text="动作属性"
+                    <TextBlock Text="{Binding [Label_ActionProperties], Source={StaticResource LocalizationService}}"
                                FontSize="14"
                                FontWeight="SemiBold"
                                Foreground="{StaticResource TextPrimaryBrush}"
@@ -491,7 +492,7 @@
 
                         <!-- 动作类型 -->
                         <TextBlock Grid.Row="0" Grid.Column="0"
-                                   Text="动作类型"
+                                   Text="{Binding [Label_ActionType], Source={StaticResource LocalizationService}}"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    VerticalAlignment="Center"
                                    Margin="0,8"
@@ -505,7 +506,7 @@
 
                         <!-- 参数 -->
                         <TextBlock Grid.Row="1" Grid.Column="0"
-                                   Text="参数"
+                                   Text="{Binding [Label_Parameter], Source={StaticResource LocalizationService}}"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    VerticalAlignment="Center"
                                    Margin="0,8"
@@ -514,7 +515,7 @@
                             <TextBox Text="{Binding SelectedAction.KeyName}"
                                      Width="140"
                                      Margin="0,0,16,0" />
-                            <TextBlock Text="延时(ms):"
+                            <TextBlock Text="{Binding [Label_DelayMs], Source={StaticResource LocalizationService}}"
                                        Foreground="{StaticResource TextSecondaryBrush}"
                                        VerticalAlignment="Center"
                                        Margin="0,0,8,0"
@@ -525,7 +526,7 @@
 
                         <!-- 按键选择 -->
                         <TextBlock Grid.Row="2" Grid.Column="0"
-                                   Text="按键"
+                                   Text="{Binding [Label_Button], Source={StaticResource LocalizationService}}"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    VerticalAlignment="Center"
                                    Margin="0,8"

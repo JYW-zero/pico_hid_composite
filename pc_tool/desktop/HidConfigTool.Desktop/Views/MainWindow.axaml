@@ -34,8 +34,8 @@
           <Button Content="摇杆" Command="{Binding NavigateToJoystickCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
           <Button Content="编码器" Command="{Binding NavigateToEncoderCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
           <Button Content="宏" Command="{Binding NavigateToMacroCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
-          <Button Content="错误日志" Command="{Binding NavigateToErrorLogCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
-          <Button Content="性能监控" Command="{Binding NavigateToPerfMonitorCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="错误日志" Command="{Binding NavigateToErrorLogCommand}" IsVisible="{Binding IsErrorLogMenuVisible}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
+          <Button Content="性能监控" Command="{Binding NavigateToPerfMonitorCommand}" IsVisible="{Binding IsPerfMonitorMenuVisible}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
           <Button Content="设置" Command="{Binding NavigateToSettingsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" />
         </StackPanel>
       </DockPanel>

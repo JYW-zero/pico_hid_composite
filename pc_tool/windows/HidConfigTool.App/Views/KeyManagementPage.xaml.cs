@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Controls;
 
 namespace HidConfigTool.App.Views;
@@ -62,6 +62,11 @@ public partial class KeyManagementPage : UserControl, IDisposable
         _disposed = true;
 
         MainTabControl.SelectionChanged -= OnTabSelectionChanged;
+
+        // 清理 ContentControl 的 Content，防止子页面被引用导致内存泄漏
+        KeyTestPlaceholder.Content = null;
+        KeyPagePlaceholder.Content = null;
+        StatsPagePlaceholder.Content = null;
 
         // 清理子页面的 ViewModel
         DisposeChildViewModel(_keyTestPage);

@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:loc="clr-namespace:HidConfigTool.App.Localization"
              xmlns:conv="clr-namespace:HidConfigTool.App.Converters"
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800">
@@ -17,7 +18,7 @@
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel>
-            <TextBlock Text="按键统计"
+            <TextBlock Text="{Binding [Title_KeyStats], Source={StaticResource LocalizationService}}"
                        FontSize="24"
                        FontWeight="Bold"
                        Foreground="{StaticResource TextPrimaryBrush}"
@@ -38,7 +39,7 @@
                         Padding="20"
                         Margin="0,0,8,0">
                     <StackPanel>
-                        <TextBlock Text="总按键数"
+                        <TextBlock Text="{Binding [Label_TotalKeys], Source={StaticResource LocalizationService}}"
                                    FontSize="13"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    Margin="0,0,0,8" />
@@ -46,7 +47,7 @@
                                    FontSize="28"
                                    FontWeight="Bold"
                                    Foreground="{StaticResource PrimaryColorBrush}" />
-                        <TextBlock Text="累计所有按键次数"
+                        <TextBlock Text="{Binding [Desc_TotalKeys], Source={StaticResource LocalizationService}}"
                                    FontSize="11"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    Margin="0,8,0,0" />
@@ -60,7 +61,7 @@
                         Padding="20"
                         Margin="8,0">
                     <StackPanel>
-                        <TextBlock Text="今日按键数"
+                        <TextBlock Text="{Binding [Label_TodayKeys], Source={StaticResource LocalizationService}}"
                                    FontSize="13"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    Margin="0,0,0,8" />
@@ -68,7 +69,7 @@
                                    FontSize="28"
                                    FontWeight="Bold"
                                    Foreground="#9ECE6A" />
-                        <TextBlock Text="今天的输入量"
+                        <TextBlock Text="{Binding [Desc_TodayKeys], Source={StaticResource LocalizationService}}"
                                    FontSize="11"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    Margin="0,8,0,0" />
@@ -82,7 +83,7 @@
                         Padding="20"
                         Margin="8,0,0,0">
                     <StackPanel>
-                        <TextBlock Text="平均 KPM"
+                        <TextBlock Text="{Binding [Label_AvgKpm], Source={StaticResource LocalizationService}}"
                                    FontSize="13"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    Margin="0,0,0,8" />
@@ -90,7 +91,7 @@
                                    FontSize="28"
                                    FontWeight="Bold"
                                    Foreground="#E0AF68" />
-                        <TextBlock Text="每分钟按键数"
+                        <TextBlock Text="{Binding [Desc_AvgKpm], Source={StaticResource LocalizationService}}"
                                    FontSize="11"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    Margin="0,8,0,0" />
@@ -104,32 +105,32 @@
                     Padding="20"
                     Margin="0,0,0,16">
                 <StackPanel>
-                    <TextBlock Text="时间范围"
+                    <TextBlock Text="{Binding [Label_TimeRange], Source={StaticResource LocalizationService}}"
                                FontSize="14"
                                FontWeight="SemiBold"
                                Foreground="{StaticResource TextPrimaryBrush}"
                                Margin="0,0,0,12" />
 
                     <StackPanel Orientation="Horizontal">
-                        <Button Content="今日"
+                        <Button Content="{Binding [Range_Today], Source={StaticResource LocalizationService}}"
                                 Command="{Binding SwitchTimeRangeCommand}"
                                 CommandParameter="0"
                                 Padding="16,8"
                                 Margin="0,0,8,0"
                                 Style="{StaticResource PrimaryButtonStyle}" />
-                        <Button Content="本周"
+                        <Button Content="{Binding [Range_ThisWeek], Source={StaticResource LocalizationService}}"
                                 Command="{Binding SwitchTimeRangeCommand}"
                                 CommandParameter="1"
                                 Padding="16,8"
                                 Margin="0,0,8,0"
                                 Style="{StaticResource SecondaryButtonStyle}" />
-                        <Button Content="本月"
+                        <Button Content="{Binding [Range_ThisMonth], Source={StaticResource LocalizationService}}"
                                 Command="{Binding SwitchTimeRangeCommand}"
                                 CommandParameter="2"
                                 Padding="16,8"
                                 Margin="0,0,8,0"
                                 Style="{StaticResource SecondaryButtonStyle}" />
-                        <Button Content="全部"
+                        <Button Content="{Binding [Btn_All], Source={StaticResource LocalizationService}}"
                                 Command="{Binding SwitchTimeRangeCommand}"
                                 CommandParameter="3"
                                 Padding="16,8"
@@ -151,20 +152,20 @@
                         </Grid.ColumnDefinitions>
 
                         <TextBlock Grid.Column="0"
-                                   Text="按键热力图"
+                                   Text="{Binding [Label_KeyHeatmap], Source={StaticResource LocalizationService}}"
                                    FontSize="16"
                                    FontWeight="SemiBold"
                                    Foreground="{StaticResource TextPrimaryBrush}"
                                    VerticalAlignment="Center" />
 
                         <Button Grid.Column="1"
-                                Content="重置统计"
+                                Content="{Binding [Btn_ResetStats], Source={StaticResource LocalizationService}}"
                                 Style="{StaticResource SecondaryButtonStyle}"
                                 Command="{Binding ResetStatsCommand}"
                                 Padding="16,8" />
                     </Grid>
 
-                    <TextBlock Text="颜色越深表示使用频率越高"
+                    <TextBlock Text="{Binding [Hint_Heatmap], Source={StaticResource LocalizationService}}"
                                FontSize="12"
                                Foreground="{StaticResource TextSecondaryBrush}"
                                Margin="0,8,0,16" />
@@ -182,10 +183,13 @@
                                         Margin="2"
                                         Padding="8,12">
                                     <ToolTipService.ToolTip>
-                                        <StackPanel>
-                                            <TextBlock Text="{Binding KeyName}" FontWeight="SemiBold" />
-                                            <TextBlock Text="{Binding Count, StringFormat=次数: {0:N0}}" />
-                                        </StackPanel>
+                                        <Border Background="#1E1E2E" BorderBrush="#444" BorderThickness="1" CornerRadius="6" Padding="10">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding KeyName}" FontWeight="SemiBold" FontSize="13" Foreground="White"/>
+                                                <TextBlock Text="{Binding Count, StringFormat=按键次数: {0:N0}}" FontSize="11" Foreground="#AAA" Margin="0,4,0,0"/>
+                                                <TextBlock Text="{Binding Row, StringFormat=位置: 行{0}}" FontSize="10" Foreground="#888" Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                        </Border>
                                     </ToolTipService.ToolTip>
                                     <TextBlock Text="{Binding KeyName}"
                                                FontSize="10"
@@ -196,6 +200,18 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+
+                    <!-- 热力图颜色图例 -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0">
+                        <TextBlock Text="使用频率:" FontSize="10" Foreground="{StaticResource TextTertiaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <Border Width="20" Height="12" Background="#1A1A2E" CornerRadius="2" Margin="0,0,2,0"/>
+                        <Border Width="20" Height="12" Background="#2D4A3E" CornerRadius="2" Margin="0,0,2,0"/>
+                        <Border Width="20" Height="12" Background="#3D7A4A" CornerRadius="2" Margin="0,0,2,0"/>
+                        <Border Width="20" Height="12" Background="#5BA86A" CornerRadius="2" Margin="0,0,2,0"/>
+                        <Border Width="20" Height="12" Background="#7DD87D" CornerRadius="2" Margin="0,0,2,0"/>
+                        <Border Width="20" Height="12" Background="#A8E6A8" CornerRadius="2" Margin="0,0,8,0"/>
+                        <TextBlock Text="低 → 高" FontSize="10" Foreground="{StaticResource TextTertiaryBrush}" VerticalAlignment="Center"/>
+                    </StackPanel>
                 </StackPanel>
             </Border>
 
@@ -205,7 +221,7 @@
                     Padding="20"
                     Margin="0,0,0,16">
                 <StackPanel>
-                    <TextBlock Text="最常用按键 Top 10"
+                    <TextBlock Text="{Binding [Label_TopKeys], Source={StaticResource LocalizationService}}"
                                FontSize="16"
                                FontWeight="SemiBold"
                                Foreground="{StaticResource TextPrimaryBrush}"
@@ -214,22 +230,41 @@
                     <ItemsControl ItemsSource="{Binding TopKeys}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Grid Margin="0,6">
+                                <Grid Margin="0,8">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="40" />
                                         <ColumnDefinition Width="100" />
                                         <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="80" />
+                                        <ColumnDefinition Width="90" />
                                     </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
 
                                     <!-- 排名 -->
-                                    <Border Grid.Column="0"
+                                    <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="0"
                                             Width="28"
                                             Height="28"
                                             CornerRadius="14"
-                                            Background="{StaticResource PrimaryColorBrush}"
                                             HorizontalAlignment="Left"
                                             VerticalAlignment="Center">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="{StaticResource PrimaryColorBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Index}" Value="1">
+                                                        <Setter Property="Background" Value="#FFD700"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Index}" Value="2">
+                                                        <Setter Property="Background" Value="#C0C0C0"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Index}" Value="3">
+                                                        <Setter Property="Background" Value="#CD7F32"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
                                         <TextBlock Text="{Binding Index}"
                                                    FontSize="12"
                                                    FontWeight="Bold"
@@ -239,26 +274,55 @@
                                     </Border>
 
                                     <!-- 键名 -->
-                                    <TextBlock Grid.Column="1"
+                                    <TextBlock Grid.Row="0" Grid.Column="1"
                                                Text="{Binding KeyName}"
                                                FontWeight="SemiBold"
                                                Foreground="{StaticResource TextPrimaryBrush}"
                                                VerticalAlignment="Center" />
 
                                     <!-- 次数 -->
-                                    <TextBlock Grid.Column="2"
+                                    <TextBlock Grid.Row="0" Grid.Column="2"
                                                Text="{Binding Count, StringFormat={}{0:N0} 次}"
                                                Foreground="{StaticResource TextSecondaryBrush}"
                                                FontSize="12"
                                                VerticalAlignment="Center" />
 
                                     <!-- 百分比 -->
-                                    <TextBlock Grid.Column="3"
+                                    <TextBlock Grid.Row="0" Grid.Column="3"
                                                Text="{Binding Percentage, StringFormat={}{0:F1}%}"
-                                               Foreground="{StaticResource TextSecondaryBrush}"
+                                               Foreground="{StaticResource AccentBrush}"
                                                FontSize="12"
+                                               FontWeight="Medium"
                                                HorizontalAlignment="Right"
                                                VerticalAlignment="Center" />
+
+                                    <!-- 进度条 -->
+                                    <Grid Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Margin="0,4,0,0">
+                                        <Border Background="{StaticResource InputBackgroundBrush}"
+                                                CornerRadius="3"
+                                                Height="6">
+                                            <Border Width="{Binding Percentage}"
+                                                    HorizontalAlignment="Left"
+                                                    CornerRadius="3">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Index}" Value="1">
+                                                                <Setter Property="Background" Value="#FFD700"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Index}" Value="2">
+                                                                <Setter Property="Background" Value="#C0C0C0"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Index}" Value="3">
+                                                                <Setter Property="Background" Value="#CD7F32"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                            </Border>
+                                        </Border>
+                                    </Grid>
                                 </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>

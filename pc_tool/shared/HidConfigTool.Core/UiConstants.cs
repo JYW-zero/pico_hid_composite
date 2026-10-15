@@ -1,4 +1,4 @@
-namespace HidConfigTool.Core;
+﻿namespace HidConfigTool.Core;
 
 /// <summary>
 /// 主题常量
