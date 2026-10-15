@@ -1,4 +1,4 @@
-﻿/*
+/*
  * tests/mock/mock_gpio.c
  * Mock版GPIO实现，用于单元测试
  */

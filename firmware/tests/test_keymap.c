@@ -1,4 +1,4 @@
-﻿/*
+/*
  * tests/test_keymap.c
  * 按键映射模块单元测试
  */
