@@ -1163,7 +1163,7 @@ static void handle_cmd_set_perf_enable(void)
     bool enable = (g_pending_cmd_param != 0);
     perf_set_enabled(enable);
     if (enable) perf_reset();
-    LOG_INFO_PRINT("[PERF] 鎬ц兘鐩戞帶: %s\n", enable ? "寮€鍚? : "鍏抽棴");
+    LOG_INFO_PRINT("[PERF] monitor: %s\n", enable ? "on" : "off");
     config_hid_set_response(CMD_SET_PERF_ENABLE, true, CONFIG_HID_OK, enable ? 1 : 0);
 }
 
