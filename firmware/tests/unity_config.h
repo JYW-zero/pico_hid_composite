@@ -1,10 +1,10 @@
 #ifndef UNITY_CONFIG_H
 #define UNITY_CONFIG_H
 
-/* 32-bit host build - explicit widths */
+/* 64-bit host build (x86_64 Linux/Windows) */
 #define UNITY_INT_WIDTH      32
-#define UNITY_LONG_WIDTH     32
-#define UNITY_POINTER_WIDTH  32
+#define UNITY_LONG_WIDTH     64
+#define UNITY_POINTER_WIDTH  64
 
 /* Exclude all system headers from Unity internals to avoid glibc parse conflicts */
 #define UNITY_EXCLUDE_SETJMP_H

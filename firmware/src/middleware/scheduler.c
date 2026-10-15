@@ -8,6 +8,7 @@
 #include "middleware/scheduler.h"
 #include "pico/time.h"
 #include <assert.h>
+#include <stddef.h>
 
 void sched_init(void)
 {

@@ -25,7 +25,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "features.h"
+#include "project_features.h"
 #include "app/log.h"
 #include "app/usb_callbacks.h"
 #include "app/keyboard_processor.h"

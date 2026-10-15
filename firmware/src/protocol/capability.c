@@ -1,15 +1,11 @@
-/**
+﻿/**
  * @file capability.c
- * @brief 运行时能力位图与设备标志实现（功能角色分离，协议 v0.2）
- */
-#include "features.h"
+ * @brief 杩愯鏃惰兘鍔涗綅鍥句笌璁惧鏍囧織瀹炵幇锛堝姛鑳借鑹插垎绂伙紝鍗忚 v0.2锛? */
+#include "project_features.h"
 #include "protocol/capability.h"
 
-/* 消费者基础能力位：核心 HID 功能始终编入，与 FEATURE_* 开关无关。
- * 对应 bit0-6 与 bit11-15（bit7-9 为可裁剪的诊断能力，见下）。
- * bit10 CAP_DFU_UPGRADE 不在此列：它表示“自定义 in-app DFU bootloader”，
- * 随 FEATURE_DFU_BOOTLOADER 置位（见 CAP_DFU_BOOTLOADER_BITMAP）。
- * RP2350 原生 BOOTSEL UF2 升级始终可用，但不占用能力位。 */
+/* 娑堣垂鑰呭熀纭€鑳藉姏浣嶏細鏍稿績 HID 鍔熻兘濮嬬粓缂栧叆锛屼笌 FEATURE_* 寮€鍏虫棤鍏炽€? * 瀵瑰簲 bit0-6 涓?bit11-15锛坆it7-9 涓哄彲瑁佸壀鐨勮瘖鏂兘鍔涳紝瑙佷笅锛夈€? * bit10 CAP_DFU_UPGRADE 涓嶅湪姝ゅ垪锛氬畠琛ㄧず鈥滆嚜瀹氫箟 in-app DFU bootloader鈥濓紝
+ * 闅?FEATURE_DFU_BOOTLOADER 缃綅锛堣 CAP_DFU_BOOTLOADER_BITMAP锛夈€? * RP2350 鍘熺敓 BOOTSEL UF2 鍗囩骇濮嬬粓鍙敤锛屼絾涓嶅崰鐢ㄨ兘鍔涗綅銆?*/
 #define CAP_BASE_BITMAP ( \
     (1ULL << CAP_KEYBOARD_BASIC) | (1ULL << CAP_MOUSE_BASIC) | \
     (1ULL << CAP_JOYSTICK)      | (1ULL << CAP_ENCODER)      | \
@@ -18,9 +14,8 @@
     (1ULL << CAP_CONSUMER)      | (1ULL << CAP_GAMEPAD)      | \
     (1ULL << CAP_DPI_SLOTS)     | (1ULL << CAP_JOYSTICK_CALIB) )
 
-/* 自定义 in-app DFU bootloader（CMD_ENTER_DFU + HID report 0x30~0x36）：
- * bootloader 随固件布局编入（FEATURE_DFU_BOOTLOADER=1）才上报 bit10；
- * 当前 CMake 临时禁用 bootloader，两个 profile 均注入 0，bit10 上报 0。 */
+/* 鑷畾涔?in-app DFU bootloader锛圕MD_ENTER_DFU + HID report 0x30~0x36锛夛細
+ * bootloader 闅忓浐浠跺竷灞€缂栧叆锛團EATURE_DFU_BOOTLOADER=1锛夋墠涓婃姤 bit10锛? * 褰撳墠 CMake 涓存椂绂佺敤 bootloader锛屼袱涓?profile 鍧囨敞鍏?0锛宐it10 涓婃姤 0銆?*/
 #if FEATURE_DFU_BOOTLOADER
 #define CAP_DFU_BOOTLOADER_BITMAP (1ULL << CAP_DFU_UPGRADE)
 #else
@@ -29,10 +24,8 @@
 
 bool capability_mfg_factory_available(void)
 {
-    /* 阶段2过渡门控：量产固件 FEATURE_MFG_DEFAULT_LOCKED=1，上电默认锁定，
-     * 不暴露 CAP_MFG_FACTORY_TEST/CAP_MFG_PROVISION；物理“长按 Fn”本地自检在
-     * main.c 直接进入（不走 HID），不受此限。dev 固件默认解锁、制造能力全开。
-     * TODO(阶段3): 改为读取 Provisioning 分区 mfg_state（出厂锁 + 售后会话解锁）。 */
+    /* 闃舵2杩囨浮闂ㄦ帶锛氶噺浜у浐浠?FEATURE_MFG_DEFAULT_LOCKED=1锛屼笂鐢甸粯璁ら攣瀹氾紝
+     * 涓嶆毚闇?CAP_MFG_FACTORY_TEST/CAP_MFG_PROVISION锛涚墿鐞嗏€滈暱鎸?Fn鈥濇湰鍦拌嚜妫€鍦?     * main.c 鐩存帴杩涘叆锛堜笉璧?HID锛夛紝涓嶅彈姝ら檺銆俤ev 鍥轰欢榛樿瑙ｉ攣銆佸埗閫犺兘鍔涘叏寮€銆?     * TODO(闃舵3): 鏀逛负璇诲彇 Provisioning 鍒嗗尯 mfg_state锛堝嚭鍘傞攣 + 鍞悗浼氳瘽瑙ｉ攣锛夈€?*/
 #if FEATURE_MFG_DEFAULT_LOCKED
     return false;
 #else
@@ -71,7 +64,7 @@ uint64_t capability_bitmap_runtime(void)
     }
 #endif
 
-    /* 自定义 DFU bootloader 跟随编译开关（BOOTSEL UF2 原生升级不占能力位） */
+    /* 鑷畾涔?DFU bootloader 璺熼殢缂栬瘧寮€鍏筹紙BOOTSEL UF2 鍘熺敓鍗囩骇涓嶅崰鑳藉姏浣嶏級 */
     return bitmap | CAP_DFU_BOOTLOADER_BITMAP;
 }
 
@@ -79,10 +72,7 @@ uint8_t capability_device_flags(void)
 {
     uint8_t flags = 0;
 
-    /* 阶段2：量产固件（FEATURE_MFG_DEFAULT_LOCKED=1）上电默认报告出厂锁定标志。
-     * TODO(阶段3): 改为从 Provisioning 分区读取出厂锁定位与本会话售后解锁位，
-     *   已出厂锁定置 DEVICE_FLAG_MFG_SHIPPED_LOCKED；
-     *   售后挑战-应答通过置 DEVICE_FLAG_MFG_SESSION_UNLOCKED。 */
+    /* 闃舵2锛氶噺浜у浐浠讹紙FEATURE_MFG_DEFAULT_LOCKED=1锛変笂鐢甸粯璁ゆ姤鍛婂嚭鍘傞攣瀹氭爣蹇椼€?     * TODO(闃舵3): 鏀逛负浠?Provisioning 鍒嗗尯璇诲彇鍑哄巶閿佸畾浣嶄笌鏈細璇濆敭鍚庤В閿佷綅锛?     *   宸插嚭鍘傞攣瀹氱疆 DEVICE_FLAG_MFG_SHIPPED_LOCKED锛?     *   鍞悗鎸戞垬-搴旂瓟閫氳繃缃?DEVICE_FLAG_MFG_SESSION_UNLOCKED銆?*/
 #if FEATURE_FACTORY_TEST
     if (!capability_mfg_factory_available()) {
         flags |= DEVICE_FLAG_MFG_SHIPPED_LOCKED;

@@ -1,21 +1,15 @@
-/*
+﻿/*
  * src/middleware/fault_compact.c
- * Fault 持久化后端 - 精简档（release / FEATURE_FAULT_COMPACT=1）
- *
- * 设计（见 docs/FEATURE_ROLE_SPLIT_PLAN.md §8.3）：
- *   - 定长 16B 紧凑记录：code/level/module_id/boot_count/timestamp/occurrences/crc16
- *   - 按页攒批：一页 256B 放 16 条，攒满才编程；每页只编程一次（不做同页多次编程）
- *   - FATAL / 异常复位前 seal：立即编程当前页，页内空位以 PAD 记录填充保持物理连续
- *   - A/B 双扇区环形：每扇区 256 条，写满后把最近 128 条搬到另一扇区再切换
- *   - 每条 CRC16，扫描遇空槽(0xFFFF)/损坏即止，掉电只可能丢未满页的非致命记录
- *   - 开机追加一条 BOOT 事件承载 boot_count（无 RTC 时间基准）与复位原因
- *   - 对外只暴露最近 COMPACT_VIEW_COUNT(32) 条；读出时还原为公共 fault_log_entry_t，
- *     因此 HID 报告与上位机 ErrorLog 页无需改动。
- *
- * 容量/寿命（相对全量档）：单扇区 16 -> 256 条，单位扇区擦除间隔约提升 16 倍。
- */
+ * Fault 鎸佷箙鍖栧悗绔?- 绮剧畝妗ｏ紙release / FEATURE_FAULT_COMPACT=1锛? *
+ * 璁捐锛堣 docs/FEATURE_ROLE_SPLIT_PLAN.md 搂8.3锛夛細
+ *   - 瀹氶暱 16B 绱у噾璁板綍锛歝ode/level/module_id/boot_count/timestamp/occurrences/crc16
+ *   - 鎸夐〉鏀掓壒锛氫竴椤?256B 鏀?16 鏉★紝鏀掓弧鎵嶇紪绋嬶紱姣忛〉鍙紪绋嬩竴娆★紙涓嶅仛鍚岄〉澶氭缂栫▼锛? *   - FATAL / 寮傚父澶嶄綅鍓?seal锛氱珛鍗崇紪绋嬪綋鍓嶉〉锛岄〉鍐呯┖浣嶄互 PAD 璁板綍濉厖淇濇寔鐗╃悊杩炵画
+ *   - A/B 鍙屾墖鍖虹幆褰細姣忔墖鍖?256 鏉★紝鍐欐弧鍚庢妸鏈€杩?128 鏉℃惉鍒板彟涓€鎵囧尯鍐嶅垏鎹? *   - 姣忔潯 CRC16锛屾壂鎻忛亣绌烘Ы(0xFFFF)/鎹熷潖鍗虫锛屾帀鐢靛彧鍙兘涓㈡湭婊￠〉鐨勯潪鑷村懡璁板綍
+ *   - 寮€鏈鸿拷鍔犱竴鏉?BOOT 浜嬩欢鎵胯浇 boot_count锛堟棤 RTC 鏃堕棿鍩哄噯锛変笌澶嶄綅鍘熷洜
+ *   - 瀵瑰鍙毚闇叉渶杩?COMPACT_VIEW_COUNT(32) 鏉★紱璇诲嚭鏃惰繕鍘熶负鍏叡 fault_log_entry_t锛? *     鍥犳 HID 鎶ュ憡涓庝笂浣嶆満 ErrorLog 椤垫棤闇€鏀瑰姩銆? *
+ * 瀹归噺/瀵垮懡锛堢浉瀵瑰叏閲忔。锛夛細鍗曟墖鍖?16 -> 256 鏉★紝鍗曚綅鎵囧尯鎿﹂櫎闂撮殧绾︽彁鍗?16 鍊嶃€? */
 
-#include "features.h"
+#include "project_features.h"
 
 #if FEATURE_FAULT_COMPACT
 
@@ -31,21 +25,21 @@
 #include "hardware/watchdog.h"
 #include "pico/time.h"
 
-/* ==================== 常量 ==================== */
+/* ==================== 甯搁噺 ==================== */
 
 #define COMPACT_REC_SIZE       16U
-#define COMPACT_PER_PAGE       (FLASH_PAGE_SIZE / COMPACT_REC_SIZE)   /* 16 条/页 */
-#define COMPACT_PAGES          (FAULT_LOG_FLASH_SIZE / FLASH_PAGE_SIZE) /* 16 页/扇区 */
-#define COMPACT_PER_SECTOR     (COMPACT_PER_PAGE * COMPACT_PAGES)     /* 256 条/扇区 */
-#define COMPACT_KEEP_ON_SWITCH (COMPACT_PER_SECTOR / 2U)              /* 切换保留 128 条 */
-#define COMPACT_VIEW_COUNT     32U                                   /* 对外最近窗口 */
-#define COMPACT_CRC_LEN        14U                                   /* CRC 覆盖前 14 字节 */
+#define COMPACT_PER_PAGE       (FLASH_PAGE_SIZE / COMPACT_REC_SIZE)   /* 16 鏉?椤?*/
+#define COMPACT_PAGES          (FAULT_LOG_FLASH_SIZE / FLASH_PAGE_SIZE) /* 16 椤?鎵囧尯 */
+#define COMPACT_PER_SECTOR     (COMPACT_PER_PAGE * COMPACT_PAGES)     /* 256 鏉?鎵囧尯 */
+#define COMPACT_KEEP_ON_SWITCH (COMPACT_PER_SECTOR / 2U)              /* 鍒囨崲淇濈暀 128 鏉?*/
+#define COMPACT_VIEW_COUNT     32U                                   /* 瀵瑰鏈€杩戠獥鍙?*/
+#define COMPACT_CRC_LEN        14U                                   /* CRC 瑕嗙洊鍓?14 瀛楄妭 */
 
-/* 空槽标记（擦除态 code 字段为 0xFFFF）；PAD 为 seal 页填充占位 */
+/* 绌烘Ы鏍囪锛堟摝闄ゆ€?code 瀛楁涓?0xFFFF锛夛紱PAD 涓?seal 椤靛～鍏呭崰浣?*/
 #define CODE_BLANK             0xFFFFU
 #define CODE_PAD               0xFFFEU
 
-/* 故障码 / 启动事件码 */
+/* 鏁呴殰鐮?/ 鍚姩浜嬩欢鐮?*/
 enum
 {
     CODE_BOOT_POWERON  = 0x0000,
@@ -62,7 +56,7 @@ enum
     CODE_GENERIC_FATAL = 0x002F
 };
 
-/* 模块 ID（紧凑档只存 ID，还原时查静态字符串表） */
+/* 妯″潡 ID锛堢揣鍑戞。鍙瓨 ID锛岃繕鍘熸椂鏌ラ潤鎬佸瓧绗︿覆琛級 */
 enum
 {
     MOD_SYSTEM = 0, MOD_FLASH, MOD_WATCHDOG, MOD_CORE1, MOD_USB,
@@ -70,40 +64,40 @@ enum
     MOD_FACTORY, MOD_MACRO, MOD_POWER, MOD_SCHEDULER, MOD_IPC, MOD_OTHER
 };
 
-/* ==================== 紧凑记录（16B，packed） ==================== */
+/* ==================== 绱у噾璁板綍锛?6B锛宲acked锛?==================== */
 
 typedef struct __attribute__((packed))
 {
-    uint16_t code;         /* 故障码/启动事件码 */
+    uint16_t code;         /* 鏁呴殰鐮?鍚姩浜嬩欢鐮?*/
     uint8_t  level;        /* fault_level_e */
-    uint8_t  module_id;    /* 模块枚举 ID */
-    uint32_t boot_count;   /* 上电序号 */
-    uint32_t timestamp_ms; /* 本次上电内毫秒 */
-    uint16_t occurrences;  /* 同类合并计数 */
-    uint16_t crc16;        /* CRC16-CCITT，覆盖前 14 字节 */
+    uint8_t  module_id;    /* 妯″潡鏋氫妇 ID */
+    uint32_t boot_count;   /* 涓婄數搴忓彿 */
+    uint32_t timestamp_ms; /* 鏈涓婄數鍐呮绉?*/
+    uint16_t occurrences;  /* 鍚岀被鍚堝苟璁℃暟 */
+    uint16_t crc16;        /* CRC16-CCITT锛岃鐩栧墠 14 瀛楄妭 */
 } compact_rec_t;
 
 _Static_assert(sizeof(compact_rec_t) == COMPACT_REC_SIZE, "compact record must be 16 bytes");
 
-/* ==================== 静态状态 ==================== */
+/* ==================== 闈欐€佺姸鎬?==================== */
 
-static uint8_t  s_active = 0;      /* 活动扇区 0=A 1=B */
-static uint32_t s_committed = 0;   /* 已整页编程的记录槽数（含 PAD，恒为页界） */
-static uint32_t s_valid = 0;       /* 有效事件总数（不含 PAD，含当前 RAM 页） */
-static uint8_t  s_page_slot = 0;   /* 当前 RAM 页内已缓冲的有效条数 0..15 */
-static uint32_t s_boot = 1;        /* 本次上电序号 */
-static uint8_t  s_page_buf[FLASH_PAGE_SIZE]; /* 当前页 RAM 镜像（256B） */
+static uint8_t  s_active = 0;      /* 娲诲姩鎵囧尯 0=A 1=B */
+static uint32_t s_committed = 0;   /* 宸叉暣椤电紪绋嬬殑璁板綍妲芥暟锛堝惈 PAD锛屾亽涓洪〉鐣岋級 */
+static uint32_t s_valid = 0;       /* 鏈夋晥浜嬩欢鎬绘暟锛堜笉鍚?PAD锛屽惈褰撳墠 RAM 椤碉級 */
+static uint8_t  s_page_slot = 0;   /* 褰撳墠 RAM 椤靛唴宸茬紦鍐茬殑鏈夋晥鏉℃暟 0..15 */
+static uint32_t s_boot = 1;        /* 鏈涓婄數搴忓彿 */
+static uint8_t  s_page_buf[FLASH_PAGE_SIZE]; /* 褰撳墠椤?RAM 闀滃儚锛?56B锛?*/
 
-/* 扇区切换时搬运缓冲：128 条 × 16B = 2KB，static 避免占用栈 */
+/* 鎵囧尯鍒囨崲鏃舵惉杩愮紦鍐诧細128 鏉?脳 16B = 2KB锛宻tatic 閬垮厤鍗犵敤鏍?*/
 static compact_rec_t s_keep[COMPACT_KEEP_ON_SWITCH];
 
-/* ==================== 扇区地址 ==================== */
+/* ==================== 鎵囧尯鍦板潃 ==================== */
 
 static uint32_t active_offset(void)
 {
     return (s_active == 0) ? flash_layout_fault_a_offset() : flash_layout_fault_b_offset();
 }
-/* 只读基指针：固件为 XIP 地址，host 测试由 mock 重定向到 RAM 模拟 Flash */
+/* 鍙鍩烘寚閽堬細鍥轰欢涓?XIP 鍦板潃锛宧ost 娴嬭瘯鐢?mock 閲嶅畾鍚戝埌 RAM 妯℃嫙 Flash */
 static const uint8_t* active_ptr(void)
 {
     return (const uint8_t*)(uintptr_t)(flash_layout_xip_base() + active_offset());
@@ -135,7 +129,7 @@ static bool rec_is_blank(const compact_rec_t* r)
     return r->code == CODE_BLANK;
 }
 
-/* PAD 占位记录（seal 页填充，非真实事件） */
+/* PAD 鍗犱綅璁板綍锛坰eal 椤靛～鍏咃紝闈炵湡瀹炰簨浠讹級 */
 static void rec_make_pad(compact_rec_t* r)
 {
     memset(r, 0, sizeof(*r));
@@ -143,7 +137,7 @@ static void rec_make_pad(compact_rec_t* r)
     rec_finalize(r);
 }
 
-/* 有效（真实事件，CRC 正确）；PAD 返回 false 但也要求 CRC 正确 */
+/* 鏈夋晥锛堢湡瀹炰簨浠讹紝CRC 姝ｇ‘锛夛紱PAD 杩斿洖 false 浣嗕篃瑕佹眰 CRC 姝ｇ‘ */
 static bool rec_is_event(const compact_rec_t* r)
 {
     if (r->code == CODE_BLANK || r->code == CODE_PAD) return false;
@@ -154,7 +148,7 @@ static bool rec_is_pad_ok(const compact_rec_t* r)
     return r->code == CODE_PAD && r->crc16 == crc16_ccitt((const uint8_t*)r, COMPACT_CRC_LEN);
 }
 
-/* ==================== 分类表（文本 -> code / module_id） ==================== */
+/* ==================== 鍒嗙被琛紙鏂囨湰 -> code / module_id锛?==================== */
 
 static const char* const s_module_names[16] =
 {
@@ -163,7 +157,7 @@ static const char* const s_module_names[16] =
     "factory", "macro", "power", "scheduler", "ipc", "other"
 };
 
-/* 大小写不敏感子串（needle 必须为小写 ASCII；haystack 可含 UTF-8 中文） */
+/* 澶у皬鍐欎笉鏁忔劅瀛愪覆锛坣eedle 蹇呴』涓哄皬鍐?ASCII锛沨aystack 鍙惈 UTF-8 涓枃锛?*/
 static bool contains_ci(const char* hay, const char* needle)
 {
     if (hay == NULL || needle == NULL || needle[0] == '\0') return false;
@@ -252,15 +246,15 @@ static const char* code_desc(uint16_t code)
     }
 }
 
-/* ==================== 扫描恢复 ==================== */
+/* ==================== 鎵弿鎭㈠ ==================== */
 
 typedef struct
 {
-    uint32_t committed;   /* 顺序记录槽数（含 PAD），页界 */
-    uint32_t valid;       /* 有效事件数（不含 PAD） */
-    uint32_t newest_boot; /* 最新有效记录的 boot_count */
-    uint32_t newest_ts;   /* 最新有效记录的 timestamp_ms */
-    uint32_t last_boot;   /* 最新 BOOT 事件的 boot_count */
+    uint32_t committed;   /* 椤哄簭璁板綍妲芥暟锛堝惈 PAD锛夛紝椤电晫 */
+    uint32_t valid;       /* 鏈夋晥浜嬩欢鏁帮紙涓嶅惈 PAD锛?*/
+    uint32_t newest_boot; /* 鏈€鏂版湁鏁堣褰曠殑 boot_count */
+    uint32_t newest_ts;   /* 鏈€鏂版湁鏁堣褰曠殑 timestamp_ms */
+    uint32_t last_boot;   /* 鏈€鏂?BOOT 浜嬩欢鐨?boot_count */
 } scan_result_t;
 
 static scan_result_t scan_sector(uint32_t offset)
@@ -270,9 +264,8 @@ static scan_result_t scan_sector(uint32_t offset)
 
     const uint8_t* sector = (const uint8_t*)(uintptr_t)(flash_layout_xip_base() + offset);
 
-    /* 按页扫描：每页要么整页编程（全事件，或事件 + PAD），要么从未编程。
-     * 页编程是原子的，正常掉电不会出现半页；页内一旦出现 blank/CRC 坏，
-     * 说明该页已损坏，整页判废并从下一物理页继续，保证绝不二次编程已写页。 */
+    /* 鎸夐〉鎵弿锛氭瘡椤佃涔堟暣椤电紪绋嬶紙鍏ㄤ簨浠讹紝鎴栦簨浠?+ PAD锛夛紝瑕佷箞浠庢湭缂栫▼銆?     * 椤电紪绋嬫槸鍘熷瓙鐨勶紝姝ｅ父鎺夌數涓嶄細鍑虹幇鍗婇〉锛涢〉鍐呬竴鏃﹀嚭鐜?blank/CRC 鍧忥紝
+     * 璇存槑璇ラ〉宸叉崯鍧忥紝鏁撮〉鍒ゅ簾骞朵粠涓嬩竴鐗╃悊椤电户缁紝淇濊瘉缁濅笉浜屾缂栫▼宸插啓椤点€?*/
     for (uint32_t page = 0; page < COMPACT_PAGES; page++)
     {
         uint32_t page_base = page * COMPACT_PER_PAGE;
@@ -280,7 +273,7 @@ static scan_result_t scan_sector(uint32_t offset)
 
         if (rec_is_blank(r0))
         {
-            s.committed = page_base;   /* 该页从未编程：逻辑末尾（页界） */
+            s.committed = page_base;   /* 璇ラ〉浠庢湭缂栫▼锛氶€昏緫鏈熬锛堥〉鐣岋級 */
             return s;
         }
 
@@ -290,7 +283,7 @@ static scan_result_t scan_sector(uint32_t offset)
         {
             const compact_rec_t* r = (const compact_rec_t*)(sector + (page_base + k) * COMPACT_REC_SIZE);
             if (rec_is_pad_ok(r)) continue;
-            if (!rec_is_event(r)) { page_ok = false; break; }  /* 页中 blank/损坏：整页判废 */
+            if (!rec_is_event(r)) { page_ok = false; break; }  /* 椤典腑 blank/鎹熷潖锛氭暣椤靛垽搴?*/
             page_valid++;
             p_boot = r->boot_count;
             p_ts = r->timestamp_ms;
@@ -302,7 +295,7 @@ static scan_result_t scan_sector(uint32_t offset)
 
         if (!page_ok)
         {
-            s.committed = (page + 1U) * COMPACT_PER_PAGE;  /* 跳过损坏页（槽数，页界） */
+            s.committed = (page + 1U) * COMPACT_PER_PAGE;  /* 璺宠繃鎹熷潖椤碉紙妲芥暟锛岄〉鐣岋級 */
             return s;
         }
 
@@ -315,25 +308,25 @@ static scan_result_t scan_sector(uint32_t offset)
     return s;
 }
 
-/* ==================== 页编程 / 扇区切换 ==================== */
+/* ==================== 椤电紪绋?/ 鎵囧尯鍒囨崲 ==================== */
 
 static void switch_sectors(void);
 
-/* 编程当前 RAM 页（整页 256B，调用时 s_page_slot 必须 > 0） */
+/* 缂栫▼褰撳墠 RAM 椤碉紙鏁撮〉 256B锛岃皟鐢ㄦ椂 s_page_slot 蹇呴』 > 0锛?*/
 static void program_current_page(bool seal)
 {
     if (s_page_slot == 0) return;
 
     if (seal)
     {
-        /* 用 PAD 填满页内空位，保证物理记录连续、扫描不被空槽截断 */
+        /* 鐢?PAD 濉弧椤靛唴绌轰綅锛屼繚璇佺墿鐞嗚褰曡繛缁€佹壂鎻忎笉琚┖妲芥埅鏂?*/
         for (uint8_t k = s_page_slot; k < COMPACT_PER_PAGE; k++)
         {
             rec_make_pad((compact_rec_t*)(s_page_buf + k * COMPACT_REC_SIZE));
         }
     }
 
-    /* s_committed 为已编程记录槽数（页界），换算为字节偏移 */
+    /* s_committed 涓哄凡缂栫▼璁板綍妲芥暟锛堥〉鐣岋級锛屾崲绠椾负瀛楄妭鍋忕Щ */
     uint32_t offset = active_offset() + s_committed * COMPACT_REC_SIZE;
     flash_service_program(offset, s_page_buf, FLASH_PAGE_SIZE);
 
@@ -346,13 +339,13 @@ static void program_current_page(bool seal)
     }
 }
 
-/* 活动扇区写满：反向收集最近 KEEP 条有效事件，搬到另一扇区（8 整页） */
+/* 娲诲姩鎵囧尯鍐欐弧锛氬弽鍚戞敹闆嗘渶杩?KEEP 鏉℃湁鏁堜簨浠讹紝鎼埌鍙︿竴鎵囧尯锛? 鏁撮〉锛?*/
 static void switch_sectors(void)
 {
     const uint8_t* src = active_ptr();
     int32_t got = 0;
 
-    /* 从最后一个槽反向收集，最新的放入高索引 */
+    /* 浠庢渶鍚庝竴涓Ы鍙嶅悜鏀堕泦锛屾渶鏂扮殑鏀惧叆楂樼储寮?*/
     for (int32_t i = (int32_t)COMPACT_PER_SECTOR - 1; i >= 0 && got < (int32_t)COMPACT_KEEP_ON_SWITCH; i--)
     {
         const compact_rec_t* r = (const compact_rec_t*)(src + (uint32_t)i * COMPACT_REC_SIZE);
@@ -374,7 +367,7 @@ static void switch_sectors(void)
         uint32_t n = keep - base;
         if (n > COMPACT_PER_PAGE) n = COMPACT_PER_PAGE;
         memcpy(s_page_buf, &s_keep[base], n * COMPACT_REC_SIZE);
-        /* 最后一页若不满（keep 非 16 倍数），用 PAD 填满，保持整页可写 */
+        /* 鏈€鍚庝竴椤佃嫢涓嶆弧锛坘eep 闈?16 鍊嶆暟锛夛紝鐢?PAD 濉弧锛屼繚鎸佹暣椤靛彲鍐?*/
         for (uint32_t k = n; k < COMPACT_PER_PAGE; k++)
         {
             rec_make_pad((compact_rec_t*)(s_page_buf + k * COMPACT_REC_SIZE));
@@ -387,11 +380,11 @@ static void switch_sectors(void)
     s_page_slot = 0;
 }
 
-/* ==================== 追加记录 ==================== */
+/* ==================== 杩藉姞璁板綍 ==================== */
 
 static void append_raw(uint16_t code, fault_level_e level, uint8_t module_id)
 {
-    /* 同类合并：仅合并当前 RAM 页最后一条（已编程页永不回改，避免 0->1） */
+    /* 鍚岀被鍚堝苟锛氫粎鍚堝苟褰撳墠 RAM 椤垫渶鍚庝竴鏉★紙宸茬紪绋嬮〉姘镐笉鍥炴敼锛岄伩鍏?0->1锛?*/
     if (s_page_slot > 0)
     {
         compact_rec_t* last = (compact_rec_t*)(s_page_buf + (s_page_slot - 1U) * COMPACT_REC_SIZE);
@@ -425,27 +418,27 @@ static void append_raw(uint16_t code, fault_level_e level, uint8_t module_id)
 
     if (s_page_slot >= COMPACT_PER_PAGE)
     {
-        program_current_page(false);  /* 满页：整页编程一次 */
+        program_current_page(false);  /* 婊￠〉锛氭暣椤电紪绋嬩竴娆?*/
     }
 }
 
-/* ==================== 读取与还原 ==================== */
+/* ==================== 璇诲彇涓庤繕鍘?==================== */
 
-/* 取逻辑第 k 条有效事件（0=最旧），跳过 PAD；含当前 RAM 页 */
+/* 鍙栭€昏緫绗?k 鏉℃湁鏁堜簨浠讹紙0=鏈€鏃э級锛岃烦杩?PAD锛涘惈褰撳墠 RAM 椤?*/
 static bool get_kth_valid(uint32_t k, compact_rec_t* out)
 {
     uint32_t flash_valid = s_valid - s_page_slot;
 
     if (k >= flash_valid)
     {
-        /* 落在当前 RAM 页 */
+        /* 钀藉湪褰撳墠 RAM 椤?*/
         uint32_t idx = k - flash_valid;
         if (idx >= s_page_slot) return false;
         *out = *(const compact_rec_t*)(s_page_buf + idx * COMPACT_REC_SIZE);
         return true;
     }
 
-    /* 顺序扫描活动扇区 Flash，跳过 PAD */
+    /* 椤哄簭鎵弿娲诲姩鎵囧尯 Flash锛岃烦杩?PAD */
     uint32_t seen = 0;
     const uint8_t* sector = active_ptr();
     for (uint32_t i = 0; i < s_committed; i++)
@@ -519,8 +512,7 @@ void fault_backend_init(void)
     }
     else
     {
-        /* 两扇区均无有效记录（全新，或仅剩损坏/PAD 页）。
-         * 选物理写入进度更靠后的扇区并沿用其 committed，避免在已编程页上二次编程。 */
+        /* 涓ゆ墖鍖哄潎鏃犳湁鏁堣褰曪紙鍏ㄦ柊锛屾垨浠呭墿鎹熷潖/PAD 椤碉級銆?         * 閫夌墿鐞嗗啓鍏ヨ繘搴︽洿闈犲悗鐨勬墖鍖哄苟娌跨敤鍏?committed锛岄伩鍏嶅湪宸茬紪绋嬮〉涓婁簩娆＄紪绋嬨€?*/
         if (b.committed > a.committed) { s_active = 1; s_committed = b.committed; }
         else                            { s_active = 0; s_committed = a.committed; }
         s_valid = 0;
@@ -530,8 +522,7 @@ void fault_backend_init(void)
     uint32_t last_boot = (a.last_boot > b.last_boot) ? a.last_boot : b.last_boot;
     s_boot = last_boot + 1U;
 
-    /* 追加本次启动事件（承载 boot_count 与复位原因）。
-     * 异常复位（看门狗/HardFault 最终都走看门狗）立即 seal 落盘；正常上电随事件攒批。 */
+    /* 杩藉姞鏈鍚姩浜嬩欢锛堟壙杞?boot_count 涓庡浣嶅師鍥狅級銆?     * 寮傚父澶嶄綅锛堢湅闂ㄧ嫍/HardFault 鏈€缁堥兘璧扮湅闂ㄧ嫍锛夌珛鍗?seal 钀界洏锛涙甯镐笂鐢甸殢浜嬩欢鏀掓壒銆?*/
     uint16_t boot_code = watchdog_caused_reboot() ? CODE_BOOT_WATCHDOG : CODE_BOOT_POWERON;
     append_raw(boot_code, FAULT_LEVEL_INFO, MOD_SYSTEM);
     if (boot_code == CODE_BOOT_WATCHDOG)
@@ -577,7 +568,7 @@ void fault_backend_clear(void)
 
 void fault_backend_flush(void)
 {
-    /* FATAL 复位前强制落盘当前页（PAD 填齐，每页仍只编程一次） */
+    /* FATAL 澶嶄綅鍓嶅己鍒惰惤鐩樺綋鍓嶉〉锛圥AD 濉綈锛屾瘡椤典粛鍙紪绋嬩竴娆★級 */
     if (s_page_slot > 0)
     {
         program_current_page(true);

@@ -16,6 +16,7 @@ SRCS = unity/src/unity.c \
        mock/mock_flash.c \
        mock/mock_tusb.c \
        mock/mock_watchdog.c \
+       mock/mock_pico_sdk.c \
        ../src/board/config.c \
        ../src/middleware/debounce.c \
        ../src/middleware/fault.c \

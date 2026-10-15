@@ -1,9 +1,9 @@
-/*
+﻿/*
  * protocol/config_hid.c
- * HID 配置协议模块（从 main.c 提取）
+ * HID 閰嶇疆鍗忚妯″潡锛堜粠 main.c 鎻愬彇锛?
  */
 
-#include "features.h"
+#include "project_features.h"
 #include "protocol/config_hid.h"
 #include "protocol/config_hid_helpers.h"
 #include "protocol/config_lock.h"
@@ -34,71 +34,71 @@
 #include "pico/time.h"
 #include "pico/bootrom.h"
 
-/* ==================== 常量定义 ==================== */
-/* 宏配置延迟保存时间（微秒）
- * 宏配置修改后等待此时间再写入 Flash，合并短时间内的多次修改
- * 200ms 平衡了写入次数（Flash寿命）和数据持久性（断电丢失窗口）
- * 原1秒延迟在高频宏编辑场景下丢失窗口过大
+/* ==================== 甯搁噺瀹氫箟 ==================== */
+/* 瀹忛厤缃欢杩熶繚瀛樻椂闂达紙寰锛?
+ * 瀹忛厤缃慨鏀瑰悗绛夊緟姝ゆ椂闂村啀鍐欏叆 Flash锛屽悎骞剁煭鏃堕棿鍐呯殑澶氭淇敼
+ * 200ms 骞宠　浜嗗啓鍏ユ鏁帮紙Flash瀵垮懡锛夊拰鏁版嵁鎸佷箙鎬э紙鏂數涓㈠け绐楀彛锛?
+ * 鍘?绉掑欢杩熷湪楂橀瀹忕紪杈戝満鏅笅涓㈠け绐楀彛杩囧ぇ
  */
 #define MACRO_DIRTY_SAVE_DELAY_US  (200000U)
 
-/* IPC 命令 ACK 超时（微秒）
- * Core0 发送命令给 Core1 后，等待 ACK 的超时时间
- * 10ms 足够覆盖 Core1 最坏情况下的命令处理延迟
+/* IPC 鍛戒护 ACK 瓒呮椂锛堝井绉掞級
+ * Core0 鍙戦€佸懡浠ょ粰 Core1 鍚庯紝绛夊緟 ACK 鐨勮秴鏃舵椂闂?
+ * 10ms 瓒冲瑕嗙洊 Core1 鏈€鍧忔儏鍐典笅鐨勫懡浠ゅ鐞嗗欢杩?
  */
 #define CONFIG_IPC_ACK_TIMEOUT_US   (10000U)
 
-/* 配置复位/重启延迟（毫秒）
- * 触发看门狗复位前的延迟，确保 Flash 写入和日志输出完成
- * 100ms 足够覆盖 Flash 扇区擦除（~50ms）和页编程（~1ms）
+/* 閰嶇疆澶嶄綅/閲嶅惎寤惰繜锛堟绉掞級
+ * 瑙﹀彂鐪嬮棬鐙楀浣嶅墠鐨勫欢杩燂紝纭繚 Flash 鍐欏叆鍜屾棩蹇楄緭鍑哄畬鎴?
+ * 100ms 瓒冲瑕嗙洊 Flash 鎵囧尯鎿﹂櫎锛垀50ms锛夊拰椤电紪绋嬶紙~1ms锛?
  */
 #define CONFIG_RESET_DELAY_MS       (100U)
 
-/* DPI 配置范围（DPI 值）
- * 光学传感器支持的 DPI 范围，超出此范围的配置视为无效
+/* DPI 閰嶇疆鑼冨洿锛圖PI 鍊硷級
+ * 鍏夊浼犳劅鍣ㄦ敮鎸佺殑 DPI 鑼冨洿锛岃秴鍑烘鑼冨洿鐨勯厤缃涓烘棤鏁?
  */
 #define CONFIG_DPI_MIN              (100U)
 #define CONFIG_DPI_MAX              (6400U)
 
-/* 宏配置块字段定义：block_raw 字节的最高位表示读/写，低7位表示块号 */
-#define MACRO_BLOCK_READ_FLAG       (0x80U)  /* 读命令标志位（最高位=1表示读） */
-#define MACRO_BLOCK_INDEX_MASK      (0x7FU)  /* 块号掩码（低7位） */
+/* 瀹忛厤缃潡瀛楁瀹氫箟锛歜lock_raw 瀛楄妭鐨勬渶楂樹綅琛ㄧず璇?鍐欙紝浣?浣嶈〃绀哄潡鍙?*/
+#define MACRO_BLOCK_READ_FLAG       (0x80U)  /* 璇诲懡浠ゆ爣蹇椾綅锛堟渶楂樹綅=1琛ㄧず璇伙級 */
+#define MACRO_BLOCK_INDEX_MASK      (0x7FU)  /* 鍧楀彿鎺╃爜锛堜綆7浣嶏級 */
 
-/* CRC32 计算使用公共模块 middleware/crc32.h */
-/* 日志宏使用公共模块 app/log.h */
+/* CRC32 璁＄畻浣跨敤鍏叡妯″潡 middleware/crc32.h */
+/* 鏃ュ織瀹忎娇鐢ㄥ叕鍏辨ā鍧?app/log.h */
 
-/* 临时配置缓冲区 */
+/* 涓存椂閰嶇疆缂撳啿鍖?*/
 static device_config_t g_tmp_config = {0};
 static volatile bool g_config_pending = false;
 static volatile uint8_t g_pending_cmd = 0;
 static volatile uint16_t g_pending_cmd_param = 0;
 
-/* v3.1 协议：命令响应缓冲区（同步请求-响应模式）
- * 替代原异步 ACK Input Report，避免 ACK 丢失导致的命令超时问题
- * 格式: [status, cmd, sw_id, device_idx, param_low, param_high, reserved[2]]
- *   status=0 表示成功，非0为错误码（config_hid_error_t）
- *   sw_id 回显请求的 Software ID，用于匹配请求响应
- *   device_idx 回显请求的 Device Index
- * 上位机发送 Output 命令后，立即 GET_REPORT(24) 读取此缓冲区
- * 如果命令尚未处理完成，返回 CONFIG_HID_ERR_BUSY，上位机应重试
+/* v3.1 鍗忚锛氬懡浠ゅ搷搴旂紦鍐插尯锛堝悓姝ヨ姹?鍝嶅簲妯″紡锛?
+ * 鏇夸唬鍘熷紓姝?ACK Input Report锛岄伩鍏?ACK 涓㈠け瀵艰嚧鐨勫懡浠よ秴鏃堕棶棰?
+ * 鏍煎紡: [status, cmd, sw_id, device_idx, param_low, param_high, reserved[2]]
+ *   status=0 琛ㄧず鎴愬姛锛岄潪0涓洪敊璇爜锛坈onfig_hid_error_t锛?
+ *   sw_id 鍥炴樉璇锋眰鐨?Software ID锛岀敤浜庡尮閰嶈姹傚搷搴?
+ *   device_idx 鍥炴樉璇锋眰鐨?Device Index
+ * 涓婁綅鏈哄彂閫?Output 鍛戒护鍚庯紝绔嬪嵆 GET_REPORT(24) 璇诲彇姝ょ紦鍐插尯
+ * 濡傛灉鍛戒护灏氭湭澶勭悊瀹屾垚锛岃繑鍥?CONFIG_HID_ERR_BUSY锛屼笂浣嶆満搴旈噸璇?
  */
 static uint8_t g_control_response[8] = {0};
 static volatile bool g_control_response_valid = false;
 
-/* 设置命令响应（替代 config_hid_set_response）
- * 命令处理完成后调用此函数设置响应，上位机通过 GET_REPORT(24) 读取
+/* 璁剧疆鍛戒护鍝嶅簲锛堟浛浠?config_hid_set_response锛?
+ * 鍛戒护澶勭悊瀹屾垚鍚庤皟鐢ㄦ鍑芥暟璁剧疆鍝嶅簲锛屼笂浣嶆満閫氳繃 GET_REPORT(24) 璇诲彇
  */
-/* v3.1 协议：当前命令的 Device Index 和 Software ID（从命令解析时缓存，响应时回显） */
+/* v3.1 鍗忚锛氬綋鍓嶅懡浠ょ殑 Device Index 鍜?Software ID锛堜粠鍛戒护瑙ｆ瀽鏃剁紦瀛橈紝鍝嶅簲鏃跺洖鏄撅級 */
 static volatile uint8_t g_current_device_idx = DEVICE_INDEX_DIRECT;
 static volatile uint8_t g_current_sw_id = SW_ID_BROADCAST;
 
 static void config_hid_set_response(uint8_t cmd, bool success, uint8_t error_code, uint16_t param)
 {
-    /* v3.1 响应格式: [status, cmd, sw_id, device_idx, param_low, param_high, reserved[2]] */
+    /* v3.1 鍝嶅簲鏍煎紡: [status, cmd, sw_id, device_idx, param_low, param_high, reserved[2]] */
     g_control_response[RESP_OFFSET_STATUS] = success ? 0 : error_code;
     g_control_response[RESP_OFFSET_CMD] = cmd;
-    g_control_response[RESP_OFFSET_SW_ID] = g_current_sw_id;        /* 回显 SW ID */
-    g_control_response[RESP_OFFSET_DEVICE_IDX] = g_current_device_idx; /* 回显 Device Index */
+    g_control_response[RESP_OFFSET_SW_ID] = g_current_sw_id;        /* 鍥炴樉 SW ID */
+    g_control_response[RESP_OFFSET_DEVICE_IDX] = g_current_device_idx; /* 鍥炴樉 Device Index */
     g_control_response[RESP_OFFSET_PARAM_LOW] = (uint8_t)(param & 0xFF);
     g_control_response[RESP_OFFSET_PARAM_HIGH] = (uint8_t)((param >> 8) & 0xFF);
     g_control_response[6] = 0;
@@ -106,17 +106,17 @@ static void config_hid_set_response(uint8_t cmd, bool success, uint8_t error_cod
     g_control_response_valid = true;
 }
 
-/* 配置块接收状态管理已移至 protocol/config_block_receiver.c */
+/* 閰嶇疆鍧楁帴鏀剁姸鎬佺鐞嗗凡绉昏嚦 protocol/config_block_receiver.c */
 
-/* 重置配置块接收状态（USB 断开时调用，防止残留块与新会话组合导致配置损坏） */
+/* 閲嶇疆閰嶇疆鍧楁帴鏀剁姸鎬侊紙USB 鏂紑鏃惰皟鐢紝闃叉娈嬬暀鍧椾笌鏂颁細璇濈粍鍚堝鑷撮厤缃崯鍧忥級 */
 void config_hid_reset_blocks_received(void)
 {
     config_block_receiver_reset();
 }
 
-/* 通过 IPC 命令将 DPI 设置请求发送给 Core1 执行
- * 避免 Core0 在中断上下文中直接操作 SPI 总线与 Core1 竞争导致死锁
- * 返回：0=成功，非0=失败（FIFO满或ACK超时）
+/* 閫氳繃 IPC 鍛戒护灏?DPI 璁剧疆璇锋眰鍙戦€佺粰 Core1 鎵ц
+ * 閬垮厤 Core0 鍦ㄤ腑鏂笂涓嬫枃涓洿鎺ユ搷浣?SPI 鎬荤嚎涓?Core1 绔炰簤瀵艰嚧姝婚攣
+ * 杩斿洖锛?=鎴愬姛锛岄潪0=澶辫触锛團IFO婊℃垨ACK瓒呮椂锛?
  */
 static int config_hid_set_dpi_via_ipc(uint16_t dpi_val, bool is_raw)
 {
@@ -127,42 +127,42 @@ static int config_hid_set_dpi_via_ipc(uint16_t dpi_val, bool is_raw)
         cmd = IPC_MAKE_CMD(IPC_CMD_SET_DPI, dpi_val);
     }
 
-    /* 非阻塞发送：FIFO 满时立即失败 */
+    /* 闈為樆濉炲彂閫侊細FIFO 婊℃椂绔嬪嵆澶辫触 */
     if (!multicore_fifo_push_timeout_us(cmd, 0)) {
-        LOG_ERROR_PRINT("[CONFIG] ❌ DPI设置失败：FIFO满\n");
+        LOG_ERROR_PRINT("[CONFIG] 鉂?DPI璁剧疆澶辫触锛欶IFO婊n");
         return -1;
     }
 
-    /* 读取并丢弃 Core1 回复的 ACK（带超时，避免阻塞） */
+    /* 璇诲彇骞朵涪寮?Core1 鍥炲鐨?ACK锛堝甫瓒呮椂锛岄伩鍏嶉樆濉烇級 */
     uint32_t ack_val = 0;
     if (!multicore_fifo_pop_timeout_us(CONFIG_IPC_ACK_TIMEOUT_US, &ack_val)) {
-        LOG_WARN_PRINT("[CONFIG] ⚠️ DPI设置ACK超时（Core1可能忙）\n");
-        /* 超时不视为失败，DPI会在Core1下次处理命令时生效 */
+        LOG_WARN_PRINT("[CONFIG] 鈿狅笍 DPI璁剧疆ACK瓒呮椂锛圕ore1鍙兘蹇欙級\n");
+        /* 瓒呮椂涓嶈涓哄け璐ワ紝DPI浼氬湪Core1涓嬫澶勭悊鍛戒护鏃剁敓鏁?*/
     }
 
     return 0;
 }
 
-/* 宏配置读取索引 */
+/* 瀹忛厤缃鍙栫储寮?*/
 static uint8_t s_macro_read_id = 0;
 static uint8_t s_macro_read_block = 0;
 
-/* 错误日志读取索引 */
+/* 閿欒鏃ュ織璇诲彇绱㈠紩 */
 static uint8_t s_fault_read_index = 0;
 
 #if FEATURE_PERF_MONITOR
-/* 性能监控 - 任务读取索引 */
+/* 鎬ц兘鐩戞帶 - 浠诲姟璇诲彇绱㈠紩 */
 static uint8_t s_perf_task_index = 0;
 #endif
 
-/* CONFIG_EXT2 当前子块索引（SET_REPORT设置，GET_REPORT返回对应子块数据） */
+/* CONFIG_EXT2 褰撳墠瀛愬潡绱㈠紩锛圫ET_REPORT璁剧疆锛孏ET_REPORT杩斿洖瀵瑰簲瀛愬潡鏁版嵁锛?*/
 static uint8_t s_config_ext2_subblock = 0;
 
-/* 宏配置脏标志（需要保存到Flash） */
+/* 瀹忛厤缃剰鏍囧織锛堥渶瑕佷繚瀛樺埌Flash锛?*/
 static bool s_macro_dirty = false;
 static uint32_t s_macro_dirty_time_us = 0;
 
-/* 控制命令码（与 config_hid.h 保持一致） */
+/* 鎺у埗鍛戒护鐮侊紙涓?config_hid.h 淇濇寔涓€鑷达級 */
 #define CMD_SAVE_CONFIG   0x01
 #define CMD_RESET_CONFIG  0x02
 #define CMD_REBOOT        0x03
@@ -173,36 +173,36 @@ static uint32_t s_macro_dirty_time_us = 0;
 #define CMD_RESET_PERF    0x08
 #define CMD_MACRO_PLAY    0x09
 #define CMD_MACRO_STOP    0x0A
-#define CMD_SET_PERF_ENABLE 0x0B  /* 设置性能监控开关：data[1]=1开启,0关闭 */
-#define CMD_SET_JOYSTICK_DZ_RT 0x0C  /* 实时设置摇杆死区（不写Flash）：data[1-2]=死区值(小端) */
-#define CMD_UNLOCK_CONFIG   0x0D  /* 解锁配置写入：需连续发送3次(5秒内)才能解锁 */
-#define CMD_JOYSTICK_CALIBRATE 0x0E  /* 触发摇杆中心点校准：data[1-2]=采样次数(小端，默认50) */
-#define CMD_SWITCH_DPI        0x0F  /* 循环切换 DPI 档位：data[1]=目标档位(0-3, 0xFF=循环下一档) */
-#define CMD_GET_VERSION       0x10  /* 获取版本信息（返回 ACK 中携带版本） */
-#define CMD_NEGOTIATE_VERSION 0x11  /* 版本协商（参数：上位机协议版本） */
-#define CMD_SWITCH_LAYER      0x12  /* 切换按键层（参数：0-3 层号） */
+#define CMD_SET_PERF_ENABLE 0x0B  /* 璁剧疆鎬ц兘鐩戞帶寮€鍏筹細data[1]=1寮€鍚?0鍏抽棴 */
+#define CMD_SET_JOYSTICK_DZ_RT 0x0C  /* 瀹炴椂璁剧疆鎽囨潌姝诲尯锛堜笉鍐橣lash锛夛細data[1-2]=姝诲尯鍊?灏忕) */
+#define CMD_UNLOCK_CONFIG   0x0D  /* 瑙ｉ攣閰嶇疆鍐欏叆锛氶渶杩炵画鍙戦€?娆?5绉掑唴)鎵嶈兘瑙ｉ攣 */
+#define CMD_JOYSTICK_CALIBRATE 0x0E  /* 瑙﹀彂鎽囨潌涓績鐐规牎鍑嗭細data[1-2]=閲囨牱娆℃暟(灏忕锛岄粯璁?0) */
+#define CMD_SWITCH_DPI        0x0F  /* 寰幆鍒囨崲 DPI 妗ｄ綅锛歞ata[1]=鐩爣妗ｄ綅(0-3, 0xFF=寰幆涓嬩竴妗? */
+#define CMD_GET_VERSION       0x10  /* 鑾峰彇鐗堟湰淇℃伅锛堣繑鍥?ACK 涓惡甯︾増鏈級 */
+#define CMD_NEGOTIATE_VERSION 0x11  /* 鐗堟湰鍗忓晢锛堝弬鏁帮細涓婁綅鏈哄崗璁増鏈級 */
+#define CMD_SWITCH_LAYER      0x12  /* 鍒囨崲鎸夐敭灞傦紙鍙傛暟锛?-3 灞傚彿锛?*/
 
-/* ACK/NACK 发送和 DPI 转换已移至 protocol/config_hid_helpers.c */
-/* 配置锁定机制已移至 protocol/config_lock.c */
-/* DFU/Reboot 命令确认机制已移至 protocol/command_confirm.c */
+/* ACK/NACK 鍙戦€佸拰 DPI 杞崲宸茬Щ鑷?protocol/config_hid_helpers.c */
+/* 閰嶇疆閿佸畾鏈哄埗宸茬Щ鑷?protocol/config_lock.c */
+/* DFU/Reboot 鍛戒护纭鏈哄埗宸茬Щ鑷?protocol/command_confirm.c */
 
-/* DPI数值转枚举已移至 protocol/config_hid_helpers.c */
+/* DPI鏁板€艰浆鏋氫妇宸茬Щ鑷?protocol/config_hid_helpers.c */
 
 void config_hid_init(void)
 {
-    /* 初始化配置锁定机制（默认锁定状态） */
+    /* 鍒濆鍖栭厤缃攣瀹氭満鍒讹紙榛樿閿佸畾鐘舵€侊級 */
     config_lock_init();
-    /* 初始化配置块接收状态（清零接收位图） */
+    /* 鍒濆鍖栭厤缃潡鎺ユ敹鐘舵€侊紙娓呴浂鎺ユ敹浣嶅浘锛?*/
     config_block_receiver_init();
-    /* 初始化命令确认机制（清零 DFU/Reboot 确认计数） */
+    /* 鍒濆鍖栧懡浠ょ‘璁ゆ満鍒讹紙娓呴浂 DFU/Reboot 纭璁℃暟锛?*/
     command_confirm_init();
 }
 
 /* ============================================================================
- * GET_REPORT 处理函数（从 tud_hid_get_report_cb 拆分，每个函数职责单一）
+ * GET_REPORT 澶勭悊鍑芥暟锛堜粠 tud_hid_get_report_cb 鎷嗗垎锛屾瘡涓嚱鏁拌亴璐ｅ崟涓€锛?
  * ========================================================================== */
 
-/* 处理配置块读取（REPORT_ID_CONFIG_BLOCK0/1/2） */
+/* 澶勭悊閰嶇疆鍧楄鍙栵紙REPORT_ID_CONFIG_BLOCK0/1/2锛?*/
 static uint16_t get_report_config_block(uint8_t report_id, uint8_t* buffer, uint16_t reqlen)
 {
     const device_config_t* cfg = config_get();
@@ -220,7 +220,7 @@ static uint16_t get_report_config_block(uint8_t report_id, uint8_t* buffer, uint
     if (reqlen == 0) return 0;
 
     if (offset >= cfg_size) {
-        /* 偏移超出，返回空数据（但不越界） */
+        /* 鍋忕Щ瓒呭嚭锛岃繑鍥炵┖鏁版嵁锛堜絾涓嶈秺鐣岋級 */
         memset(buffer, 0, reqlen);
         return (reqlen < CONFIG_BLOCK_SIZE) ? reqlen : CONFIG_BLOCK_SIZE;
     }
@@ -229,7 +229,7 @@ static uint16_t get_report_config_block(uint8_t report_id, uint8_t* buffer, uint
     uint16_t copy_len = (reqlen < remaining) ? reqlen : remaining;
     if (copy_len > CONFIG_BLOCK_SIZE) copy_len = CONFIG_BLOCK_SIZE;
 
-    /* 仅写入不超过 reqlen 的数据 */
+    /* 浠呭啓鍏ヤ笉瓒呰繃 reqlen 鐨勬暟鎹?*/
     if (copy_len > 0) memcpy(buffer, cfg_bytes + offset, copy_len);
 
     if (copy_len < CONFIG_BLOCK_SIZE && reqlen > copy_len) {
@@ -241,77 +241,77 @@ static uint16_t get_report_config_block(uint8_t report_id, uint8_t* buffer, uint
     return copy_len;
 }
 
-/* 处理设备信息读取（REPORT_ID_DEVICE_INFO） */
+/* 澶勭悊璁惧淇℃伅璇诲彇锛圧EPORT_ID_DEVICE_INFO锛?*/
 static uint16_t get_report_device_info(uint8_t* buffer, uint16_t reqlen)
 {
-    /* 设备信息报告（32字节，含 report_id）
+    /* 璁惧淇℃伅鎶ュ憡锛?2瀛楄妭锛屽惈 report_id锛?
      * byte[0] = Report ID
-     * byte[1-2] = 固件版本（bcdDevice）
-     * byte[3-4] = 配置版本
-     * byte[5-6] = 协议版本（高字节=主版本，低字节=次版本）
-     * byte[7-8] = 配置结构总大小
-     * byte[9] = 支持的按键层数
-     * byte[10] = 支持的宏数量
-     * byte[11] = 最大支持 DPI
-     * byte[12] = 支持的能力数量
-     * byte[13-20] = 能力位图（64位，每位代表一个能力是否存在）
-     * byte[21] = device_flags（v0.2 新增：制造/会话状态位 DEVICE_FLAG_*）
-     * byte[22-31] = 预留（老上位机按短报告解析，自动忽略）
+     * byte[1-2] = 鍥轰欢鐗堟湰锛坆cdDevice锛?
+     * byte[3-4] = 閰嶇疆鐗堟湰
+     * byte[5-6] = 鍗忚鐗堟湰锛堥珮瀛楄妭=涓荤増鏈紝浣庡瓧鑺?娆＄増鏈級
+     * byte[7-8] = 閰嶇疆缁撴瀯鎬诲ぇ灏?
+     * byte[9] = 鏀寔鐨勬寜閿眰鏁?
+     * byte[10] = 鏀寔鐨勫畯鏁伴噺
+     * byte[11] = 鏈€澶ф敮鎸?DPI
+     * byte[12] = 鏀寔鐨勮兘鍔涙暟閲?
+     * byte[13-20] = 鑳藉姏浣嶅浘锛?4浣嶏紝姣忎綅浠ｈ〃涓€涓兘鍔涙槸鍚﹀瓨鍦級
+     * byte[21] = device_flags锛坴0.2 鏂板锛氬埗閫?浼氳瘽鐘舵€佷綅 DEVICE_FLAG_*锛?
+     * byte[22-31] = 棰勭暀锛堣€佷笂浣嶆満鎸夌煭鎶ュ憡瑙ｆ瀽锛岃嚜鍔ㄥ拷鐣ワ級
      */
     config_hid_device_info_t info;
     memset(&info, 0, sizeof(info));
     info.report_id = REPORT_ID_DEVICE_INFO;
-    info.firmware_version = FIRMWARE_VERSION_BCD;  /* 固件版本（统一从 version.h 引用） */
+    info.firmware_version = FIRMWARE_VERSION_BCD;  /* 鍥轰欢鐗堟湰锛堢粺涓€浠?version.h 寮曠敤锛?*/
     info.config_version = CONFIG_VERSION;
     info.protocol_version = CONFIG_HID_PROTOCOL_VERSION;
     info.config_size = (uint16_t)sizeof(device_config_t);
-    info.layer_count = 4;  /* 支持 4 层按键映射 */
+    info.layer_count = 4;  /* 鏀寔 4 灞傛寜閿槧灏?*/
     info.macro_count = MACRO_MAX_COUNT;
-    info.max_dpi = 64;  /* 最大 DPI 档位索引（实际值 6400） */
+    info.max_dpi = 64;  /* 鏈€澶?DPI 妗ｄ綅绱㈠紩锛堝疄闄呭€?6400锛?*/
 
-    /* 能力位图：按编译期 FEATURE_* 开关 + 制造状态运行时拼装（功能角色分离）。
-     * 能力协商的核心：上位机据此位图判断功能是否可用，不再靠版本号推断；
-     * 固件命令/报告闸门也以此为判据。实现见 capability.c。
+    /* 鑳藉姏浣嶅浘锛氭寜缂栬瘧鏈?FEATURE_* 寮€鍏?+ 鍒堕€犵姸鎬佽繍琛屾椂鎷艰锛堝姛鑳借鑹插垎绂伙級銆?
+     * 鑳藉姏鍗忓晢鐨勬牳蹇冿細涓婁綅鏈烘嵁姝や綅鍥惧垽鏂姛鑳芥槸鍚﹀彲鐢紝涓嶅啀闈犵増鏈彿鎺ㄦ柇锛?
+     * 鍥轰欢鍛戒护/鎶ュ憡闂搁棬涔熶互姝や负鍒ゆ嵁銆傚疄鐜拌 capability.c銆?
      */
     info.capability_count = CAP_COUNT;
     info.capability_bitmap = capability_bitmap_runtime();
     info.device_flags = capability_device_flags();
 
     uint16_t to_write = (reqlen < (uint16_t)(sizeof(info) - 1)) ? reqlen : (uint16_t)(sizeof(info) - 1);
-    /* 注意：tud_hid_get_report_cb 的 buffer 不应包含 Report ID（协议层自动添加），
-     * 从 firmware_version 字段开始复制，跳过 report_id（1字节） */
+    /* 娉ㄦ剰锛歵ud_hid_get_report_cb 鐨?buffer 涓嶅簲鍖呭惈 Report ID锛堝崗璁眰鑷姩娣诲姞锛夛紝
+     * 浠?firmware_version 瀛楁寮€濮嬪鍒讹紝璺宠繃 report_id锛?瀛楄妭锛?*/
     memcpy(buffer, (const uint8_t*)&info + 1, to_write);
     return to_write;
 }
 
-/* 处理控制命令读取（REPORT_ID_CONTROL，已废弃） */
+/* 澶勭悊鎺у埗鍛戒护璇诲彇锛圧EPORT_ID_CONTROL锛屽凡搴熷純锛?*/
 static uint16_t get_report_control(uint8_t* buffer, uint16_t reqlen)
 {
-    /* v3.0 协议：REPORT_ID_CONTROL(7) 已改为 Output Report（仅用于主机发送命令）
-     * GET_REPORT 不再返回有效数据，命令响应通过 REPORT_ID_ACK(24) 读取
+    /* v3.0 鍗忚锛歊EPORT_ID_CONTROL(7) 宸叉敼涓?Output Report锛堜粎鐢ㄤ簬涓绘満鍙戦€佸懡浠わ級
+     * GET_REPORT 涓嶅啀杩斿洖鏈夋晥鏁版嵁锛屽懡浠ゅ搷搴旈€氳繃 REPORT_ID_ACK(24) 璇诲彇
      */
     if (reqlen < 1) return 0;
     buffer[0] = 0;
     return 1;
 }
 
-/* 处理命令响应读取（REPORT_ID_ACK） */
+/* 澶勭悊鍛戒护鍝嶅簲璇诲彇锛圧EPORT_ID_ACK锛?*/
 static uint16_t get_report_ack(uint8_t* buffer, uint16_t reqlen)
 {
-    /* v3.1 协议：命令响应 Feature Report（同步请求-响应模式）
-     * 上位机发送 Output 命令后，立即 GET_REPORT(24) 读取执行结果
-     * 格式: [status, cmd, sw_id, device_idx, param_low, param_high, reserved[2]]
-     *   status=0 表示成功，非0为错误码
-     * 读取后清除有效标志，防止重复读取旧响应
+    /* v3.1 鍗忚锛氬懡浠ゅ搷搴?Feature Report锛堝悓姝ヨ姹?鍝嶅簲妯″紡锛?
+     * 涓婁綅鏈哄彂閫?Output 鍛戒护鍚庯紝绔嬪嵆 GET_REPORT(24) 璇诲彇鎵ц缁撴灉
+     * 鏍煎紡: [status, cmd, sw_id, device_idx, param_low, param_high, reserved[2]]
+     *   status=0 琛ㄧず鎴愬姛锛岄潪0涓洪敊璇爜
+     * 璇诲彇鍚庢竻闄ゆ湁鏁堟爣蹇楋紝闃叉閲嶅璇诲彇鏃у搷搴?
      *
-     * 竞态条件防护：如果命令尚未处理完成（g_control_response_valid=false），
-     * 返回 BUSY 状态，上位机应重试 GET_REPORT，避免读到旧响应或全零初始响应。
+     * 绔炴€佹潯浠堕槻鎶わ細濡傛灉鍛戒护灏氭湭澶勭悊瀹屾垚锛坓_control_response_valid=false锛夛紝
+     * 杩斿洖 BUSY 鐘舵€侊紝涓婁綅鏈哄簲閲嶈瘯 GET_REPORT锛岄伩鍏嶈鍒版棫鍝嶅簲鎴栧叏闆跺垵濮嬪搷搴斻€?
      */
     uint16_t to_write = (reqlen < 8) ? reqlen : 8;
 
     if (!g_control_response_valid) {
-        /* 响应尚未准备好，返回 BUSY 状态（CONFIG_HID_ERR_BUSY=8）
-         * cmd 字段回显当前待处理命令，sw_id/device_idx 回显当前缓存值 */
+        /* 鍝嶅簲灏氭湭鍑嗗濂斤紝杩斿洖 BUSY 鐘舵€侊紙CONFIG_HID_ERR_BUSY=8锛?
+         * cmd 瀛楁鍥炴樉褰撳墠寰呭鐞嗗懡浠わ紝sw_id/device_idx 鍥炴樉褰撳墠缂撳瓨鍊?*/
         buffer[RESP_OFFSET_STATUS] = CONFIG_HID_ERR_BUSY;
         buffer[RESP_OFFSET_CMD] = g_pending_cmd;
         buffer[RESP_OFFSET_SW_ID] = g_current_sw_id;
@@ -329,7 +329,7 @@ static uint16_t get_report_ack(uint8_t* buffer, uint16_t reqlen)
 }
 
 #if FEATURE_KEY_STATS
-/* 处理按键统计读取（REPORT_ID_KEY_STATS0-3） */
+/* 澶勭悊鎸夐敭缁熻璇诲彇锛圧EPORT_ID_KEY_STATS0-3锛?*/
 static uint16_t get_report_key_stats(uint8_t report_id, uint8_t* buffer, uint16_t reqlen)
 {
     int start_idx = (report_id - REPORT_ID_KEY_STATS0) * 16;
@@ -351,7 +351,7 @@ static uint16_t get_report_key_stats(uint8_t report_id, uint8_t* buffer, uint16_
 }
 #endif /* FEATURE_KEY_STATS */
 
-/* 处理宏配置读取（REPORT_ID_MACRO_CONFIG） */
+/* 澶勭悊瀹忛厤缃鍙栵紙REPORT_ID_MACRO_CONFIG锛?*/
 static uint16_t get_report_macro_config(uint8_t* buffer, uint16_t reqlen)
 {
     if (reqlen < 2) return 0;
@@ -374,12 +374,12 @@ static uint16_t get_report_macro_config(uint8_t* buffer, uint16_t reqlen)
     uint16_t write_len = (avail < copy_len) ? avail : copy_len;
     if (write_len > 0) memcpy(&buffer[2], macro_bytes + offset, write_len);
     if (avail > write_len) memset(&buffer[2 + write_len], 0, (size_t)(avail - write_len));
-    LOG_DEBUG_PRINT("[宏] 读取宏 %d 块 %d，期望 %d，实际写入 %d\n", macro_id, block, copy_len, (write_len + 2));
+    LOG_DEBUG_PRINT("[瀹廬 璇诲彇瀹?%d 鍧?%d锛屾湡鏈?%d锛屽疄闄呭啓鍏?%d\n", macro_id, block, copy_len, (write_len + 2));
     return (reqlen > 62) ? 62 : reqlen;
 }
 
 #if FEATURE_PERF_MONITOR
-/* 处理性能系统统计读取（REPORT_ID_PERF_SYSTEM） */
+/* 澶勭悊鎬ц兘绯荤粺缁熻璇诲彇锛圧EPORT_ID_PERF_SYSTEM锛?*/
 static uint16_t get_report_perf_system(uint8_t* buffer, uint16_t reqlen)
 {
     perf_system_stat_t sys_stat;
@@ -401,7 +401,7 @@ static uint16_t get_report_perf_system(uint8_t* buffer, uint16_t reqlen)
     return (reqlen > 62) ? 62 : reqlen;
 }
 
-/* 处理性能任务统计读取（REPORT_ID_PERF_TASK） */
+/* 澶勭悊鎬ц兘浠诲姟缁熻璇诲彇锛圧EPORT_ID_PERF_TASK锛?*/
 static uint16_t get_report_perf_task(uint8_t* buffer, uint16_t reqlen)
 {
     uint8_t index = s_perf_task_index;
@@ -459,7 +459,7 @@ static uint16_t get_report_perf_task(uint8_t* buffer, uint16_t reqlen)
 }
 #endif /* FEATURE_PERF_MONITOR */
 
-/* 处理错误日志信息读取（REPORT_ID_FAULT_INFO） */
+/* 澶勭悊閿欒鏃ュ織淇℃伅璇诲彇锛圧EPORT_ID_FAULT_INFO锛?*/
 static uint16_t get_report_fault_info(uint8_t* buffer, uint16_t reqlen)
 {
     uint32_t log_count = fault_get_log_count();
@@ -477,7 +477,7 @@ static uint16_t get_report_fault_info(uint8_t* buffer, uint16_t reqlen)
     return (reqlen > 62) ? 62 : reqlen;
 }
 
-/* 处理错误日志读取（REPORT_ID_FAULT_LOG） */
+/* 澶勭悊閿欒鏃ュ織璇诲彇锛圧EPORT_ID_FAULT_LOG锛?*/
 static uint16_t get_report_fault_log(uint8_t* buffer, uint16_t reqlen)
 {
     uint8_t index = s_fault_read_index;
@@ -517,12 +517,12 @@ static uint16_t get_report_fault_log(uint8_t* buffer, uint16_t reqlen)
 }
 
 #if FEATURE_RAW_DIAG
-/* 处理实时按键状态读取（REPORT_ID_KEY_STATE） */
+/* 澶勭悊瀹炴椂鎸夐敭鐘舵€佽鍙栵紙REPORT_ID_KEY_STATE锛?*/
 static uint16_t get_report_key_state(uint8_t* buffer, uint16_t reqlen)
 {
-    /* 实时按键状态：64位bitmap，bit=1表示按下 */
+    /* 瀹炴椂鎸夐敭鐘舵€侊細64浣峛itmap锛宐it=1琛ㄧず鎸変笅 */
     uint64_t keys = shared_hw_get_keys();
-    /* keypad_spi读取的是bit=0表示按下，这里转换为bit=1表示按下 */
+    /* keypad_spi璇诲彇鐨勬槸bit=0琛ㄧず鎸変笅锛岃繖閲岃浆鎹负bit=1琛ㄧず鎸変笅 */
     uint64_t pressed = ~keys;
     if (reqlen == 0) return 0;
     memset(buffer, 0, reqlen);
@@ -533,32 +533,32 @@ static uint16_t get_report_key_state(uint8_t* buffer, uint16_t reqlen)
     return (reqlen > 8) ? 8 : reqlen;
 }
 
-/* 处理实时摇杆状态读取（REPORT_ID_JOYSTICK_STATE） */
+/* 澶勭悊瀹炴椂鎽囨潌鐘舵€佽鍙栵紙REPORT_ID_JOYSTICK_STATE锛?*/
 static uint16_t get_report_joystick_state(uint8_t* buffer, uint16_t reqlen)
 {
-    /* 实时摇杆状态：x, y, btn */
+    /* 瀹炴椂鎽囨潌鐘舵€侊細x, y, btn */
     int16_t x, y;
     bool btn;
     shared_hw_get_joystick(&x, &y, &btn);
     if (reqlen == 0) return 0;
     memset(buffer, 0, reqlen);
-    if (reqlen > 0) buffer[0] = (uint8_t)(int8_t)x;   /* 有符号字节 */
-    if (reqlen > 1) buffer[1] = (uint8_t)(int8_t)y;   /* 有符号字节 */
+    if (reqlen > 0) buffer[0] = (uint8_t)(int8_t)x;   /* 鏈夌鍙峰瓧鑺?*/
+    if (reqlen > 1) buffer[1] = (uint8_t)(int8_t)y;   /* 鏈夌鍙峰瓧鑺?*/
     if (reqlen > 2) buffer[2] = btn ? 1 : 0;
     return (reqlen > 8) ? 8 : reqlen;
 }
 #endif /* FEATURE_RAW_DIAG */
 
-/* 处理摇杆校准状态读取（REPORT_ID_JOYSTICK_CALIB） */
+/* 澶勭悊鎽囨潌鏍″噯鐘舵€佽鍙栵紙REPORT_ID_JOYSTICK_CALIB锛?*/
 static uint16_t get_report_joystick_calib(uint8_t* buffer, uint16_t reqlen)
 {
-    /* 摇杆校准状态查询：
-     * byte[0] = 校准状态（0=空闲,1=校准中,2=完成）
-     * byte[1-2] = center_x（小端，ADC值）
-     * byte[3-4] = center_y（小端，ADC值）
-     * byte[5] = calibrated（0=未校准,1=已校准）
-     * byte[6-7] = 死区值（小端，ADC原始值）
-     * byte[8-9] = 灵敏度（小端，定点数1.0=1000）
+    /* 鎽囨潌鏍″噯鐘舵€佹煡璇細
+     * byte[0] = 鏍″噯鐘舵€侊紙0=绌洪棽,1=鏍″噯涓?2=瀹屾垚锛?
+     * byte[1-2] = center_x锛堝皬绔紝ADC鍊硷級
+     * byte[3-4] = center_y锛堝皬绔紝ADC鍊硷級
+     * byte[5] = calibrated锛?=鏈牎鍑?1=宸叉牎鍑嗭級
+     * byte[6-7] = 姝诲尯鍊硷紙灏忕锛孉DC鍘熷鍊硷級
+     * byte[8-9] = 鐏垫晱搴︼紙灏忕锛屽畾鐐规暟1.0=1000锛?
      */
     if (reqlen == 0) return 0;
     memset(buffer, 0, reqlen);
@@ -584,16 +584,16 @@ static uint16_t get_report_joystick_calib(uint8_t* buffer, uint16_t reqlen)
     return (reqlen > 10) ? 10 : reqlen;
 }
 
-/* 处理配置扩展字段读取（REPORT_ID_CONFIG_EXT） */
+/* 澶勭悊閰嶇疆鎵╁睍瀛楁璇诲彇锛圧EPORT_ID_CONFIG_EXT锛?*/
 static uint16_t get_report_config_ext(uint8_t* buffer, uint16_t reqlen)
 {
-    /* v3/v4/v5 配置扩展字段：偏移1326+，共18字节
-     * 与 usb_descriptors.c 中 REPORT_ID_CONFIG_EXT 描述符声明的 18 字节一致，
-     * 与上位机 DeviceService.cs 中读写的 18 字节一致。
-     * 包含: joystick_invert_x(1), joystick_invert_y(1), encoder_steps(1),
+    /* v3/v4/v5 閰嶇疆鎵╁睍瀛楁锛氬亸绉?326+锛屽叡18瀛楄妭
+     * 涓?usb_descriptors.c 涓?REPORT_ID_CONFIG_EXT 鎻忚堪绗﹀０鏄庣殑 18 瀛楄妭涓€鑷达紝
+     * 涓庝笂浣嶆満 DeviceService.cs 涓鍐欑殑 18 瀛楄妭涓€鑷淬€?
+     * 鍖呭惈: joystick_invert_x(1), joystick_invert_y(1), encoder_steps(1),
      *       encoder_scroll_speed(1), joystick_sensitivity(2), reserved2(2),
      *       length(2), write_count(4), joystick_center_x(2), joystick_center_y(2),
-     *       joystick_calibrated(1), reserved3(1) = 18 字节
+     *       joystick_calibrated(1), reserved3(1) = 18 瀛楄妭
      */
     if (reqlen == 0) return 0;
     memset(buffer, 0, reqlen);
@@ -603,18 +603,18 @@ static uint16_t get_report_config_ext(uint8_t* buffer, uint16_t reqlen)
     return (reqlen > 18) ? 18 : reqlen;
 }
 
-/* 处理配置扩展块2读取（REPORT_ID_CONFIG_EXT2） */
+/* 澶勭悊閰嶇疆鎵╁睍鍧?璇诲彇锛圧EPORT_ID_CONFIG_EXT2锛?*/
 static uint16_t get_report_config_ext2(uint8_t* buffer, uint16_t reqlen)
 {
-    /* v6/v7配置扩展块2（子块索引机制）
-     * GET_REPORT: 返回当前子块的数据（子块索引用SET_REPORT设置）
-     * SET_REPORT: byte[0]=子块索引，设置当前子块并可写入数据
-     * 子块定义:
-     *   0 = v6字段 (偏移1346, 14字节)
-     *   1 = layer2_keymap[0..31] (偏移1360, 32字节)
-     *   2 = layer2_keymap[32..63] (偏移1392, 32字节)
-     *   3 = layer3_keymap[0..31] (偏移1424, 32字节)
-     *   4 = layer3_keymap[32..63] (偏移1456, 32字节)
+    /* v6/v7閰嶇疆鎵╁睍鍧?锛堝瓙鍧楃储寮曟満鍒讹級
+     * GET_REPORT: 杩斿洖褰撳墠瀛愬潡鐨勬暟鎹紙瀛愬潡绱㈠紩鐢⊿ET_REPORT璁剧疆锛?
+     * SET_REPORT: byte[0]=瀛愬潡绱㈠紩锛岃缃綋鍓嶅瓙鍧楀苟鍙啓鍏ユ暟鎹?
+     * 瀛愬潡瀹氫箟:
+     *   0 = v6瀛楁 (鍋忕Щ1346, 14瀛楄妭)
+     *   1 = layer2_keymap[0..31] (鍋忕Щ1360, 32瀛楄妭)
+     *   2 = layer2_keymap[32..63] (鍋忕Щ1392, 32瀛楄妭)
+     *   3 = layer3_keymap[0..31] (鍋忕Щ1424, 32瀛楄妭)
+     *   4 = layer3_keymap[32..63] (鍋忕Щ1456, 32瀛楄妭)
      */
     if (reqlen == 0) return 0;
     memset(buffer, 0, reqlen);
@@ -624,12 +624,12 @@ static uint16_t get_report_config_ext2(uint8_t* buffer, uint16_t reqlen)
 
     switch (s_config_ext2_subblock)
     {
-        case 0: offset = 1346; data_len = 14; break;  // v6字段
+        case 0: offset = 1346; data_len = 14; break;  // v6瀛楁
         case 1: offset = 1360; data_len = 32; break;  // layer2_keymap[0..31]
         case 2: offset = 1392; data_len = 32; break;  // layer2_keymap[32..63]
         case 3: offset = 1424; data_len = 32; break;  // layer3_keymap[0..31]
         case 4: offset = 1456; data_len = 32; break;  // layer3_keymap[32..63]
-        default: return 0;  // 无效子块索引
+        default: return 0;  // 鏃犳晥瀛愬潡绱㈠紩
     }
 
     uint16_t copy_len = (reqlen < data_len) ? reqlen : data_len;
@@ -641,15 +641,15 @@ static uint16_t get_report_config_ext2(uint8_t* buffer, uint16_t reqlen)
     return (reqlen > copy_len) ? copy_len : reqlen;
 }
 
-/* GET_REPORT 回调：只处理 Feature 报告（配置接口） */
+/* GET_REPORT 鍥炶皟锛氬彧澶勭悊 Feature 鎶ュ憡锛堥厤缃帴鍙ｏ級 */
 uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t* buffer, uint16_t reqlen)
 {
-    /* 只处理配置接口（instance 1）的 Feature 报告 */
+    /* 鍙鐞嗛厤缃帴鍙ｏ紙instance 1锛夌殑 Feature 鎶ュ憡 */
     if (instance != ITF_NUM_HID_CONFIG) return 0;
     if (report_type != HID_REPORT_TYPE_FEATURE) return 0;
 
-    /* 报告能力闸门：缺少对应诊断能力位（release 未编入）时返回空报告，
-     * 防止绕过上位机直接 raw GET_REPORT 读取诊断数据 */
+    /* 鎶ュ憡鑳藉姏闂搁棬锛氱己灏戝搴旇瘖鏂兘鍔涗綅锛坮elease 鏈紪鍏ワ級鏃惰繑鍥炵┖鎶ュ憡锛?
+     * 闃叉缁曡繃涓婁綅鏈虹洿鎺?raw GET_REPORT 璇诲彇璇婃柇鏁版嵁 */
     {
         uint64_t required_cap = command_gate_report_required_cap(report_id);
         if (required_cap != 0 && (capability_bitmap_runtime() & required_cap) == 0) {
@@ -657,11 +657,11 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_t
         }
     }
 
-    /* 临时关闭频繁打印，避免干扰调试
-    LOG_INFO_PRINT("[CONFIG] 主机读取 Feature 报告: Report ID=%d, 请求长度=%d\n", report_id, reqlen);
+    /* 涓存椂鍏抽棴棰戠箒鎵撳嵃锛岄伩鍏嶅共鎵拌皟璇?
+    LOG_INFO_PRINT("[CONFIG] 涓绘満璇诲彇 Feature 鎶ュ憡: Report ID=%d, 璇锋眰闀垮害=%d\n", report_id, reqlen);
     */
 
-    /* 分发到对应的处理函数（每个函数职责单一，便于维护和测试） */
+    /* 鍒嗗彂鍒板搴旂殑澶勭悊鍑芥暟锛堟瘡涓嚱鏁拌亴璐ｅ崟涓€锛屼究浜庣淮鎶ゅ拰娴嬭瘯锛?*/
     switch (report_id)
     {
         case REPORT_ID_CONFIG_BLOCK0:
@@ -726,14 +726,14 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_t
 }
 
 /* ============================================================================
- * SET_REPORT 处理函数（从 tud_hid_set_report_cb 拆分，每个函数职责单一）
+ * SET_REPORT 澶勭悊鍑芥暟锛堜粠 tud_hid_set_report_cb 鎷嗗垎锛屾瘡涓嚱鏁拌亴璐ｅ崟涓€锛?
  * ========================================================================== */
 
-/* 处理配置块写入（REPORT_ID_CONFIG_BLOCK0/1/2） */
+/* 澶勭悊閰嶇疆鍧楀啓鍏ワ紙REPORT_ID_CONFIG_BLOCK0/1/2锛?*/
 static void set_report_config_block(uint8_t report_id, uint8_t const* buffer, uint16_t bufsize)
 {
     if (config_lock_is_locked()) {
-        LOG_ERROR_PRINT("[CONFIG] ❌ 配置已锁定，拒绝写入配置块\n");
+        LOG_ERROR_PRINT("[CONFIG] 鉂?閰嶇疆宸查攣瀹氾紝鎷掔粷鍐欏叆閰嶇疆鍧梊n");
         return;
     }
     uint8_t* cfg_bytes = (uint8_t*)&g_tmp_config;
@@ -741,7 +741,7 @@ static void set_report_config_block(uint8_t report_id, uint8_t const* buffer, ui
     uint16_t offset;
     uint8_t block_bit;
     config_block_receiver_get_block_info(report_id, &offset, &block_bit);
-    LOG_INFO_PRINT("[CONFIG] 收到配置块 %d (Report ID=%d, 偏移=%d, 长度=%d)\n", report_id - 5, report_id, offset, bufsize);
+    LOG_INFO_PRINT("[CONFIG] 鏀跺埌閰嶇疆鍧?%d (Report ID=%d, 鍋忕Щ=%d, 闀垮害=%d)\n", report_id - 5, report_id, offset, bufsize);
     if (offset < cfg_size) {
         uint16_t remaining = cfg_size - offset;
         uint16_t copy_len = (bufsize < remaining) ? bufsize : remaining;
@@ -751,11 +751,11 @@ static void set_report_config_block(uint8_t report_id, uint8_t const* buffer, ui
             g_config_pending = true;
             config_block_receiver_mark_block(block_bit);
         }
-        LOG_DEBUG_PRINT("[CONFIG] 配置块 %d 写入成功，复制 %d 字节\n", report_id - 5, copy_len);
+        LOG_DEBUG_PRINT("[CONFIG] 閰嶇疆鍧?%d 鍐欏叆鎴愬姛锛屽鍒?%d 瀛楄妭\n", report_id - 5, copy_len);
     }
 }
 
-/* 处理控制命令（REPORT_ID_CONTROL） */
+/* 澶勭悊鎺у埗鍛戒护锛圧EPORT_ID_CONTROL锛?*/
 static void set_report_control(uint8_t const* buffer, uint16_t bufsize)
 {
     if (bufsize < 3) return;
@@ -766,17 +766,17 @@ static void set_report_control(uint8_t const* buffer, uint16_t bufsize)
     if (cmd == CMD_UNLOCK_CONFIG) {
         uint8_t progress = config_lock_attempt_unlock();
         if (progress >= CONFIG_LOCK_UNLOCK_REQUIRED_ATTEMPTS) {
-            LOG_INFO_PRINT("[SECURITY] ✅ 配置已解锁（30秒后自动锁定）\n");
+            LOG_INFO_PRINT("[SECURITY] 鉁?閰嶇疆宸茶В閿侊紙30绉掑悗鑷姩閿佸畾锛塡n");
             config_hid_set_response(CMD_UNLOCK_CONFIG, true, CONFIG_HID_OK, 1);
         } else {
-            LOG_INFO_PRINT("[SECURITY] 解锁进度: %d/%d\n", progress, CONFIG_LOCK_UNLOCK_REQUIRED_ATTEMPTS);
+            LOG_INFO_PRINT("[SECURITY] 瑙ｉ攣杩涘害: %d/%d\n", progress, CONFIG_LOCK_UNLOCK_REQUIRED_ATTEMPTS);
             config_hid_set_response(CMD_UNLOCK_CONFIG, true, CONFIG_HID_OK, progress);
         }
         return;
     }
 
     if (config_lock_is_locked() && !config_lock_is_command_allowed(cmd)) {
-        LOG_ERROR_PRINT("[SECURITY] ❌ 配置已锁定，拒绝命令 0x%02X\n", cmd);
+        LOG_ERROR_PRINT("[SECURITY] 鉂?閰嶇疆宸查攣瀹氾紝鎷掔粷鍛戒护 0x%02X\n", cmd);
         return;
     }
 
@@ -799,7 +799,7 @@ static void set_report_control(uint8_t const* buffer, uint16_t bufsize)
     }
 }
 
-/* 处理宏配置写入（REPORT_ID_MACRO_CONFIG） */
+/* 澶勭悊瀹忛厤缃啓鍏ワ紙REPORT_ID_MACRO_CONFIG锛?*/
 static void set_report_macro_config(uint8_t const* buffer, uint16_t bufsize)
 {
     if (bufsize < 2) return;
@@ -809,12 +809,12 @@ static void set_report_macro_config(uint8_t const* buffer, uint16_t bufsize)
     uint8_t block = block_raw & MACRO_BLOCK_INDEX_MASK;
 
     if (!is_read_cmd && config_lock_is_locked()) {
-        LOG_ERROR_PRINT("[SECURITY] ❌ 配置已锁定，拒绝写入宏配置\n");
+        LOG_ERROR_PRINT("[SECURITY] 鉂?閰嶇疆宸查攣瀹氾紝鎷掔粷鍐欏叆瀹忛厤缃甛n");
         return;
     }
     if (!is_read_cmd) config_lock_notify_write();
 
-    LOG_INFO_PRINT("[宏] 收到宏配置: 宏ID=%d, 块=%d, 长度=%d, 读命令=%d\n", macro_id, block, bufsize, is_read_cmd);
+    LOG_INFO_PRINT("[瀹廬 鏀跺埌瀹忛厤缃? 瀹廔D=%d, 鍧?%d, 闀垮害=%d, 璇诲懡浠?%d\n", macro_id, block, bufsize, is_read_cmd);
     if (macro_id >= MACRO_MAX_COUNT || block > 2) return;
     s_macro_read_id = macro_id;
     s_macro_read_block = block;
@@ -833,57 +833,57 @@ static void set_report_macro_config(uint8_t const* buffer, uint16_t bufsize)
         macro_set(macro_id, &tmp_macro);
         s_macro_dirty = true;
         s_macro_dirty_time_us = time_us_32();
-        LOG_DEBUG_PRINT("[宏] 写入宏配置: 宏ID=%d, 块=%d, 长度=%d\n", macro_id, block, copy_len);
+        LOG_DEBUG_PRINT("[瀹廬 鍐欏叆瀹忛厤缃? 瀹廔D=%d, 鍧?%d, 闀垮害=%d\n", macro_id, block, copy_len);
     }
 }
 
-/* 处理错误日志索引设置（REPORT_ID_FAULT_LOG） */
+/* 澶勭悊閿欒鏃ュ織绱㈠紩璁剧疆锛圧EPORT_ID_FAULT_LOG锛?*/
 static void set_report_fault_log(uint8_t const* buffer, uint16_t bufsize)
 {
-    /* 能力闸门：未编入 Fault 模块时忽略索引选择 */
+    /* 鑳藉姏闂搁棬锛氭湭缂栧叆 Fault 妯″潡鏃跺拷鐣ョ储寮曢€夋嫨 */
     if ((capability_bitmap_runtime() & (1ULL << CAP_FAULT_LOG)) == 0) return;
     if (bufsize >= 1) s_fault_read_index = buffer[0];
 }
 
 #if FEATURE_PERF_MONITOR
-/* 处理性能任务索引设置（REPORT_ID_PERF_TASK） */
+/* 澶勭悊鎬ц兘浠诲姟绱㈠紩璁剧疆锛圧EPORT_ID_PERF_TASK锛?*/
 static void set_report_perf_task(uint8_t const* buffer, uint16_t bufsize)
 {
-    /* 能力闸门：未编入性能监控时忽略索引选择 */
+    /* 鑳藉姏闂搁棬锛氭湭缂栧叆鎬ц兘鐩戞帶鏃跺拷鐣ョ储寮曢€夋嫨 */
     if ((capability_bitmap_runtime() & (1ULL << CAP_PERF_MONITOR)) == 0) return;
     if (bufsize >= 1) s_perf_task_index = buffer[0];
 }
 #endif /* FEATURE_PERF_MONITOR */
 
-/* 处理配置扩展字段写入（REPORT_ID_CONFIG_EXT） */
+/* 澶勭悊閰嶇疆鎵╁睍瀛楁鍐欏叆锛圧EPORT_ID_CONFIG_EXT锛?*/
 static void set_report_config_ext(uint8_t const* buffer, uint16_t bufsize)
 {
     if (config_lock_is_locked()) {
-        LOG_ERROR_PRINT("[SECURITY] ❌ 配置已锁定，拒绝写入扩展字段\n");
+        LOG_ERROR_PRINT("[SECURITY] 鉂?閰嶇疆宸查攣瀹氾紝鎷掔粷鍐欏叆鎵╁睍瀛楁\n");
         return;
     }
     if (bufsize > 0 && buffer != NULL) {
         uint8_t* ext_bytes = (uint8_t*)&g_tmp_config + 1326;
         uint16_t copy_len = (bufsize < 18) ? bufsize : 18;
         memcpy(ext_bytes, buffer, copy_len);
-        LOG_INFO_PRINT("[CONFIG] 收到配置扩展字段 (%d字节)\n", copy_len);
+        LOG_INFO_PRINT("[CONFIG] 鏀跺埌閰嶇疆鎵╁睍瀛楁 (%d瀛楄妭)\n", copy_len);
     }
 }
 
-/* 处理配置扩展块2写入（REPORT_ID_CONFIG_EXT2） */
+/* 澶勭悊閰嶇疆鎵╁睍鍧?鍐欏叆锛圧EPORT_ID_CONFIG_EXT2锛?*/
 static void set_report_config_ext2(uint8_t const* buffer, uint16_t bufsize)
 {
     if (bufsize < 1 || buffer == NULL) return;
     uint8_t sub_block = buffer[0];
     if (sub_block > 4) {
-        LOG_ERROR_PRINT("[CONFIG] ❌ CONFIG_EXT2 无效子块索引: %d\n", sub_block);
+        LOG_ERROR_PRINT("[CONFIG] 鉂?CONFIG_EXT2 鏃犳晥瀛愬潡绱㈠紩: %d\n", sub_block);
         return;
     }
     s_config_ext2_subblock = sub_block;
 
     if (bufsize > 1) {
         if (config_lock_is_locked()) {
-            LOG_ERROR_PRINT("[SECURITY] ❌ 配置已锁定，拒绝写入 CONFIG_EXT2 子块 %d\n", sub_block);
+            LOG_ERROR_PRINT("[SECURITY] 鉂?閰嶇疆宸查攣瀹氾紝鎷掔粷鍐欏叆 CONFIG_EXT2 瀛愬潡 %d\n", sub_block);
             return;
         }
         uint16_t offset = 0, data_len = 0;
@@ -897,32 +897,32 @@ static void set_report_config_ext2(uint8_t const* buffer, uint16_t bufsize)
         uint16_t copy_len = (bufsize - 1 < data_len) ? (bufsize - 1) : data_len;
         if (offset + copy_len <= sizeof(device_config_t)) {
             memcpy((uint8_t*)&g_tmp_config + offset, buffer + 1, copy_len);
-            LOG_INFO_PRINT("[CONFIG] 收到 CONFIG_EXT2 子块 %d (偏移=%d, 写入=%d字节)\n", sub_block, offset, copy_len);
+            LOG_INFO_PRINT("[CONFIG] 鏀跺埌 CONFIG_EXT2 瀛愬潡 %d (鍋忕Щ=%d, 鍐欏叆=%d瀛楄妭)\n", sub_block, offset, copy_len);
         }
     } else {
-        LOG_INFO_PRINT("[CONFIG] 设置 CONFIG_EXT2 子块索引: %d\n", sub_block);
+        LOG_INFO_PRINT("[CONFIG] 璁剧疆 CONFIG_EXT2 瀛愬潡绱㈠紩: %d\n", sub_block);
     }
 }
 
-/* SET_REPORT 回调（Feature 写入/Output 命令处理） */
+/* SET_REPORT 鍥炶皟锛團eature 鍐欏叆/Output 鍛戒护澶勭悊锛?*/
 void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const* buffer, uint16_t bufsize)
 {
-    /* 只处理配置接口（instance 1） */
+    /* 鍙鐞嗛厤缃帴鍙ｏ紙instance 1锛?*/
     if (instance != ITF_NUM_HID_CONFIG) return;
 
-    /* v3.0 协议：支持 Feature Report（配置写入）和 Output Report（命令发送，中断传输）
-     * Output Report(Report ID=7) 用于高速命令发送，走 USB 中断传输
+    /* v3.0 鍗忚锛氭敮鎸?Feature Report锛堥厤缃啓鍏ワ級鍜?Output Report锛堝懡浠ゅ彂閫侊紝涓柇浼犺緭锛?
+     * Output Report(Report ID=7) 鐢ㄤ簬楂橀€熷懡浠ゅ彂閫侊紝璧?USB 涓柇浼犺緭
      */
     if (report_type != HID_REPORT_TYPE_FEATURE && report_type != HID_REPORT_TYPE_OUTPUT) return;
 
-    /* 防御性校验：Feature Report 最大 64 字节（含 Report ID），异常大的 bufsize 直接拒绝 */
+    /* 闃插尽鎬ф牎楠岋細Feature Report 鏈€澶?64 瀛楄妭锛堝惈 Report ID锛夛紝寮傚父澶х殑 bufsize 鐩存帴鎷掔粷 */
     if (bufsize > 64) {
-        LOG_ERROR_PRINT("[SECURITY] ❌ 异常的 Feature Report 长度: %d（最大64）\n", bufsize);
+        LOG_ERROR_PRINT("[SECURITY] 鉂?寮傚父鐨?Feature Report 闀垮害: %d锛堟渶澶?4锛塡n", bufsize);
         return;
     }
     if (buffer == NULL) return;
 
-    /* 分发到对应的处理函数（每个函数职责单一，便于维护和测试） */
+    /* 鍒嗗彂鍒板搴旂殑澶勭悊鍑芥暟锛堟瘡涓嚱鏁拌亴璐ｅ崟涓€锛屼究浜庣淮鎶ゅ拰娴嬭瘯锛?*/
     switch (report_id)
     {
         case REPORT_ID_CONFIG_BLOCK0:
@@ -958,16 +958,16 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
             break;
 
         default:
-            LOG_DEBUG_PRINT("[CONFIG] 未知 Report ID: %d\n", report_id);
+            LOG_DEBUG_PRINT("[CONFIG] 鏈煡 Report ID: %d\n", report_id);
             break;
     }
 }
 
 /* ============================================================================
- * 命令处理函数（从 hid_config_task 拆分，每个函数职责单一）
+ * 鍛戒护澶勭悊鍑芥暟锛堜粠 hid_config_task 鎷嗗垎锛屾瘡涓嚱鏁拌亴璐ｅ崟涓€锛?
  * ========================================================================== */
 
-/* 处理保存配置命令 */
+/* 澶勭悊淇濆瓨閰嶇疆鍛戒护 */
 static void handle_cmd_save_config(void)
 {
     if (config_validator_check_magic(&g_tmp_config)) {
@@ -979,11 +979,11 @@ static void handle_cmd_save_config(void)
     }
 }
 
-/* 处理恢复出厂配置命令 */
+/* 澶勭悊鎭㈠鍑哄巶閰嶇疆鍛戒护 */
 static void handle_cmd_reset_config(void)
 {
     config_reset_default();
-    LOG_INFO_PRINT("[CONFIG] 已恢复出厂默认配置，即将重启...\n");
+    LOG_INFO_PRINT("[CONFIG] 宸叉仮澶嶅嚭鍘傞粯璁ら厤缃紝鍗冲皢閲嶅惎...\n");
     fault_record(FAULT_LEVEL_WARN, "config", "factory reset triggered by command");
     uint32_t reset_start = to_ms_since_boot(get_absolute_time());
     while ((to_ms_since_boot(get_absolute_time()) - reset_start) < CONFIG_RESET_DELAY_MS) {
@@ -993,53 +993,53 @@ static void handle_cmd_reset_config(void)
     while (1) {};
 }
 
-/* 处理重启设备命令 */
+/* 澶勭悊閲嶅惎璁惧鍛戒护 */
 static void handle_cmd_reboot(void)
 {
     uint8_t progress = command_confirm_attempt_reboot();
     if (progress >= COMMAND_CONFIRM_REBOOT_REQUIRED) {
-        LOG_INFO_PRINT("[CMD] 重启设备（已确认%d次）...\n", COMMAND_CONFIRM_REBOOT_REQUIRED);
+        LOG_INFO_PRINT("[CMD] 閲嶅惎璁惧锛堝凡纭%d娆★級...\n", COMMAND_CONFIRM_REBOOT_REQUIRED);
         sleep_ms(10);
         watchdog_reboot(0, 0, 1);
         while (1) {};
     } else {
-        LOG_INFO_PRINT("[CMD] 重启确认: %d/%d（5秒内连续发送）\n", progress, COMMAND_CONFIRM_REBOOT_REQUIRED);
+        LOG_INFO_PRINT("[CMD] 閲嶅惎纭: %d/%d锛?绉掑唴杩炵画鍙戦€侊級\n", progress, COMMAND_CONFIRM_REBOOT_REQUIRED);
     }
 }
 
-/* 处理进入DFU模式命令 */
+/* 澶勭悊杩涘叆DFU妯″紡鍛戒护 */
 static void handle_cmd_enter_dfu(void)
 {
     uint8_t progress = command_confirm_attempt_dfu();
     if (progress >= COMMAND_CONFIRM_DFU_REQUIRED) {
-        LOG_INFO_PRINT("[CMD] 进入 DFU 升级模式（已确认%d次）...\n", COMMAND_CONFIRM_DFU_REQUIRED);
+        LOG_INFO_PRINT("[CMD] 杩涘叆 DFU 鍗囩骇妯″紡锛堝凡纭%d娆★級...\n", COMMAND_CONFIRM_DFU_REQUIRED);
         sleep_ms(10);
         dfu_set_command(DFU_CMD_ENTER_DFU);
         watchdog_reboot(0, 0, CONFIG_RESET_DELAY_MS);
         while (1) {}
     } else {
-        LOG_INFO_PRINT("[CMD] DFU确认: %d/%d（5秒内连续发送）\n", progress, COMMAND_CONFIRM_DFU_REQUIRED);
+        LOG_INFO_PRINT("[CMD] DFU纭: %d/%d锛?绉掑唴杩炵画鍙戦€侊級\n", progress, COMMAND_CONFIRM_DFU_REQUIRED);
     }
 }
 
-/* 处理应用配置命令（最复杂的命令，包含配置验证、合并、保存、DPI应用） */
+/* 澶勭悊搴旂敤閰嶇疆鍛戒护锛堟渶澶嶆潅鐨勫懡浠わ紝鍖呭惈閰嶇疆楠岃瘉銆佸悎骞躲€佷繚瀛樸€丏PI搴旂敤锛?*/
 static void handle_cmd_apply_config(void)
 {
-    LOG_INFO_PRINT("[CONFIG] 收到应用配置命令\n");
+    LOG_INFO_PRINT("[CONFIG] 鏀跺埌搴旂敤閰嶇疆鍛戒护\n");
     config_hid_error_t apply_err = CONFIG_HID_OK;
 
     if (!config_block_receiver_is_complete()) {
-        LOG_ERROR_PRINT("[CONFIG] ❌ 配置块不完整: 0x%02X (期望 0x%02X)\n",
+        LOG_ERROR_PRINT("[CONFIG] 鉂?閰嶇疆鍧椾笉瀹屾暣: 0x%02X (鏈熸湜 0x%02X)\n",
                         config_block_receiver_get_status(), CONFIG_BLOCKS_ALL);
         apply_err = CONFIG_HID_ERR_INCOMPLETE;
     } else {
         config_block_receiver_reset();
         if (!config_validator_check_magic(&g_tmp_config)) {
-            LOG_ERROR_PRINT("[CONFIG] ❌ 魔数错误: 0x%08X (期望 0x%08X)\n",
+            LOG_ERROR_PRINT("[CONFIG] 鉂?榄旀暟閿欒: 0x%08X (鏈熸湜 0x%08X)\n",
                             g_tmp_config.magic, CONFIG_MAGIC);
             apply_err = CONFIG_HID_ERR_CRC_MISMATCH;
         } else if (g_tmp_config.dpi < CONFIG_DPI_MIN || g_tmp_config.dpi > CONFIG_DPI_MAX) {
-            LOG_ERROR_PRINT("[CONFIG] ❌ DPI 超出范围: %d (允许%d-%d)\n",
+            LOG_ERROR_PRINT("[CONFIG] 鉂?DPI 瓒呭嚭鑼冨洿: %d (鍏佽%d-%d)\n",
                             g_tmp_config.dpi, CONFIG_DPI_MIN, CONFIG_DPI_MAX);
             apply_err = CONFIG_HID_ERR_INVALID_PARAM;
         } else {
@@ -1055,7 +1055,7 @@ static void handle_cmd_apply_config(void)
             watchdog_feed_layer(WDG_LAYER_DEVICE);
             int save_ret = config_save(&merged);
             if (save_ret == 0) {
-                LOG_INFO_PRINT("[CONFIG] ✅ 配置已保存到 Flash (灵敏度=%d, 反转X=%d, 反转Y=%d)\n",
+                LOG_INFO_PRINT("[CONFIG] 鉁?閰嶇疆宸蹭繚瀛樺埌 Flash (鐏垫晱搴?%d, 鍙嶈浆X=%d, 鍙嶈浆Y=%d)\n",
                                merged.joystick_sensitivity, merged.joystick_invert_x, merged.joystick_invert_y);
                 const optical_sensor_cfg_t *paw_cfg = board_get_optical_sensor_cfg();
                 if (paw_cfg != NULL) {
@@ -1070,20 +1070,20 @@ static void handle_cmd_apply_config(void)
                     } else {
                         ret = config_hid_set_dpi_via_ipc(dpi_val, true);
                     }
-                    if (ret == 0) LOG_INFO_PRINT("[CONFIG] ✅ DPI 已应用: %d (档位%d)\n", dpi_val, slot);
-                    else LOG_ERROR_PRINT("[CONFIG] ❌ DPI 应用失败，错误码: %d\n", ret);
+                    if (ret == 0) LOG_INFO_PRINT("[CONFIG] 鉁?DPI 宸插簲鐢? %d (妗ｄ綅%d)\n", dpi_val, slot);
+                    else LOG_ERROR_PRINT("[CONFIG] 鉂?DPI 搴旂敤澶辫触锛岄敊璇爜: %d\n", ret);
                 }
                 apply_err = CONFIG_HID_OK;
             } else {
-                LOG_ERROR_PRINT("[CONFIG] ❌ 配置保存到 Flash 失败\n");
+                LOG_ERROR_PRINT("[CONFIG] 鉂?閰嶇疆淇濆瓨鍒?Flash 澶辫触\n");
                 apply_err = CONFIG_HID_ERR_FLASH_WRITE;
             }
             watchdog_feed_layer(WDG_LAYER_DEVICE);
         }
     }
 
-    /* 失败时重置临时配置，确保 g_tmp_config 始终与 Flash 一致
-     * 避免部分更新的配置被后续命令读取，导致数据不一致
+    /* 澶辫触鏃堕噸缃复鏃堕厤缃紝纭繚 g_tmp_config 濮嬬粓涓?Flash 涓€鑷?
+     * 閬垮厤閮ㄥ垎鏇存柊鐨勯厤缃鍚庣画鍛戒护璇诲彇锛屽鑷存暟鎹笉涓€鑷?
      */
     if (apply_err != CONFIG_HID_OK) {
         const device_config_t* current = config_get();
@@ -1091,103 +1091,103 @@ static void handle_cmd_apply_config(void)
             memcpy(&g_tmp_config, current, sizeof(device_config_t));
         }
         config_block_receiver_reset();
-        LOG_WARN_PRINT("[CONFIG] ⚠️ 应用配置失败(错误码=%d)，已重置临时配置\n", apply_err);
+        LOG_WARN_PRINT("[CONFIG] 鈿狅笍 搴旂敤閰嶇疆澶辫触(閿欒鐮?%d)锛屽凡閲嶇疆涓存椂閰嶇疆\n", apply_err);
     }
 
     config_hid_set_response(CMD_APPLY_CONFIG, apply_err == CONFIG_HID_OK, apply_err, 0);
 }
 
 #if FEATURE_KEY_STATS
-/* 处理重置按键统计命令 */
+/* 澶勭悊閲嶇疆鎸夐敭缁熻鍛戒护 */
 static void handle_cmd_reset_stats(void)
 {
     key_stats_reset();
-    LOG_INFO_PRINT("[STATS] 按键统计已清零\n");
+    LOG_INFO_PRINT("[STATS] 鎸夐敭缁熻宸叉竻闆禱n");
     config_hid_set_response(CMD_RESET_STATS, true, CONFIG_HID_OK, 0);
 }
 #endif /* FEATURE_KEY_STATS */
 
 #if FEATURE_FAULT_LOG
-/* 处理清除错误日志命令 */
+/* 澶勭悊娓呴櫎閿欒鏃ュ織鍛戒护 */
 static void handle_cmd_clear_fault(void)
 {
     fault_clear();
-    LOG_INFO_PRINT("[FAULT] 错误日志已清除\n");
+    LOG_INFO_PRINT("[FAULT] 閿欒鏃ュ織宸叉竻闄n");
     config_hid_set_response(CMD_CLEAR_FAULT, true, CONFIG_HID_OK, 0);
 }
 #endif /* FEATURE_FAULT_LOG */
 
 #if FEATURE_PERF_MONITOR
-/* 处理重置性能统计命令 */
+/* 澶勭悊閲嶇疆鎬ц兘缁熻鍛戒护 */
 static void handle_cmd_reset_perf(void)
 {
     perf_reset();
-    LOG_INFO_PRINT("[PERF] 性能统计已重置\n");
+    LOG_INFO_PRINT("[PERF] 鎬ц兘缁熻宸查噸缃甛n");
     config_hid_set_response(CMD_RESET_PERF, true, CONFIG_HID_OK, 0);
 }
 #endif /* FEATURE_PERF_MONITOR */
 
-/* 处理播放宏命令 */
+/* 澶勭悊鎾斁瀹忓懡浠?*/
 static void handle_cmd_macro_play(void)
 {
     uint8_t macro_id = g_pending_cmd_param;
     if (macro_id < MACRO_MAX_COUNT) {
         bool ok = macro_trigger(macro_id);
-        LOG_INFO_PRINT("[MACRO] 播放宏 %d: %s\n", macro_id, ok ? "成功" : "失败");
+        LOG_INFO_PRINT("[MACRO] 鎾斁瀹?%d: %s\n", macro_id, ok ? "鎴愬姛" : "澶辫触");
         config_hid_set_response(CMD_MACRO_PLAY, ok,
                             ok ? CONFIG_HID_OK : CONFIG_HID_ERR_BUSY, macro_id);
     } else {
-        LOG_ERROR_PRINT("[MACRO] 无效的宏ID: %d\n", macro_id);
+        LOG_ERROR_PRINT("[MACRO] 鏃犳晥鐨勫畯ID: %d\n", macro_id);
         config_hid_set_response(CMD_MACRO_PLAY, false, CONFIG_HID_ERR_INVALID_PARAM, macro_id);
     }
 }
 
-/* 处理停止宏命令 */
+/* 澶勭悊鍋滄瀹忓懡浠?*/
 static void handle_cmd_macro_stop(void)
 {
     uint8_t macro_id = g_pending_cmd_param;
     if (macro_id < MACRO_MAX_COUNT) {
         macro_stop(macro_id);
-        LOG_INFO_PRINT("[MACRO] 停止宏 %d\n", macro_id);
+        LOG_INFO_PRINT("[MACRO] 鍋滄瀹?%d\n", macro_id);
     } else {
         macro_stop_all();
-        LOG_INFO_PRINT("[MACRO] 停止所有宏\n");
+        LOG_INFO_PRINT("[MACRO] 鍋滄鎵€鏈夊畯\n");
     }
     config_hid_set_response(CMD_MACRO_STOP, true, CONFIG_HID_OK, 0);
 }
 
 #if FEATURE_PERF_MONITOR
-/* 处理设置性能监控开关命令 */
+/* 澶勭悊璁剧疆鎬ц兘鐩戞帶寮€鍏冲懡浠?*/
 static void handle_cmd_set_perf_enable(void)
 {
     bool enable = (g_pending_cmd_param != 0);
     perf_set_enabled(enable);
     if (enable) perf_reset();
-    LOG_INFO_PRINT("[PERF] 性能监控: %s\n", enable ? "开启" : "关闭");
+    LOG_INFO_PRINT("[PERF] 鎬ц兘鐩戞帶: %s\n", enable ? "寮€鍚? : "鍏抽棴");
     config_hid_set_response(CMD_SET_PERF_ENABLE, true, CONFIG_HID_OK, enable ? 1 : 0);
 }
 
-/* 处理设置性能监控任务超时阈值命令
- * 参数格式（16位小端）：
- *   高字节（bit 8-15）：任务索引（0-15，对应 perf_monitor 中的任务）
- *   低字节（bit 0-7）：阈值（0-255，单位100微秒，0=禁用告警）
- *   最大阈值：255 × 100us = 25500us = 25.5ms
- * 响应参数：高字节=任务索引，低字节=实际设置的阈值/100
+/* 澶勭悊璁剧疆鎬ц兘鐩戞帶浠诲姟瓒呮椂闃堝€煎懡浠?
+ * 鍙傛暟鏍煎紡锛?6浣嶅皬绔級锛?
+ *   楂樺瓧鑺傦紙bit 8-15锛夛細浠诲姟绱㈠紩锛?-15锛屽搴?perf_monitor 涓殑浠诲姟锛?
+ *   浣庡瓧鑺傦紙bit 0-7锛夛細闃堝€硷紙0-255锛屽崟浣?00寰锛?=绂佺敤鍛婅锛?
+ *   鏈€澶ч槇鍊硷細255 脳 100us = 25500us = 25.5ms
+ * 鍝嶅簲鍙傛暟锛氶珮瀛楄妭=浠诲姟绱㈠紩锛屼綆瀛楄妭=瀹為檯璁剧疆鐨勯槇鍊?100
  */
 static void handle_cmd_set_perf_threshold(void)
 {
-    uint8_t task_index = (uint8_t)((g_pending_cmd_param >> 8) & 0x0F);  /* 只用低4位，0-15 */
-    uint8_t threshold_raw = (uint8_t)(g_pending_cmd_param & 0xFF);        /* 0-255，单位100us */
-    uint32_t threshold_us = (uint32_t)threshold_raw * 100U;                /* 转换为微秒 */
+    uint8_t task_index = (uint8_t)((g_pending_cmd_param >> 8) & 0x0F);  /* 鍙敤浣?浣嶏紝0-15 */
+    uint8_t threshold_raw = (uint8_t)(g_pending_cmd_param & 0xFF);        /* 0-255锛屽崟浣?00us */
+    uint32_t threshold_us = (uint32_t)threshold_raw * 100U;                /* 杞崲涓哄井绉?*/
 
-    /* 验证任务索引有效性 */
+    /* 楠岃瘉浠诲姟绱㈠紩鏈夋晥鎬?*/
     if (task_index >= PERF_MAX_TASKS) {
-        LOG_ERROR_PRINT("[PERF] ❌ 无效任务索引: %d (最大%d)\n", task_index, PERF_MAX_TASKS - 1);
+        LOG_ERROR_PRINT("[PERF] 鉂?鏃犳晥浠诲姟绱㈠紩: %d (鏈€澶?d)\n", task_index, PERF_MAX_TASKS - 1);
         config_hid_set_response(CMD_SET_PERF_THRESHOLD, false, CONFIG_HID_ERR_INVALID_PARAM, 0);
         return;
     }
 
-    /* 设置阈值（0=禁用告警） */
+    /* 璁剧疆闃堝€硷紙0=绂佺敤鍛婅锛?*/
     perf_set_threshold(task_index, threshold_us);
 
     /* Persist threshold to config (only first 8 tasks) */
@@ -1207,54 +1207,54 @@ static void handle_cmd_set_perf_threshold(void)
     }
 
     if (threshold_us == 0) {
-        LOG_INFO_PRINT("[PERF] 任务%d 超时告警已禁用\n", task_index);
+        LOG_INFO_PRINT("[PERF] 浠诲姟%d 瓒呮椂鍛婅宸茬鐢╘n", task_index);
     } else {
-        LOG_INFO_PRINT("[PERF] 任务%d 超时阈值设置为: %lu us (%lu ms)\n",
+        LOG_INFO_PRINT("[PERF] 浠诲姟%d 瓒呮椂闃堝€艰缃负: %lu us (%lu ms)\n",
                        task_index, (unsigned long)threshold_us, (unsigned long)(threshold_us / 1000U));
     }
 
-    /* 响应参数：高字节=任务索引，低字节=阈值/100 */
+    /* 鍝嶅簲鍙傛暟锛氶珮瀛楄妭=浠诲姟绱㈠紩锛屼綆瀛楄妭=闃堝€?100 */
     uint16_t resp_param = (uint16_t)((task_index << 8) | threshold_raw);
     config_hid_set_response(CMD_SET_PERF_THRESHOLD, true, CONFIG_HID_OK, resp_param);
 }
 #endif /* FEATURE_PERF_MONITOR */
 
-/* 处理实时设置摇杆死区命令 */
+/* 澶勭悊瀹炴椂璁剧疆鎽囨潌姝诲尯鍛戒护 */
 static void handle_cmd_set_joystick_dz_rt(void)
 {
     uint16_t deadzone = (uint16_t)g_pending_cmd_param;
     if (deadzone > 4095) deadzone = 4095;
     uint32_t cmd = IPC_MAKE_CMD(IPC_CMD_SET_JOYSTICK_DZ, deadzone);
     if (!multicore_fifo_push_timeout_us(cmd, 0)) {
-        LOG_ERROR_PRINT("[JOYSTICK] FIFO 满，跳过死区设置\n");
+        LOG_ERROR_PRINT("[JOYSTICK] FIFO 婊★紝璺宠繃姝诲尯璁剧疆\n");
         config_hid_set_response(CMD_SET_JOYSTICK_DZ_RT, false, CONFIG_HID_ERR_BUSY, deadzone);
         return;
     }
     uint32_t ack_val = 0;
     bool ack_received = multicore_fifo_pop_timeout_us(CONFIG_IPC_ACK_TIMEOUT_US, &ack_val);
     if (!ack_received) {
-        LOG_WARN_PRINT("[JOYSTICK] 死区设置ACK超时（Core1可能忙）\n");
+        LOG_WARN_PRINT("[JOYSTICK] 姝诲尯璁剧疆ACK瓒呮椂锛圕ore1鍙兘蹇欙級\n");
     }
-    LOG_INFO_PRINT("[JOYSTICK] 实时死区设置: %u (已发送)\n", deadzone);
+    LOG_INFO_PRINT("[JOYSTICK] 瀹炴椂姝诲尯璁剧疆: %u (宸插彂閫?\n", deadzone);
     config_hid_set_response(CMD_SET_JOYSTICK_DZ_RT, true, CONFIG_HID_OK, deadzone);
 }
 
-/* 处理摇杆校准命令 */
+/* 澶勭悊鎽囨潌鏍″噯鍛戒护 */
 static void handle_cmd_joystick_calibrate(void)
 {
     uint16_t sample_count = (uint16_t)g_pending_cmd_param;
     if (sample_count == 0) sample_count = 50;
     if (sample_count > 200) sample_count = 200;
     if (shared_hw_trigger_joystick_calibration(sample_count)) {
-        LOG_INFO_PRINT("[JOYSTICK] 校准触发成功，采样次数: %u\n", sample_count);
+        LOG_INFO_PRINT("[JOYSTICK] 鏍″噯瑙﹀彂鎴愬姛锛岄噰鏍锋鏁? %u\n", sample_count);
         config_hid_set_response(CMD_JOYSTICK_CALIBRATE, true, CONFIG_HID_OK, sample_count);
     } else {
-        LOG_ERROR_PRINT("[JOYSTICK] 校准触发失败（可能正在校准中）\n");
+        LOG_ERROR_PRINT("[JOYSTICK] 鏍″噯瑙﹀彂澶辫触锛堝彲鑳芥鍦ㄦ牎鍑嗕腑锛塡n");
         config_hid_set_response(CMD_JOYSTICK_CALIBRATE, false, CONFIG_HID_ERR_BUSY, sample_count);
     }
 }
 
-/* 处理切换DPI档位命令 */
+/* 澶勭悊鍒囨崲DPI妗ｄ綅鍛戒护 */
 static void handle_cmd_switch_dpi(void)
 {
     uint8_t target_slot = (uint8_t)(g_pending_cmd_param & 0xFF);
@@ -1282,20 +1282,20 @@ static void handle_cmd_switch_dpi(void)
                 ret = config_hid_set_dpi_via_ipc(dpi_val, true);
             }
             if (ret == 0)
-                LOG_INFO_PRINT("[CONFIG] ✅ DPI 切换到档位%d: %d DPI\n", new_slot, dpi_val);
+                LOG_INFO_PRINT("[CONFIG] 鉁?DPI 鍒囨崲鍒版。浣?d: %d DPI\n", new_slot, dpi_val);
             else
-                LOG_ERROR_PRINT("[CONFIG] ❌ DPI 应用失败，错误码: %d\n", ret);
+                LOG_ERROR_PRINT("[CONFIG] 鉂?DPI 搴旂敤澶辫触锛岄敊璇爜: %d\n", ret);
         }
     } else {
-        LOG_INFO_PRINT("[CONFIG] DPI 已在档位%d\n", new_slot);
+        LOG_INFO_PRINT("[CONFIG] DPI 宸插湪妗ｄ綅%d\n", new_slot);
     }
     config_hid_set_response(CMD_SWITCH_DPI, true, CONFIG_HID_OK, new_slot);
 }
 
-/* 处理获取版本信息命令 */
+/* 澶勭悊鑾峰彇鐗堟湰淇℃伅鍛戒护 */
 static void handle_cmd_get_version(void)
 {
-    LOG_INFO_PRINT("[CONFIG] 版本查询: 协议=%d.%d, 配置=0x%04X\n",
+    LOG_INFO_PRINT("[CONFIG] 鐗堟湰鏌ヨ: 鍗忚=%d.%d, 閰嶇疆=0x%04X\n",
                    CONFIG_HID_PROTOCOL_VERSION_MAJOR,
                    CONFIG_HID_PROTOCOL_VERSION_MINOR,
                    CONFIG_VERSION);
@@ -1303,18 +1303,18 @@ static void handle_cmd_get_version(void)
                         CONFIG_HID_PROTOCOL_VERSION);
 }
 
-/* 处理版本协商命令 */
+/* 澶勭悊鐗堟湰鍗忓晢鍛戒护 */
 static void handle_cmd_negotiate_version(void)
 {
     uint16_t host_version = g_pending_cmd_param;
     uint8_t host_major = (uint8_t)(host_version >> 8);
     uint8_t host_minor = (uint8_t)(host_version & 0xFF);
-    LOG_INFO_PRINT("[CONFIG] 版本协商: 上位机=%d.%d, 固件=%d.%d\n",
+    LOG_INFO_PRINT("[CONFIG] 鐗堟湰鍗忓晢: 涓婁綅鏈?%d.%d, 鍥轰欢=%d.%d\n",
                    host_major, host_minor,
                    CONFIG_HID_PROTOCOL_VERSION_MAJOR,
                    CONFIG_HID_PROTOCOL_VERSION_MINOR);
     if (host_major != CONFIG_HID_PROTOCOL_VERSION_MAJOR) {
-        LOG_ERROR_PRINT("[CONFIG] ❌ 版本不兼容: 上位机主版本=%d, 固件主版本=%d\n",
+        LOG_ERROR_PRINT("[CONFIG] 鉂?鐗堟湰涓嶅吋瀹? 涓婁綅鏈轰富鐗堟湰=%d, 鍥轰欢涓荤増鏈?%d\n",
                         host_major, CONFIG_HID_PROTOCOL_VERSION_MAJOR);
         config_hid_set_response(CMD_NEGOTIATE_VERSION, false,
                             CONFIG_HID_ERR_VERSION_MISMATCH,
@@ -1325,22 +1325,22 @@ static void handle_cmd_negotiate_version(void)
     }
 }
 
-/* 处理切换按键层命令 */
+/* 澶勭悊鍒囨崲鎸夐敭灞傚懡浠?*/
 static void handle_cmd_switch_layer(void)
 {
     uint8_t target_layer = (uint8_t)(g_pending_cmd_param & 0xFF);
     if (target_layer >= 4) {
-        LOG_ERROR_PRINT("[CONFIG] ❌ 无效层号: %d\n", target_layer);
+        LOG_ERROR_PRINT("[CONFIG] 鉂?鏃犳晥灞傚彿: %d\n", target_layer);
         config_hid_set_response(CMD_SWITCH_LAYER, false,
                             CONFIG_HID_ERR_INVALID_PARAM, 0);
     } else {
         keymap_set_active_layer(target_layer);
-        LOG_INFO_PRINT("[CONFIG] ✅ 切换到层 %d\n", target_layer);
+        LOG_INFO_PRINT("[CONFIG] 鉁?鍒囨崲鍒板眰 %d\n", target_layer);
         config_hid_set_response(CMD_SWITCH_LAYER, true, CONFIG_HID_OK, target_layer);
     }
 }
 
-/* 处理获取能力信息命令 */
+/* 澶勭悊鑾峰彇鑳藉姏淇℃伅鍛戒护 */
 static void handle_cmd_get_capability_info(void)
 {
     uint8_t cap_id = (uint8_t)(g_pending_cmd_param & 0xFF);
@@ -1365,7 +1365,7 @@ static void handle_cmd_get_capability_info(void)
         [CAP_DIAG_DEBUG_UART]  = (1 << 8) | 0,
         [CAP_MFG_FACTORY_TEST] = (1 << 8) | 0,
         [CAP_MFG_PROVISION]    = (1 << 8) | 0,
-        /* bit18-23 预留，版本保持 0 */
+        /* bit18-23 棰勭暀锛岀増鏈繚鎸?0 */
     };
     if (cap_id >= CAP_COUNT) {
         LOG_ERROR_PRINT("[CAP] invalid cap_id: %d\n", cap_id);
@@ -1381,65 +1381,65 @@ static void handle_cmd_get_capability_info(void)
     }
 }
 
-/* 处理进入BOOTSEL模式命令 */
+/* 澶勭悊杩涘叆BOOTSEL妯″紡鍛戒护 */
 static void handle_cmd_enter_bootsel(void)
 {
     uint8_t progress = command_confirm_attempt_bootsel();
     if (progress >= COMMAND_CONFIRM_BOOTSEL_REQUIRED) {
-        LOG_INFO_PRINT("[CMD] 进入官方 BOOTSEL UF2 模式（已确认%d次）...\n", COMMAND_CONFIRM_BOOTSEL_REQUIRED);
+        LOG_INFO_PRINT("[CMD] 杩涘叆瀹樻柟 BOOTSEL UF2 妯″紡锛堝凡纭%d娆★級...\n", COMMAND_CONFIRM_BOOTSEL_REQUIRED);
         sleep_ms(10);
         rom_reset_usb_boot(0, 0);
         while (1) { }
     } else {
-        LOG_INFO_PRINT("[CMD] BOOTSEL确认: %d/%d（5秒内连续发送）\n", progress, COMMAND_CONFIRM_BOOTSEL_REQUIRED);
+        LOG_INFO_PRINT("[CMD] BOOTSEL纭: %d/%d锛?绉掑唴杩炵画鍙戦€侊級\n", progress, COMMAND_CONFIRM_BOOTSEL_REQUIRED);
         config_hid_set_response(CMD_ENTER_BOOTSEL, true, CONFIG_HID_OK, progress);
     }
 }
 
-/* 周期性处理函数（替代原 hid_config_task） */
+/* 鍛ㄦ湡鎬у鐞嗗嚱鏁帮紙鏇夸唬鍘?hid_config_task锛?*/
 void hid_config_task(void)
 {
-    /* 配置锁定：解锁后30秒无操作自动重新锁定 */
+    /* 閰嶇疆閿佸畾锛氳В閿佸悗30绉掓棤鎿嶄綔鑷姩閲嶆柊閿佸畾 */
     if (config_lock_check_auto_relock()) {
-        LOG_INFO_PRINT("[SECURITY] 🔒 配置已自动锁定（超时）\n");
+        LOG_INFO_PRINT("[SECURITY] 馃敀 閰嶇疆宸茶嚜鍔ㄩ攣瀹氾紙瓒呮椂锛塡n");
     }
 
-    /* 处理宏配置的延迟保存（使用安全写入服务，双核同步） */
+    /* 澶勭悊瀹忛厤缃殑寤惰繜淇濆瓨锛堜娇鐢ㄥ畨鍏ㄥ啓鍏ユ湇鍔★紝鍙屾牳鍚屾锛?*/
     if (s_macro_dirty) {
         uint32_t now = time_us_32();
         if (now - s_macro_dirty_time_us > MACRO_DIRTY_SAVE_DELAY_US) {
             const device_config_t* current_cfg = config_get();
             if (current_cfg != NULL) {
-                /* 使用 static 缓冲区避免栈溢出（device_config_t 约1330字节） */
+                /* 浣跨敤 static 缂撳啿鍖洪伩鍏嶆爤婧㈠嚭锛坉evice_config_t 绾?330瀛楄妭锛?*/
                 static device_config_t s_macro_save_buf;
                 memcpy(&s_macro_save_buf, current_cfg, sizeof(device_config_t));
                 macro_save_to_config(s_macro_save_buf.macro_data, CONFIG_MACRO_DATA_SIZE);
                 config_save(&s_macro_save_buf);
-                LOG_INFO_PRINT("[宏] 配置已保存到Flash\n");
+                LOG_INFO_PRINT("[瀹廬 閰嶇疆宸蹭繚瀛樺埌Flash\n");
             }
             s_macro_dirty = false;
         }
     }
 
-    /* 处理待写入的临时配置 */
+    /* 澶勭悊寰呭啓鍏ョ殑涓存椂閰嶇疆 */
     if (g_config_pending) {
         g_config_pending = false;
         if (config_validator_check_magic(&g_tmp_config)) {
-            /* 未来：应用到模块或校验 */
+            /* 鏈潵锛氬簲鐢ㄥ埌妯″潡鎴栨牎楠?*/
         }
     }
 
-    /* 处理待执行的命令（分发到对应的处理函数） */
+    /* 澶勭悊寰呮墽琛岀殑鍛戒护锛堝垎鍙戝埌瀵瑰簲鐨勫鐞嗗嚱鏁帮級 */
     if (g_pending_cmd != 0) {
         uint8_t cmd = g_pending_cmd;
         g_pending_cmd = 0;
 
-        /* 固件侧命令闸门：能力位 / 授权级别校验。
-         * 与 config_lock 的“配置写锁”正交（写锁在 set_report 入口已检查）。
-         * 拒绝时回明确 NACK，避免只靠上位机隐藏按钮被 raw HID 绕过。 */
+        /* 鍥轰欢渚у懡浠ら椄闂細鑳藉姏浣?/ 鎺堟潈绾у埆鏍￠獙銆?
+         * 涓?config_lock 鐨勨€滈厤缃啓閿佲€濇浜わ紙鍐欓攣鍦?set_report 鍏ュ彛宸叉鏌ワ級銆?
+         * 鎷掔粷鏃跺洖鏄庣‘ NACK锛岄伩鍏嶅彧闈犱笂浣嶆満闅愯棌鎸夐挳琚?raw HID 缁曡繃銆?*/
         uint8_t gate_err = command_gate_check_command(cmd);
         if (gate_err != CONFIG_HID_OK) {
-            LOG_INFO_PRINT("[GATE] 命令 0x%02X 被拒绝，错误码=%d\n", cmd, gate_err);
+            LOG_INFO_PRINT("[GATE] 鍛戒护 0x%02X 琚嫆缁濓紝閿欒鐮?%d\n", cmd, gate_err);
             config_hid_set_response(cmd, false, gate_err, 0);
         } else {
             switch (cmd) {

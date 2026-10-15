@@ -4,7 +4,7 @@
  * 任务执行时间统计、CPU使用率、主循环频率
  */
 
-#include "features.h"
+#include "project_features.h"
 
 #if FEATURE_PERF_MONITOR
 

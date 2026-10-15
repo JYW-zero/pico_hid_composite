@@ -11,7 +11,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include "features.h"
+#include "project_features.h"
 
 #ifdef __cplusplus
 extern "C" {

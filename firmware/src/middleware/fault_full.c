@@ -1,13 +1,10 @@
-/*
+﻿/*
  * src/middleware/fault_full.c
- * Fault 持久化后端 - 全量文本档（dev / FEATURE_FAULT_COMPACT=0）
- *
- * 历史行为：256B/条（=1 Flash 页），A/B 双扇区，活动扇区写满 16 条后
- * 把最近 8 条搬到另一扇区并切换（基础磨损均衡）。
- * 本文件在 release（FEATURE_FAULT_COMPACT=1）下整体编译为空。
- */
+ * Fault 鎸佷箙鍖栧悗绔?- 鍏ㄩ噺鏂囨湰妗ｏ紙dev / FEATURE_FAULT_COMPACT=0锛? *
+ * 鍘嗗彶琛屼负锛?56B/鏉★紙=1 Flash 椤碉級锛孉/B 鍙屾墖鍖猴紝娲诲姩鎵囧尯鍐欐弧 16 鏉″悗
+ * 鎶婃渶杩?8 鏉℃惉鍒板彟涓€鎵囧尯骞跺垏鎹紙鍩虹纾ㄦ崯鍧囪　锛夈€? * 鏈枃浠跺湪 release锛團EATURE_FAULT_COMPACT=1锛変笅鏁翠綋缂栬瘧涓虹┖銆? */
 
-#include "features.h"
+#include "project_features.h"
 
 #if !FEATURE_FAULT_COMPACT
 
@@ -43,15 +40,14 @@ static uint32_t get_other_sector_offset(void)
     return (s_active_sector == 0) ? flash_layout_fault_b_offset() : flash_layout_fault_a_offset();
 }
 
-/* 只读基指针：固件为 XIP 地址，host 测试由 mock 重定向到 RAM 模拟 Flash */
+/* 鍙鍩烘寚閽堬細鍥轰欢涓?XIP 鍦板潃锛宧ost 娴嬭瘯鐢?mock 閲嶅畾鍚戝埌 RAM 妯℃嫙 Flash */
 static const uint8_t* sector_bytes(uint32_t offset)
 {
     return (const uint8_t*)(uintptr_t)(flash_layout_xip_base() + offset);
 }
 
-/* 第 i 条记录的地址。注意：每条按 FAULT_LOG_ENTRY_SIZE(=256B, 1 Flash 页)
- * 定址，而不是 sizeof(fault_log_entry_t)(=252B)——写入是每页一条，读取必须用
- * 同样的 256B 步长，否则从第 1 条起会错位（每条记录后 4B 为页内填充）。 */
+/* 绗?i 鏉¤褰曠殑鍦板潃銆傛敞鎰忥細姣忔潯鎸?FAULT_LOG_ENTRY_SIZE(=256B, 1 Flash 椤?
+ * 瀹氬潃锛岃€屼笉鏄?sizeof(fault_log_entry_t)(=252B)鈥斺€斿啓鍏ユ槸姣忛〉涓€鏉★紝璇诲彇蹇呴』鐢? * 鍚屾牱鐨?256B 姝ラ暱锛屽惁鍒欎粠绗?1 鏉¤捣浼氶敊浣嶏紙姣忔潯璁板綍鍚?4B 涓洪〉鍐呭～鍏咃級銆?*/
 static const fault_log_entry_t* entry_at(uint32_t offset, uint32_t i)
 {
     return (const fault_log_entry_t*)(const void*)(sector_bytes(offset) + i * FAULT_LOG_ENTRY_SIZE);
