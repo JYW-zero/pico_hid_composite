@@ -297,8 +297,10 @@ jobs:
           -DFEATURE_FAULT_LOG=1 -DFEATURE_KEY_STATS=0 \
           -DFEATURE_DEBUG_UART=0 -DFEATURE_RAW_DIAG=0 \
           -DFEATURE_FAULT_COMPACT=1 -DFEATURE_MFG_DEFAULT_LOCKED=1 \
+          -DFEATURE_DFU_BOOTLOADER=0 \
           -I../include -Iunity/src -Imock -std=c11 -Wall -Wextra \
           unity/src/unity.c ../src/protocol/capability.c \
+          ../src/protocol/command_gate.c \
           test_mfg_lock.c -o /tmp/run_mfg_lock_tests
         /tmp/run_mfg_lock_tests
 
