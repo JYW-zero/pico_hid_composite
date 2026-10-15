@@ -1,4 +1,4 @@
-namespace HidConfigTool.Core;
+﻿namespace HidConfigTool.Core;
 
 /// <summary>
 /// 跨平台 RGB 颜色表示，用于替代 WPF 的 Brush/Color

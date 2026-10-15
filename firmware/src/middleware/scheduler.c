@@ -7,6 +7,8 @@
 
 #include "middleware/scheduler.h"
 #include "pico/time.h"
+#include <assert.h>
+#include <stddef.h>
 
 void sched_init(void)
 {
@@ -16,8 +18,11 @@ void sched_init(void)
 void sched_run(sched_task_t *task_list, uint8_t task_count)
 {
     const uint32_t now = time_us_32();
-    uint8_t ready_indices[16];  /* 最多支持16个任务 */
+    uint8_t ready_indices[SCHED_MAX_TASKS];
     uint8_t ready_count = 0;
+
+    /* 编译时+运行时断言：任务数不能超过最大值，否则超出部分会被静默丢弃 */
+    assert(task_count <= SCHED_MAX_TASKS);
 
     /* 第一步：收集所有到期的任务 */
     for (uint8_t i = 0; i < task_count; i++)
@@ -32,7 +37,7 @@ void sched_run(sched_task_t *task_list, uint8_t task_count)
         const int32_t delta_us = (int32_t)(now - task->last_run_us);
         if (delta_us >= (int32_t)task->interval_us)
         {
-            if (ready_count < 16)
+            if (ready_count < SCHED_MAX_TASKS)
             {
                 ready_indices[ready_count] = i;
                 ready_count++;

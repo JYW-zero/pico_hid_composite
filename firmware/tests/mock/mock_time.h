@@ -1,4 +1,4 @@
-﻿/*
+/*
  * tests/mock/mock_time.h
  * Mock版时间函数，用于单元测试
  */

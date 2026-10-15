@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media.Animation;
 using System.Windows.Interop;
@@ -161,9 +161,13 @@ public partial class MainWindow : Window
 
     private void NavigateToPage(MainViewModel.PageType page)
     {
-        // 清理旧页面的资源，防止内存泄漏
+        // 清理旧页面的资源，防止内存泄漏和页面重叠
         if (ContentFrame.Content is FrameworkElement oldPage)
         {
+            // 清除旧页面的动画，防止动画残留导致页面重叠
+            oldPage.BeginAnimation(OpacityProperty, null);
+            oldPage.Opacity = 1;
+
             // 页面自身实现了 IDisposable（如容器页面）
             if (oldPage is IDisposable pageDisposable)
             {
@@ -178,6 +182,7 @@ public partial class MainWindow : Window
 
         FrameworkElement? newPage = page switch
         {
+            MainViewModel.PageType.Dashboard => _serviceProvider.GetRequiredService<DashboardPage>(),
             MainViewModel.PageType.Device => _serviceProvider.GetRequiredService<DevicePage>(),
             MainViewModel.PageType.KeyManagement => _serviceProvider.GetRequiredService<KeyManagementPage>(),
             MainViewModel.PageType.Mouse => _serviceProvider.GetRequiredService<MousePage>(),
@@ -186,12 +191,17 @@ public partial class MainWindow : Window
             MainViewModel.PageType.Macro => _serviceProvider.GetRequiredService<MacroPage>(),
             MainViewModel.PageType.ErrorLog => _serviceProvider.GetRequiredService<ErrorLogPage>(),
             MainViewModel.PageType.PerfMonitor => _serviceProvider.GetRequiredService<PerfMonitorPage>(),
+            MainViewModel.PageType.Diagnostics => _serviceProvider.GetRequiredService<DiagnosticsPage>(),
+            MainViewModel.PageType.Presets => _serviceProvider.GetRequiredService<PresetPage>(),
             MainViewModel.PageType.Settings => _serviceProvider.GetRequiredService<SettingsPage>(),
+            MainViewModel.PageType.FirmwareUpdate => _serviceProvider.GetRequiredService<FirmwareUpdatePage>(),
             _ => null
         };
 
         if (newPage != null)
         {
+            // 确保新页面的 Opacity 是 1，避免之前的动画残留
+            newPage.Opacity = 1;
             ContentFrame.Content = newPage;
 
             // 淡入动画
@@ -202,6 +212,17 @@ public partial class MainWindow : Window
                 Duration = TimeSpan.FromMilliseconds(200)
             };
             newPage.BeginAnimation(OpacityProperty, fadeIn);
+        }
+    }
+
+    /// <summary>
+    /// 设备状态卡片点击事件 - 跳转到设备详情页
+    /// </summary>
+    private void DeviceStatusCard_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_viewModel.NavigateToDeviceCommand.CanExecute(null))
+        {
+            _viewModel.NavigateToDeviceCommand.Execute(null);
         }
     }
 

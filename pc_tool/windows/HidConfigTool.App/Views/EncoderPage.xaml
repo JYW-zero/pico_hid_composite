@@ -1,8 +1,9 @@
-<UserControl x:Class="HidConfigTool.App.Views.EncoderPage"
+﻿<UserControl x:Class="HidConfigTool.App.Views.EncoderPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:loc="clr-namespace:HidConfigTool.App.Localization"
              mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
     <UserControl.Resources>
@@ -16,19 +17,19 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
         <StackPanel>
             <!-- 页面标题 -->
-            <TextBlock Text="编码器设置" Style="{StaticResource PageTitleStyle}" />
-            <TextBlock Text="配置旋转编码器的方向、步长和滚动速度" Style="{StaticResource PageSubtitleStyle}" />
+            <TextBlock Text="{Binding [Title_EncoderSettings], Source={StaticResource LocalizationService}}" Style="{StaticResource PageTitleStyle}" />
+            <TextBlock Text="{Binding [Subtitle_EncoderSettings], Source={StaticResource LocalizationService}}" Style="{StaticResource PageSubtitleStyle}" />
 
             <!-- 方向设置卡片 -->
             <Border Style="{StaticResource CardStyle}">
                 <StackPanel>
-                    <TextBlock Text="方向设置" Style="{StaticResource CardTitleStyle}" />
+                    <TextBlock Text="{Binding [Label_DirectionSettings], Source={StaticResource LocalizationService}}" Style="{StaticResource CardTitleStyle}" />
 
-                    <CheckBox Content="反转滚轮方向"
+                    <CheckBox Content="{Binding [Check_InvertWheel], Source={StaticResource LocalizationService}}"
                               IsChecked="{Binding ReverseDirection}"
                               Style="{StaticResource ToggleSwitchStyle}"
                               Margin="0,0,0,12" />
-                    <TextBlock Text="开启后，向上滚动变为向下滚动，反之亦然。"
+                    <TextBlock Text="{Binding [Hint_InvertWheel], Source={StaticResource LocalizationService}}"
                                Style="{StaticResource HintStyle}" />
                 </StackPanel>
             </Border>
@@ -36,7 +37,7 @@
             <!-- 步长设置卡片 -->
             <Border Style="{StaticResource CardStyle}">
                 <StackPanel>
-                    <TextBlock Text="步长设置" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,16" />
+                    <TextBlock Text="{Binding [Label_StepSettings], Source={StaticResource LocalizationService}}" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,16" />
 
                     <Grid Margin="0,0,0,12">
                         <Grid.ColumnDefinitions>
@@ -44,7 +45,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0"
-                                   Text="每格步数"
+                                   Text="{Binding [Label_StepsPerTick], Source={StaticResource LocalizationService}}"
                                    FontSize="13"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    VerticalAlignment="Center" />
@@ -70,7 +71,7 @@
             <!-- 滚动速度卡片 -->
             <Border Style="{StaticResource CardStyle}" Margin="0">
                 <StackPanel>
-                    <TextBlock Text="滚动速度" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,16" />
+                    <TextBlock Text="{Binding [Label_ScrollSpeed], Source={StaticResource LocalizationService}}" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,16" />
 
                     <Grid Margin="0,0,0,12">
                         <Grid.ColumnDefinitions>
@@ -78,7 +79,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0"
-                                   Text="滚动速度倍率"
+                                   Text="{Binding [Label_ScrollSpeedMultiplier], Source={StaticResource LocalizationService}}"
                                    FontSize="13"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    VerticalAlignment="Center" />

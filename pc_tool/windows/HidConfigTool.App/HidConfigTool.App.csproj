@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\..\shared\HidConfigTool.Core\HidConfigTool.Core.csproj" />
@@ -23,6 +23,12 @@
   <ItemGroup>
     <Using Remove="System.Windows.Forms" />
     <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="THIRD_PARTY_LICENSES.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

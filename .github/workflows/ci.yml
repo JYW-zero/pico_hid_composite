@@ -18,7 +18,7 @@ env:
 
 jobs:
   # ============================================================
-  # 固件构建（Ubuntu + ARM GCC + Pico SDK）
+  # 固件构建 + Unity 测试 + cppcheck 静态分析
   # ============================================================
   firmware:
     name: Firmware (RP2350)
@@ -39,12 +39,24 @@ jobs:
           ninja-build \
           gcc-arm-none-eabi \
           libnewlib-arm-none-eabi \
+          gcc \
+          make \
+          cppcheck \
+          clang-format \
           git
 
     # --------------------------------------------------------
-    # 2. 拉取 Pico SDK
+    # 2. 拉取 Pico SDK（带缓存，避免每次重新克隆）
     # --------------------------------------------------------
+    - name: Cache Pico SDK
+      id: cache-pico-sdk
+      uses: actions/cache@v5
+      with:
+        path: ${{ env.HOME }}/pico-sdk
+        key: pico-sdk-${{ env.PICO_SDK_VERSION }}
+
     - name: Clone Pico SDK
+      if: steps.cache-pico-sdk.outputs.cache-hit != 'true'
       run: |
         git clone --depth 1 --branch $PICO_SDK_VERSION \
           https://github.com/raspberrypi/pico-sdk.git $HOME/pico-sdk
@@ -58,78 +70,298 @@ jobs:
     # --------------------------------------------------------
     - name: Check code format
       run: |
-        sudo apt-get install -y clang-format
         cd firmware
         find src include -name "*.c" -o -name "*.h" | sort > /tmp/files.txt
         echo "Checking $(wc -l < /tmp/files.txt) files..."
-        clang-format --dry-run --Werror --style=file $(cat /tmp/files.txt) 2>&1 | tee /tmp/format-result.txt
-        if [ $? -ne 0 ]; then
-          echo "Code format check failed!"
-          exit 1
+        if [ -f .clang-format ]; then
+          clang-format --dry-run --Werror --style=file $(cat /tmp/files.txt) 2>&1 | tee /tmp/format-result.txt
+          if [ $? -ne 0 ]; then
+            echo "::error::Code format check failed! Run clang-format to fix."
+            exit 1
+          fi
+        else
+          echo "::warning::No .clang-format file found, skipping format check"
         fi
         echo "All files formatted correctly"
+
+    # --------------------------------------------------------
+    # 4. cppcheck 静态分析
+    # --------------------------------------------------------
+    - name: Run cppcheck static analysis
+      run: |
+        cd firmware
+        mkdir -p build/cppcheck-report
+        cppcheck \
+          --enable=all \
+          --inconclusive \
+          --std=c11 \
+          --platform=unix32 \
+          --suppress=missingIncludeSystem \
+          --suppress=unusedFunction \
+          --suppress=variableScope \
+          --error-exitcode=1 \
+          --xml \
+          --xml-version=2 \
+          -I include \
+          -I src \
+          src/ 2> build/cppcheck-report/cppcheck.xml
+
+        # 生成文本报告
+        cppcheck \
+          --enable=all \
+          --inconclusive \
+          --std=c11 \
+          --platform=unix32 \
+          --suppress=missingIncludeSystem \
+          --suppress=unusedFunction \
+          --suppress=variableScope \
+          -I include \
+          -I src \
+          src/ 2> build/cppcheck-report/cppcheck.txt
+
+        echo "cppcheck analysis completed"
+        echo "Errors found:"
+        grep -c "error" build/cppcheck-report/cppcheck.txt || echo "0 errors"
       continue-on-error: true
 
     # --------------------------------------------------------
-    # 4. 构建固件
+    # 5. 上传 cppcheck 报告
     # --------------------------------------------------------
-    - name: Build firmware
+    - name: Upload cppcheck report
+      uses: actions/upload-artifact@v5
+      with:
+        name: cppcheck-report
+        path: firmware/build/cppcheck-report/
+      continue-on-error: true
+
+    # --------------------------------------------------------
+    # 5.5. Clang-Tidy 静态分析
+    # --------------------------------------------------------
+    - name: Run Clang-Tidy static analysis
+      run: |
+        cd firmware
+        mkdir -p build/clang-tidy-report
+
+        # 生成 compile_commands.json（需要先配置 cmake）
+        cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON .. 2>&1 | tail -5
+
+        # 运行 clang-tidy 分析所有源文件
+        find src -name "*.c" -not -path "*/tests/*" -not -path "*/unity/*" | \
+          xargs clang-tidy \
+            -p build/compile_commands.json \
+            -config-file=.clang-tidy \
+            --checks='-*,bugprone-*,cert-*,clang-analyzer-*,misc-*,performance-*,portability-*' \
+            --warnings-as-errors='' \
+            2>&1 | tee build/clang-tidy-report/clang-tidy.txt
+
+        # 统计警告数量
+        warnings=$(grep -c "warning:" build/clang-tidy-report/clang-tidy.txt || echo "0")
+        errors=$(grep -c "error:" build/clang-tidy-report/clang-tidy.txt || echo "0")
+        echo "Clang-Tidy analysis complete: $warnings warnings, $errors errors"
+
+        if [ "$errors" -gt 0 ]; then
+          echo "::warning::Clang-Tidy found errors! Review the report."
+        fi
+      continue-on-error: true
+
+    - name: Upload Clang-Tidy report
+      uses: actions/upload-artifact@v5
+      with:
+        name: clang-tidy-report
+        path: firmware/build/clang-tidy-report/
+      continue-on-error: true
+
+    # --------------------------------------------------------
+    # 5.5 USB 描述符合规性检查
+    # --------------------------------------------------------
+    - name: Check USB descriptors
+      run: |
+        cd firmware/scripts
+        python check_usb_descriptors.py --file ../src/protocol/usb_descriptors.c
+
+    - name: Check USB descriptors (strict, warning only)
+      run: |
+        cd firmware/scripts
+        python check_usb_descriptors.py --file ../src/protocol/usb_descriptors.c --strict
+      continue-on-error: true
+
+    - name: Generate USB descriptor JSON report
+      run: |
+        cd firmware/scripts
+        python check_usb_descriptors.py --file ../src/protocol/usb_descriptors.c --json > usb-descriptor-report.json
+      continue-on-error: true
+
+    - name: Upload USB descriptor report
+      uses: actions/upload-artifact@v5
+      with:
+        name: usb-descriptor-report
+        path: firmware/scripts/usb-descriptor-report.json
+      continue-on-error: true
+
+    # --------------------------------------------------------
+    # 6. 安装覆盖率工具
+    # --------------------------------------------------------
+    - name: Install coverage tools
+      run: |
+        sudo apt-get install -y lcov
+        pip install gcovr
+
+    # --------------------------------------------------------
+    # 7. 运行 Unity 单元测试（带覆盖率）
+    # --------------------------------------------------------
+    - name: Run firmware unit tests with coverage
+      run: |
+        cd firmware/tests
+        make clean
+        make coverage-report
+
+        # 检查测试结果
+        if grep -q "FAIL" test-results.txt 2>/dev/null; then
+          echo "::error::Firmware unit tests failed!"
+          exit 1
+        fi
+
+        echo "Firmware unit tests passed"
+
+    # --------------------------------------------------------
+    # 8. 生成 Cobertura XML 覆盖率报告
+    # --------------------------------------------------------
+    - name: Generate Cobertura XML report
+      run: |
+        cd firmware/tests
+        make coverage-cobertura || echo "Warning: Failed to generate Cobertura XML"
+      continue-on-error: true
+
+    # --------------------------------------------------------
+    # 9. 覆盖率阈值检查
+    # --------------------------------------------------------
+    - name: Check coverage threshold
+      run: |
+        cd firmware/tests
+        make coverage-check COVERAGE_THRESHOLD=60
+      continue-on-error: true
+
+    # --------------------------------------------------------
+    # 10. 上传测试结果和覆盖率报告
+    # --------------------------------------------------------
+    - name: Upload test results
+      uses: actions/upload-artifact@v5
+      with:
+        name: firmware-test-results
+        path: |
+          firmware/tests/test-results.txt
+          firmware/tests/coverage/
+
+    - name: Upload coverage report (Codecov)
+      uses: codecov/codecov-action@v5
+      with:
+        files: firmware/tests/coverage/coverage.xml
+        flags: firmware
+        name: firmware-coverage
+        fail_ci_if_error: false
+      continue-on-error: true
+
+    # --------------------------------------------------------
+    # 8. 构建固件（release/dev 双 Profile）
+    # --------------------------------------------------------
+    - name: Build firmware (dev + release)
       run: |
         export PICO_SDK_PATH=$HOME/pico-sdk
         cd firmware
         mkdir -p build
         cd build
         cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release
-        ninja
+        ninja firmware_dev firmware_release
 
     # --------------------------------------------------------
-    # 5. 验证固件大小
+    # 8.5 release Profile 的 host 单元测试（紧凑 Fault + 制造门控）
+    #   与 Windows 下 build_compact_tests.bat / build_mfg_lock_tests.bat 等价；
+    #   这两个形态是编译期开关决定的，无法并入默认（dev 全开）runner。
+    # --------------------------------------------------------
+    - name: Run release-profile host tests
+      run: |
+        cd firmware/tests
+
+        # 紧凑 Fault 后端（FEATURE_FAULT_COMPACT=1，磨损均衡/16B 记录）
+        gcc -DFEATURE_FAULT_COMPACT=1 \
+          -I../include -Iunity/src -Imock -std=c11 -Wall -Wextra \
+          unity/src/unity.c \
+          mock/mock_flash.c mock/mock_time.c mock/mock_watchdog.c \
+          mock/mock_sync.c mock/mock_pico.c \
+          ../src/middleware/fault.c ../src/middleware/fault_compact.c \
+          test_fault_compact.c -o /tmp/run_compact_tests
+        /tmp/run_compact_tests
+
+        # 制造门控（release 裁剪矩阵 + FEATURE_MFG_DEFAULT_LOCKED=1）
+        gcc -DFEATURE_FACTORY_TEST=1 -DFEATURE_PERF_MONITOR=0 \
+          -DFEATURE_FAULT_LOG=1 -DFEATURE_KEY_STATS=0 \
+          -DFEATURE_DEBUG_UART=0 -DFEATURE_RAW_DIAG=0 \
+          -DFEATURE_FAULT_COMPACT=1 -DFEATURE_MFG_DEFAULT_LOCKED=1 \
+          -DFEATURE_DFU_BOOTLOADER=0 \
+          -I../include -Iunity/src -Imock -std=c11 -Wall -Wextra \
+          unity/src/unity.c ../src/protocol/capability.c \
+          ../src/protocol/command_gate.c \
+          test_mfg_lock.c -o /tmp/run_mfg_lock_tests
+        /tmp/run_mfg_lock_tests
+
+    # --------------------------------------------------------
+    # 9. 验证固件大小（两个 Profile 分别检查）
     # --------------------------------------------------------
     - name: Check firmware size
       run: |
-        UF2_FILE=firmware/build/pico_hid_composite.uf2
-        if [ -f "$UF2_FILE" ]; then
-          SIZE_KB=$(du -k "$UF2_FILE" | cut -f1)
-          echo "Firmware size: ${SIZE_KB} KB"
-          if [ $SIZE_KB -gt 1536 ]; then
-            echo "Warning: Firmware size exceeds 1.5MB!"
+        MAX_KB=1536
+        for variant in dev release; do
+          UF2_FILE=firmware/build/firmware_${variant}.uf2
+          if [ ! -f "$UF2_FILE" ]; then
+            echo "::error::Firmware file not found: $UF2_FILE"
+            exit 1
           fi
-        else
-          echo "Error: Firmware file not found!"
-          exit 1
-        fi
+          SIZE_KB=$(du -k "$UF2_FILE" | cut -f1)
+          echo "firmware_${variant} size: ${SIZE_KB} KB"
+          if [ "$SIZE_KB" -gt "$MAX_KB" ]; then
+            echo "::warning::firmware_${variant} size ${SIZE_KB} KB exceeds ${MAX_KB} KB!"
+          fi
+        done
 
     # --------------------------------------------------------
-    # 6. 上传固件产物
+    # 10. 上传固件产物（release/dev）
     # --------------------------------------------------------
     - name: Upload firmware artifacts
       uses: actions/upload-artifact@v5
       with:
         name: firmware-rp2350
         path: |
-          firmware/build/pico_hid_composite.uf2
-          firmware/build/pico_hid_composite.elf
-          firmware/build/pico_hid_composite.bin
-          firmware/build/pico_hid_composite.hex
-          firmware/build/pico_hid_composite.map
+          firmware/build/firmware_dev.uf2
+          firmware/build/firmware_dev.elf
+          firmware/build/firmware_dev.bin
+          firmware/build/firmware_dev.hex
+          firmware/build/firmware_dev.elf.map
+          firmware/build/firmware_release.uf2
+          firmware/build/firmware_release.elf
+          firmware/build/firmware_release.bin
+          firmware/build/firmware_release.hex
+          firmware/build/firmware_release.elf.map
 
     # --------------------------------------------------------
-    # 7. 上传到 GitHub Releases（打 Tag 或发布时）
+    # 11. 上传到 GitHub Releases（打 Tag 或发布时）
     # --------------------------------------------------------
     - name: Upload firmware to Release
       uses: softprops/action-gh-release@v2
       if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
       with:
         files: |
-          firmware/build/pico_hid_composite.uf2
-          firmware/build/pico_hid_composite.elf
-          firmware/build/pico_hid_composite.bin
+          firmware/build/firmware_dev.uf2
+          firmware/build/firmware_dev.elf
+          firmware/build/firmware_dev.bin
+          firmware/build/firmware_release.uf2
+          firmware/build/firmware_release.elf
+          firmware/build/firmware_release.bin
         fail_on_unmatched_files: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ============================================================
-  # 上位机构建（Windows + .NET 10 + WPF）
+  # 上位机构建 + 单元测试 + 集成测试 + Roslyn Analyzers
   # ============================================================
   pc-tool:
     name: PC Tool (Windows / .NET 10)
@@ -165,20 +397,202 @@ jobs:
       run: dotnet restore pc_tool/HidConfigTool.slnx
 
     # --------------------------------------------------------
-    # 4. 构建
+    # 3.5 许可证合规检查
+    # --------------------------------------------------------
+    - name: License compliance check
+      run: |
+        # 安装 dotnet-project-licenses 工具
+        dotnet tool install -g dotnet-project-licenses
+
+        # 生成许可证报告
+        dotnet-project-licenses -i pc_tool/HidConfigTool.slnx `
+          -o license-report.json `
+          --json `
+          --include-main-project
+
+        # 显示许可证摘要
+        Write-Host "=== License Summary ==="
+        $licenses = Get-Content license-report.json | ConvertFrom-Json
+        $licenseGroups = $licenses | Group-Object -Property { $_.LicenseType -replace '\s+', ' ' } | Sort-Object Name
+        foreach ($group in $licenseGroups) {
+          Write-Host "$($group.Name): $($group.Count) packages"
+          foreach ($pkg in $group.Group) {
+            Write-Host "  - $($pkg.PackageName) $($pkg.PackageVersion)"
+          }
+        }
+
+        # 检查是否有不允许的许可证（GPL/LGPL/AGPL 等 copyleft 许可证）
+        $forbiddenLicenses = @('GPL', 'LGPL', 'AGPL', 'MPL', 'CC-BY-SA', 'CC-NC')
+        $foundForbidden = $false
+        foreach ($pkg in $licenses) {
+          $licenseType = $pkg.LicenseType.ToUpper()
+          foreach ($forbidden in $forbiddenLicenses) {
+            if ($licenseType -match $forbidden) {
+              Write-Host "::error::Forbidden license found: $($pkg.PackageName) $($pkg.PackageVersion) - $($pkg.LicenseType)"
+              $foundForbidden = $true
+            }
+          }
+        }
+
+        if ($foundForbidden) {
+          Write-Host "::error::License compliance check failed! Found copyleft licenses."
+          exit 1
+        } else {
+          Write-Host "✅ License compliance check passed! All packages use permissive licenses."
+        }
+      continue-on-error: true
+
+    # --------------------------------------------------------
+    # 3.6 上传许可证报告
+    # --------------------------------------------------------
+    - name: Upload license report
+      uses: actions/upload-artifact@v5
+      with:
+        name: license-report
+        path: license-report.json
+      continue-on-error: true
+
+    # --------------------------------------------------------
+    # 3.5. 代码格式检查（dotnet format）
+    # --------------------------------------------------------
+    - name: Check code format (dotnet format)
+      run: |
+        dotnet format pc_tool/HidConfigTool.slnx --verify-no-changes --severity warn 2>&1 | Tee-Object -FilePath format-check.log
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "::error::Code format check failed! Run 'dotnet format' to fix."
+          exit 1
+        }
+        Write-Host "All files formatted correctly"
+      continue-on-error: true
+
+    # --------------------------------------------------------
+    # 4. Roslyn Analyzers 代码分析
+    # --------------------------------------------------------
+    - name: Run Roslyn Analyzers
+      run: |
+        dotnet build pc_tool/HidConfigTool.slnx `
+          --configuration Release `
+          --no-restore `
+          -p:RunAnalyzers=true `
+          -p:AnalysisLevel=latest-all `
+          -p:EnforceCodeStyleInBuild=true `
+          -p:TreatWarningsAsErrors=false `
+          2>&1 | Tee-Object -FilePath build-analysis.log
+
+        # 统计警告和错误
+        $warnings = (Select-String -Path build-analysis.log -Pattern "warning").Count
+        $errors = (Select-String -Path build-analysis.log -Pattern "error").Count
+        Write-Host "Analysis complete: $warnings warnings, $errors errors"
+
+        if ($errors -gt 0) {
+          Write-Host "::error::Roslyn Analyzers found errors!"
+          exit 1
+        }
+      continue-on-error: true
+
+    # --------------------------------------------------------
+    # 5. 上传分析报告
+    # --------------------------------------------------------
+    - name: Upload analysis report
+      uses: actions/upload-artifact@v5
+      with:
+        name: roslyn-analysis-report
+        path: build-analysis.log
+      continue-on-error: true
+
+    # --------------------------------------------------------
+    # 6. 构建
     # --------------------------------------------------------
     - name: Build
       run: dotnet build pc_tool/HidConfigTool.slnx --configuration Release --no-restore
 
     # --------------------------------------------------------
-    # 5. 运行单元测试
+    # 7. 运行单元测试
     # --------------------------------------------------------
     - name: Run unit tests
-      run: dotnet test pc_tool/tests/HidConfigTool.Tests/HidConfigTool.Tests.csproj --configuration Release --verbosity normal
+      run: |
+        dotnet test pc_tool/tests/HidConfigTool.Tests/HidConfigTool.Tests.csproj `
+          --configuration Release `
+          --verbosity normal `
+          --logger "trx;LogFileName=unit-test-results.trx" `
+          --collect:"XPlat Code Coverage"
+
+    # --------------------------------------------------------
+    # 8. 运行集成测试
+    # --------------------------------------------------------
+    - name: Run integration tests
+      run: |
+        dotnet test pc_tool/tests/HidConfigTool.IntegrationTests/HidConfigTool.IntegrationTests.csproj `
+          --configuration Release `
+          --verbosity normal `
+          --logger "trx;LogFileName=integration-test-results.trx" `
+          --collect:"XPlat Code Coverage"
+
+    # --------------------------------------------------------
+    # 9. 上传测试结果
+    # --------------------------------------------------------
+    - name: Upload test results
+      uses: actions/upload-artifact@v5
+      with:
+        name: pc-tool-test-results
+        path: |
+          **/TestResults/**/*.trx
+          **/TestResults/**/coverage.cobertura.xml
+
+    # --------------------------------------------------------
+    # 9.5 上传覆盖率报告（Codecov）
+    # --------------------------------------------------------
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        files: pc_tool/tests/HidConfigTool.Tests/TestResults/**/coverage.cobertura.xml,pc_tool/tests/HidConfigTool.IntegrationTests/TestResults/**/coverage.cobertura.xml
+        flags: pc-tool
+        name: pc-tool-coverage
+        fail_ci_if_error: false
       continue-on-error: true
 
     # --------------------------------------------------------
-    # 6. 发布上位机（依赖框架）
+    # 9.6 覆盖率阈值检查
+    # --------------------------------------------------------
+    - name: Check coverage threshold
+      shell: pwsh
+      run: |
+        $threshold = 60
+        $coverageFiles = Get-ChildItem -Path "pc_tool/tests" -Recurse -Filter "coverage.cobertura.xml" -ErrorAction SilentlyContinue
+
+        if ($coverageFiles.Count -eq 0) {
+            Write-Host "Warning: No coverage files found"
+            exit 0
+        }
+
+        $totalLineRate = 0
+        $fileCount = 0
+
+        foreach ($file in $coverageFiles) {
+            [xml]$xml = Get-Content $file.FullName
+            $lineRate = $xml.coverage.'line-rate'
+            if ($lineRate) {
+                $percentage = [math]::Round([double]$lineRate * 100, 2)
+                Write-Host "  $($file.Name): $percentage%"
+                $totalLineRate += $percentage
+                $fileCount++
+            }
+        }
+
+        if ($fileCount -gt 0) {
+            $average = [math]::Round($totalLineRate / $fileCount, 2)
+            Write-Host "`n平均覆盖率: $average% (阈值: $threshold%)"
+
+            if ($average -lt $threshold) {
+                Write-Host "::warning::覆盖率 $average% 低于阈值 $threshold%"
+            } else {
+                Write-Host "✅ 覆盖率 $average% 达到阈值 $threshold%"
+            }
+        }
+      continue-on-error: true
+
+    # --------------------------------------------------------
+    # 10. 发布上位机（依赖框架）
     # --------------------------------------------------------
     - name: Publish PC Tool (framework-dependent)
       run: |
@@ -188,7 +602,7 @@ jobs:
           --output publish-framework-dependent
 
     # --------------------------------------------------------
-    # 7. 发布上位机（自包含单文件）
+    # 11. 发布上位机（自包含单文件）
     # --------------------------------------------------------
     - name: Publish PC Tool (self-contained single-file)
       run: |
@@ -203,7 +617,7 @@ jobs:
       continue-on-error: true
 
     # --------------------------------------------------------
-    # 8. 上传产物
+    # 12. 上传产物
     # --------------------------------------------------------
     - name: Upload PC Tool (framework-dependent)
       uses: actions/upload-artifact@v5
@@ -219,7 +633,7 @@ jobs:
       continue-on-error: true
 
     # --------------------------------------------------------
-    # 9. 打包并上传到 Releases（打 Tag 或发布时）
+    # 13. 打包并上传到 Releases（打 Tag 或发布时）
     # --------------------------------------------------------
     - name: Package PC Tool for Release
       if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
@@ -270,3 +684,56 @@ jobs:
             echo "⚠️  $f not found"
           fi
         done
+
+  # ============================================================
+  # FactoryTool 原型（Python 标准库，零 pip 依赖）
+  #   跑在 windows-latest：Tkinter 原生可用，无需 xvfb / python3-tk。
+  #   测试只覆盖 core/adapters（不实例化 GUI）；compileall 对 ui 仅做语法编译。
+  # ============================================================
+  factorytool-tests:
+    name: FactoryTool (Python unit tests)
+    runs-on: windows-latest
+    env:
+      PYTHONIOENCODING: utf-8
+
+    defaults:
+      run:
+        working-directory: factorytool
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v5
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Compile check
+      run: python -m compileall .
+
+    - name: Unit tests
+      run: python -m unittest discover -s tests -v
+
+  # ============================================================
+  # CI 状态汇总（用于 PR 检查和徽章）
+  # ============================================================
+  ci-status:
+    name: CI Status
+    runs-on: ubuntu-latest
+    needs: [firmware, pc-tool, docs, factorytool-tests]
+    if: always()
+    steps:
+    - name: Check CI status
+      run: |
+        echo "Firmware: ${{ needs.firmware.result }}"
+        echo "PC Tool: ${{ needs.pc-tool.result }}"
+        echo "Docs: ${{ needs.docs.result }}"
+        echo "FactoryTool: ${{ needs.factorytool-tests.result }}"
+
+        if [ "${{ needs.firmware.result }}" != "success" ] || [ "${{ needs.pc-tool.result }}" != "success" ] || [ "${{ needs.factorytool-tests.result }}" != "success" ]; then
+          echo "::error::CI failed! Check firmware, pc-tool and factorytool jobs for details."
+          exit 1
+        fi
+
+        echo "✅ All required CI checks passed!"

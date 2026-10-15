@@ -1,4 +1,4 @@
-namespace HidConfigTool.Core.Interfaces;
+﻿namespace HidConfigTool.Core.Interfaces;
 
 /// <summary>
 /// 对话框服务抽象，用于在 ViewModel 中显示消息框和确认对话框

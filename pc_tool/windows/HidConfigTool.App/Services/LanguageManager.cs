@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.IO;
 using System.Resources;
 using System.Windows;
@@ -9,6 +9,7 @@ namespace HidConfigTool.App.Services;
 /// <summary>
 /// 语言管理服务
 /// 支持中英文切换，持久化到配置文件
+/// 支持运行时切换语言，通过 LanguageChanged 事件通知 UI 刷新
 /// </summary>
 public class LanguageManager : ILanguageService
 {
@@ -18,6 +19,11 @@ public class LanguageManager : ILanguageService
     private const string ConfigFileName = "language.txt";
 
     private static ResourceManager? _resourceManager;
+
+    /// <summary>
+    /// 语言变化事件（运行时切换语言时触发）
+    /// </summary>
+    public event EventHandler<string>? LanguageChanged;
 
     /// <summary>
     /// 当前语言
@@ -65,8 +71,14 @@ public class LanguageManager : ILanguageService
         if (language != Chinese && language != English)
             return;
 
+        if (CurrentLanguage == language)
+            return;
+
         CurrentLanguage = language;
         ApplyLanguage(language);
+
+        // 触发语言变化事件，通知 UI 刷新
+        LanguageChanged?.Invoke(this, language);
 
         // 持久化
         try

@@ -1,0 +1,54 @@
+---
+# Clang-Tidy 配置文件
+# 用于 Pico HID Composite 固件静态分析
+# 与 .clang-format 配合使用，确保代码质量
+
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  -bugprone-implicit-widening-of-multiplication-result,
+  cert-*,
+  -cert-err58-cpp,
+  -cert-env33-c,
+  clang-analyzer-*,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+  misc-*,
+  -misc-non-private-member-variables-in-classes,
+  -misc-unused-parameters,
+  modernize-*,
+  -modernize-use-trailing-return-type,
+  -modernize-use-nodiscard,
+  performance-*,
+  portability-*,
+  readability-*,
+  -readability-identifier-length,
+  -readability-magic-numbers,
+  -readability-function-cognitive-complexity,
+  -readability-isolate-declaration,
+  -readability-convert-member-functions-to-static,
+  -readability-simplify-boolean-expr
+
+CheckOptions:
+  - key: readability-identifier-naming.FunctionCase
+    value: lower_case
+  - key: readability-identifier-naming.VariableCase
+    value: lower_case
+  - key: readability-identifier-naming.GlobalConstantCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.MacroDefinitionCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.EnumConstantCase
+    value: UPPER_CASE
+  - key: bugprone-argument-comment.StrictMode
+    value: "0"
+  - key: misc-include-cleaner.IgnoreHeaders
+    value: "pico/.*;hardware/.*;bsp/.*;tusb.h"
+
+# 头文件包含顺序检查
+HeaderFilterRegex: '.*'
+FormatStyle: file
+
+# 抑制第三方库和生成代码的警告
+# 通过 -line-filter 或 // NOLINT 注释在代码中单独抑制

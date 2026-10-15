@@ -10,6 +10,7 @@
  */
 
 #include "middleware/flash_service.h"
+#include "middleware/watchdog.h"
 
 #include "pico/flash.h"
 #include "pico/multicore.h"
@@ -121,7 +122,12 @@ bool flash_service_erase(uint32_t flash_offset, uint32_t size)
         .size = size
     };
 
+    /* Flash 写入期间 flash_safe_execute() 会暂停 Core1，
+     * 暂停 watchdog 的 Core1 心跳监控避免误触发死锁复位 */
+    watchdog_pause_core1_monitor();
     int rc = flash_safe_execute(flash_erase_callback, &ctx, 5000);
+    watchdog_resume_core1_monitor();
+
     return (rc == PICO_OK);
 }
 
@@ -147,7 +153,11 @@ bool flash_service_program(uint32_t flash_offset, const uint8_t *data, uint32_t 
         .size = size
     };
 
+    /* Flash 写入期间暂停 Core1 心跳监控，避免误触发 */
+    watchdog_pause_core1_monitor();
     int rc = flash_safe_execute(flash_program_callback, &ctx, 5000);
+    watchdog_resume_core1_monitor();
+
     return (rc == PICO_OK);
 }
 
@@ -168,6 +178,10 @@ bool flash_service_write_sector(uint32_t flash_offset, const uint8_t *data)
         .size = FLASH_SECTOR_SIZE
     };
 
+    /* Flash 写入期间暂停 Core1 心跳监控，避免误触发 */
+    watchdog_pause_core1_monitor();
     int rc = flash_safe_execute(flash_write_sector_callback, &ctx, 5000);
+    watchdog_resume_core1_monitor();
+
     return (rc == PICO_OK);
 }

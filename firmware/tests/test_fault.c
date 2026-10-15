@@ -1,4 +1,4 @@
-﻿/*
+/*
  * tests/test_fault.c
  * fault 模块单元测试
  */

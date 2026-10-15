@@ -1,8 +1,8 @@
 /*
  * include/middleware/fault.h
- * 统一故障处理中间件
- * 完整版本：分级处理 + Flash持久化存储 + 环形缓冲区
- * 掉电不丢失，方便事后排查问题
+ * Unified Fault Handling Middleware
+ * Full version: graded handling + Flash persistent storage + ring buffer
+ * Non-volatile across power cycles, facilitates post-mortem troubleshooting
  */
 
 #ifndef MIDDLEWARE_FAULT_H
@@ -16,119 +16,149 @@
 extern "C" {
 #endif
 
-/* ==================== 常量定义 ==================== */
+/* ==================== Constant Definitions ==================== */
 
-/* 故障级别 */
+/* Fault level */
 typedef enum
 {
-    FAULT_LEVEL_INFO = 0,   /* 信息级，仅记录 */
-    FAULT_LEVEL_WARN,       /* 警告级，记录并提示 */
-    FAULT_LEVEL_ERROR,      /* 错误级，记录并尝试恢复 */
-    FAULT_LEVEL_FATAL       /* 致命级，记录后复位 */
+    FAULT_LEVEL_INFO = 0,   /* Info level, log only */
+    FAULT_LEVEL_WARN,       /* Warning level, log and notify */
+    FAULT_LEVEL_ERROR,      /* Error level, log and attempt recovery */
+    FAULT_LEVEL_FATAL       /* Fatal level, log then reset */
 } fault_level_e;
 
-/* 错误日志魔数："FLT0" (Fault Log entry 0) */
+/* Fault log magic: "FLT0" (Fault Log entry 0) */
 #define FAULT_LOG_MAGIC     0x30544C46U
 
-/* 单条日志大小：256字节（Flash一页，确保页对齐）
- * 虽然有点浪费，但是可靠，避免不对齐写入导致的问题
+/* Single log entry size: 256 bytes (one Flash page, ensures page alignment)
+ * Slightly wasteful but reliable, avoids issues from unaligned writes
  */
 #define FAULT_LOG_ENTRY_SIZE    FLASH_PAGE_SIZE  /* 256 bytes */
 
-/* Flash日志区大小：4KB（一个扇区） */
+/* Flash log area size: 4KB (one sector) */
 #define FAULT_LOG_FLASH_SIZE    FLASH_LAYOUT_SECTOR_SIZE  /* 4096 bytes */
 
-/* 最大日志条数：4KB / 256字节 = 16条 */
+/* Maximum log entries: 4KB / 256 bytes = 16 */
 #define FAULT_LOG_MAX_COUNT     (FAULT_LOG_FLASH_SIZE / FAULT_LOG_ENTRY_SIZE)
 
 /*
- * 注意：Flash地址不再使用硬编码宏！
- * 请使用 flash_layout_fault_offset() / flash_layout_fault_addr()
+ * Note: Flash addresses no longer use hardcoded macros!
+ * Please use flash_layout_fault_offset() / flash_layout_fault_addr()
  *
- * 布局（从Flash末尾向前）：
- *   最后第1个扇区: 配置B区
- *   最后第2个扇区: 配置A区
- *   最后第3个扇区: 错误日志区
- *   最后第4个扇区: 按键统计区
+ * Layout (from end of Flash backwards):
+ *   Last sector 1: Config B area
+ *   Last sector 2: Config A area
+ *   Last sector 3: Fault log area
+ *   Last sector 4: Key statistics area
  */
 
-/* 兼容旧代码的宏（不推荐使用，请改用函数） */
+/* Macros for backward compatibility (deprecated, use functions instead) */
 #define FAULT_LOG_FLASH_OFFSET  flash_layout_fault_offset()
 #define FAULT_LOG_FLASH_ADDR    flash_layout_fault_addr()
 
-/* ==================== 日志条目结构体 ==================== */
+/* ==================== Log Entry Structure ==================== */
 
-/* 错误日志条目
- * 大小：256字节（Flash一页，确保页对齐）
- * 布局：头部(16字节) + 模块名(32字节) + 消息(208字节) = 256字节
+/* Fault log entry (full profile, dev)
+ * Packed struct size: 252 bytes (header 20B + module 32B + message 200B).
+ * Each record is ADDRESSED on a 256-byte Flash page boundary
+ * (FAULT_LOG_ENTRY_SIZE = FLASH_PAGE_SIZE = 256), leaving 4 bytes of per-page
+ * padding. NEVER index Flash as fault_log_entry_t[] — the 252-byte struct stride
+ * would drift against the 256-byte addressing; use base + i*FAULT_LOG_ENTRY_SIZE.
  */
 typedef struct __attribute__((packed))
 {
-    uint32_t magic;          /* 魔数 0x30544C46，标识有效记录 */
-    uint32_t timestamp_ms;   /* 时间戳（启动后毫秒数） */
-    uint8_t  level;          /* 错误级别 fault_level_e */
-    uint8_t  module_len;     /* 模块名长度 */
-    uint16_t msg_len;        /* 消息长度 */
-    uint8_t  reserved[8];    /* 保留字节，对齐用 */
-    char     module[32];     /* 模块名（最多31字符 + 结束符） */
-    char     msg[200];       /* 错误消息（最多199字符 + 结束符） */
+    uint32_t magic;          /* Magic 0x30544C46, identifies valid record */
+    uint32_t timestamp_ms;   /* Timestamp (milliseconds since boot) */
+    uint8_t  level;          /* Fault level fault_level_e */
+    uint8_t  module_len;     /* Module name length */
+    uint16_t msg_len;        /* Message length */
+    uint8_t  reserved[8];    /* Reserved bytes, for alignment */
+    char     module[32];     /* Module name (max 31 chars + null terminator) */
+    char     msg[200];       /* Error message (max 199 chars + null terminator) */
 } fault_log_entry_t;
 
-/* ==================== 对外接口 ==================== */
+/* Persisted ABI: packed struct is 252B but each record occupies a 256B page. */
+_Static_assert(sizeof(fault_log_entry_t) == 252U,
+               "packed fault_log_entry_t must stay 252 bytes (persisted ABI)");
+_Static_assert(sizeof(fault_log_entry_t) <= FAULT_LOG_ENTRY_SIZE,
+               "fault_log_entry_t must fit one 256-byte Flash page");
+
+/* ==================== Public API ==================== */
 
 /**
- * @brief 初始化故障处理模块
- * 从Flash加载历史日志，初始化环形缓冲区
+ * @brief Initialize fault handling module
+ * Load historical logs from Flash, initialize ring buffer
  */
 void fault_init(void);
 
 /**
- * @brief 记录一条故障
- * @param level 故障级别
- * @param module 模块名（最多15字符）
- * @param msg 故障消息（最多35字符）
+ * @brief Record a fault
+ * @param level Fault level
+ * @param module Module name (max 15 chars)
+ * @param msg Fault message (max 35 chars)
  */
 void fault_record(fault_level_e level, const char *module, const char *msg);
 
 /**
- * @brief 获取总故障计数
- * @return 故障总数
+ * @brief Get total fault count
+ * @return Total fault count
  */
 uint32_t fault_get_count(void);
 
 /**
- * @brief 获取当前日志条数
- * @return 日志条数
+ * @brief Get current log entry count
+ * @return Log entry count
  */
 uint32_t fault_get_log_count(void);
 
 /**
- * @brief 读取指定索引的日志
- * @param index 索引（0=最旧，count-1=最新）
- * @param out_entry 输出日志条目
- * @return true=成功，false=索引越界
+ * @brief Read log at specified index
+ * @param index Index (0=oldest, count-1=newest)
+ * @param out_entry Output log entry
+ * @return true=success, false=index out of bounds
  */
 bool fault_get_log(uint32_t index, fault_log_entry_t* out_entry);
 
 /**
- * @brief 获取最新的N条日志
- * @param out_entries 输出缓冲区
- * @param max_count 最大条数
- * @return 实际读取的条数
+ * @brief Get latest N log entries
+ * @param out_entries Output buffer
+ * @param max_count Maximum count
+ * @return Actual number of entries read
  */
 uint32_t fault_get_latest_logs(fault_log_entry_t* out_entries, uint32_t max_count);
 
 /**
- * @brief 清除所有故障记录（包括Flash）
+ * @brief Clear all fault records (including Flash)
  */
 void fault_clear(void);
 
 /**
- * @brief 获取级别名称字符串
- * @param level 级别
- * @return 级别名称
+ * @brief Get level name string
+ * @param level Level
+ * @return Level name
  */
 const char* fault_level_name(fault_level_e level);
+
+/**
+ * @brief Thread-safe serial output (multi-core mutex protection)
+ * All serial output should prefer this function to avoid Core0/Core1 concurrent
+ * printf calls causing interleaved garbled characters.
+ * @param fmt Format string
+ */
+void log_printf(const char* fmt, ...);
+
+/**
+ * @brief Lock serial output (for scenarios requiring continuous multi-line output)
+ * Must be paired with log_unlock, otherwise deadlock will occur.
+ * @return Interrupt state, used for log_unlock restoration
+ */
+uint32_t log_lock(void);
+
+/**
+ * @brief Unlock serial output
+ * @param irq_state Interrupt state returned by log_lock
+ */
+void log_unlock(uint32_t irq_state);
 
 #ifdef __cplusplus
 }

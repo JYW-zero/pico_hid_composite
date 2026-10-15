@@ -1,4 +1,4 @@
-namespace HidConfigTool.Core.Interfaces;
+﻿namespace HidConfigTool.Core.Interfaces;
 
 /// <summary>
 /// OSD 屏幕显示服务抽象

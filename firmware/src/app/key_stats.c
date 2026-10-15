@@ -1,8 +1,12 @@
-/*
+﻿/*
  * src/app/key_stats.c
- * 按键统计模块实现
- * 完整版本：RAM统计 + Flash持久化 + 磨损均衡
+ * 鎸夐敭缁熻妯″潡瀹炵幇
+ * 瀹屾暣鐗堟湰锛歊AM缁熻 + Flash鎸佷箙鍖?+ 纾ㄦ崯鍧囪　
  */
+
+#include "project_features.h"
+
+#if FEATURE_KEY_STATS
 
 #include "app/key_stats.h"
 #include "board/flash_layout.h"
@@ -14,7 +18,7 @@
 #include <string.h>
 #include <stdio.h>
 
-/* ==================== CRC32 实现 ==================== */
+/* ==================== CRC32 瀹炵幇 ==================== */
 
 static const uint32_t s_crc32_table[16] =
 {
@@ -36,20 +40,20 @@ static uint32_t key_stats_crc32(const uint8_t* data, uint32_t len)
     return crc ^ 0xFFFFFFFFu;
 }
 
-/* ==================== 静态变量 ==================== */
+/* ==================== 闈欐€佸彉閲?==================== */
 
-static uint32_t s_counts[KEY_STATS_MAX_KEYS];  /* 当前按键计数 */
-static uint32_t s_total = 0;                    /* 总按键数 */
+static uint32_t s_counts[KEY_STATS_MAX_KEYS];  /* 褰撳墠鎸夐敭璁℃暟 */
+static uint32_t s_total = 0;                    /* 鎬绘寜閿暟 */
 static bool s_initialized = false;
 
-static uint32_t s_next_save_index = 0;          /* 下一个保存位置 */
-static uint32_t s_save_count = 0;               /* 本次周期保存次数 */
-static uint32_t s_last_save_ms = 0;             /* 上次保存时间 */
-static uint32_t s_uptime_s = 0;                 /* 运行时间（秒） */
+static uint32_t s_next_save_index = 0;          /* 涓嬩竴涓繚瀛樹綅缃?*/
+static uint32_t s_save_count = 0;               /* 鏈鍛ㄦ湡淇濆瓨娆℃暟 */
+static uint32_t s_last_save_ms = 0;             /* 涓婃淇濆瓨鏃堕棿 */
+static uint32_t s_uptime_s = 0;                 /* 杩愯鏃堕棿锛堢锛?*/
 
-/* ==================== 内部函数 ==================== */
+/* ==================== 鍐呴儴鍑芥暟 ==================== */
 
-/* 扫描Flash，找到最新的有效记录和下一个写入位置 */
+/* 鎵弿Flash锛屾壘鍒版渶鏂扮殑鏈夋晥璁板綍鍜屼笅涓€涓啓鍏ヤ綅缃?*/
 static void scan_flash_records(void)
 {
     const key_stats_record_t* records = (const key_stats_record_t*)KEY_STATS_FLASH_ADDR;
@@ -57,7 +61,7 @@ static void scan_flash_records(void)
     s_next_save_index = 0;
     s_save_count = 0;
 
-    /* 找到最后一条有效记录 */
+    /* 鎵惧埌鏈€鍚庝竴鏉℃湁鏁堣褰?*/
     for (uint32_t i = 0; i < KEY_STATS_MAX_RECORDS; i++)
     {
         if (records[i].magic == KEY_STATS_MAGIC)
@@ -67,25 +71,25 @@ static void scan_flash_records(void)
         }
         else
         {
-            /* 遇到无效的，后面的都无效了（顺序写入） */
+            /* 閬囧埌鏃犳晥鐨勶紝鍚庨潰鐨勯兘鏃犳晥浜嗭紙椤哄簭鍐欏叆锛?*/
             break;
         }
     }
 
-    /* 如果写满了，下次从0开始（写入前会先擦除） */
+    /* 濡傛灉鍐欐弧浜嗭紝涓嬫浠?寮€濮嬶紙鍐欏叆鍓嶄細鍏堟摝闄わ級 */
     if (s_next_save_index >= KEY_STATS_MAX_RECORDS)
     {
         s_next_save_index = 0;
     }
 }
 
-/* 擦除整个统计扇区 */
+/* 鎿﹂櫎鏁翠釜缁熻鎵囧尯 */
 static void erase_stats_flash(void)
 {
     flash_service_erase(KEY_STATS_FLASH_OFFSET, KEY_STATS_FLASH_SIZE);
 }
 
-/* 写入一条记录到Flash指定位置 */
+/* 鍐欏叆涓€鏉¤褰曞埌Flash鎸囧畾浣嶇疆 */
 static void write_record_to_flash(uint32_t index, const key_stats_record_t* record)
 {
     if (index >= KEY_STATS_MAX_RECORDS)
@@ -93,7 +97,7 @@ static void write_record_to_flash(uint32_t index, const key_stats_record_t* reco
         return;
     }
 
-    /* 使用静态缓冲区，先清零再复制结构体，避免越界读取栈数据 */
+    /* 浣跨敤闈欐€佺紦鍐插尯锛屽厛娓呴浂鍐嶅鍒剁粨鏋勪綋锛岄伩鍏嶈秺鐣岃鍙栨爤鏁版嵁 */
     static uint8_t write_buf[KEY_STATS_RECORD_SIZE];
     memset(write_buf, 0, sizeof(write_buf));
     memcpy(write_buf, record, sizeof(key_stats_record_t));
@@ -102,11 +106,11 @@ static void write_record_to_flash(uint32_t index, const key_stats_record_t* reco
     flash_service_program(offset, write_buf, KEY_STATS_RECORD_SIZE);
 }
 
-/* ==================== 对外接口 ==================== */
+/* ==================== 瀵瑰鎺ュ彛 ==================== */
 
 void key_stats_init(void)
 {
-    /* 确保Flash布局已初始化（检测Flash大小） */
+    /* 纭繚Flash甯冨眬宸插垵濮嬪寲锛堟娴婩lash澶у皬锛?*/
     flash_layout_init();
 
     memset(s_counts, 0, sizeof(s_counts));
@@ -114,10 +118,10 @@ void key_stats_init(void)
     s_last_save_ms = 0;
     s_uptime_s = 0;
 
-    /* 扫描Flash */
+    /* 鎵弿Flash */
     scan_flash_records();
 
-    /* 尝试加载最近的记录 */
+    /* 灏濊瘯鍔犺浇鏈€杩戠殑璁板綍 */
     if (s_save_count > 0)
     {
         key_stats_load_from_flash();
@@ -164,14 +168,14 @@ void key_stats_save_to_flash(void)
         return;
     }
 
-    /* 如果写满了，先擦除整个扇区，然后从头开始写 */
+    /* 濡傛灉鍐欐弧浜嗭紝鍏堟摝闄ゆ暣涓墖鍖猴紝鐒跺悗浠庡ご寮€濮嬪啓 */
     if (s_next_save_index == 0 && s_save_count >= KEY_STATS_MAX_RECORDS)
     {
         erase_stats_flash();
         s_save_count = 0;
     }
 
-    /* 构造记录 */
+    /* 鏋勯€犺褰?*/
     key_stats_record_t record;
     memset(&record, 0, sizeof(record));
     record.magic = KEY_STATS_MAGIC;
@@ -179,15 +183,15 @@ void key_stats_save_to_flash(void)
     record.total_keystrokes = s_total;
     memcpy(record.counts, s_counts, sizeof(s_counts));
 
-    /* 计算CRC32（除crc32字段外的所有内容） */
+    /* 璁＄畻CRC32锛堥櫎crc32瀛楁澶栫殑鎵€鏈夊唴瀹癸級 */
     uint32_t crc = key_stats_crc32((const uint8_t*)&record,
                                    sizeof(key_stats_record_t) - sizeof(uint32_t));
     record.crc32 = crc;
 
-    /* 写入Flash */
+    /* 鍐欏叆Flash */
     write_record_to_flash(s_next_save_index, &record);
 
-    /* 更新索引 */
+    /* 鏇存柊绱㈠紩 */
     s_next_save_index++;
     s_save_count++;
     s_last_save_ms = (uint32_t)to_ms_since_boot(get_absolute_time());
@@ -202,13 +206,13 @@ bool key_stats_load_from_flash(void)
 {
     const key_stats_record_t* records = (const key_stats_record_t*)KEY_STATS_FLASH_ADDR;
 
-    /* 找到最后一条有效记录（magic + CRC双重校验） */
+    /* 鎵惧埌鏈€鍚庝竴鏉℃湁鏁堣褰曪紙magic + CRC鍙岄噸鏍￠獙锛?*/
     int last_index = -1;
     for (uint32_t i = 0; i < KEY_STATS_MAX_RECORDS; i++)
     {
         if (records[i].magic == KEY_STATS_MAGIC)
         {
-            /* 验证CRC32 */
+            /* 楠岃瘉CRC32 */
             uint32_t calc_crc = key_stats_crc32((const uint8_t*)&records[i],
                                                  sizeof(key_stats_record_t) - sizeof(uint32_t));
             if (calc_crc == records[i].crc32)
@@ -217,7 +221,7 @@ bool key_stats_load_from_flash(void)
             }
             else
             {
-                /* CRC不匹配，记录损坏，停止查找（后续记录也不可信） */
+                /* CRC涓嶅尮閰嶏紝璁板綍鎹熷潖锛屽仠姝㈡煡鎵撅紙鍚庣画璁板綍涔熶笉鍙俊锛?*/
                 break;
             }
         }
@@ -232,7 +236,7 @@ bool key_stats_load_from_flash(void)
         return false;
     }
 
-    /* 加载数据 */
+    /* 鍔犺浇鏁版嵁 */
     s_total = records[last_index].total_keystrokes;
     memcpy(s_counts, records[last_index].counts, sizeof(s_counts));
     s_uptime_s = records[last_index].timestamp_s;
@@ -250,14 +254,14 @@ void key_stats_tick(void)
     static uint32_t last_tick_ms = 0;
     uint32_t now = (uint32_t)to_ms_since_boot(get_absolute_time());
 
-    /* 每秒更新运行时间 */
+    /* 姣忕鏇存柊杩愯鏃堕棿 */
     if (now - last_tick_ms >= 1000)
     {
         s_uptime_s += (now - last_tick_ms) / 1000;
         last_tick_ms = now;
     }
 
-    /* 自动保存：每隔30分钟保存一次（使用安全写入服务，双核同步） */
+    /* 鑷姩淇濆瓨锛氭瘡闅?0鍒嗛挓淇濆瓨涓€娆★紙浣跨敤瀹夊叏鍐欏叆鏈嶅姟锛屽弻鏍稿悓姝ワ級 */
     if (now - s_last_save_ms >= KEY_STATS_AUTO_SAVE_INTERVAL_MS)
     {
         if (s_total > 0)
@@ -275,3 +279,5 @@ uint32_t key_stats_get_save_count(void)
 {
     return s_save_count;
 }
+
+#endif /* FEATURE_KEY_STATS */

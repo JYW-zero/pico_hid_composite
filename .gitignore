@@ -100,7 +100,9 @@ cmake-variants.json
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
+# 忽略 CMake 自动生成的 Makefile（build 目录），但保留手写的测试 Makefile
 Makefile
+!firmware/tests/Makefile
 *.ninja
 .ninja_*
 compile_commands.json
@@ -263,3 +265,12 @@ core.*
 *.mdmp
 *.hdmp
 # 注意：去掉了 *.core，因为会误杀 HidConfigTool.Core 项目目录
+
+# Screenshots and temp build files
+*.png
+!docs/**/*.png
+*_wpftmp.csproj
+bootloader_debug.png
+host_*.png
+no_device.png
+ui_issue*.png

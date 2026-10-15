@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:loc="clr-namespace:HidConfigTool.App.Localization"
              xmlns:vm="clr-namespace:HidConfigTool.ViewModels;assembly=HidConfigTool.ViewModels"
              mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
@@ -36,8 +37,8 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
-                    <TextBlock Text="错误日志" Style="{StaticResource PageTitleStyle}" Margin="0" />
-                    <TextBlock Text="查看设备运行日志和故障记录" Style="{StaticResource PageSubtitleStyle}" Margin="0" />
+                    <TextBlock Text="{Binding [Title_ErrorLog], Source={StaticResource LocalizationService}}" Style="{StaticResource PageTitleStyle}" Margin="0" />
+                    <TextBlock Text="{Binding [Subtitle_ErrorLog], Source={StaticResource LocalizationService}}" Style="{StaticResource PageSubtitleStyle}" Margin="0" />
                 </StackPanel>
             </Grid>
 
@@ -56,7 +57,7 @@
                             Margin="0,0,16,0"
                             Padding="16">
                         <StackPanel>
-                            <TextBlock Text="总日志数"
+                            <TextBlock Text="{Binding [Label_TotalLogs], Source={StaticResource LocalizationService}}"
                                        FontSize="12"
                                        Foreground="{StaticResource TextSecondaryBrush}"
                                        Margin="0,0,0,8" />
@@ -72,7 +73,7 @@
                             Width="160"
                             Padding="16">
                         <StackPanel>
-                            <TextBlock Text="总故障数"
+                            <TextBlock Text="{Binding [Label_TotalFaults], Source={StaticResource LocalizationService}}"
                                        FontSize="12"
                                        Foreground="{StaticResource TextSecondaryBrush}"
                                        Margin="0,0,0,8" />
@@ -86,7 +87,7 @@
 
                 <!-- 操作按钮 -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
-                    <TextBlock Text="筛选:"
+                    <TextBlock Text="{Binding [Label_Filter], Source={StaticResource LocalizationService}}"
                                Foreground="{StaticResource TextSecondaryBrush}"
                                VerticalAlignment="Center"
                                Margin="0,0,8,0"
@@ -95,7 +96,7 @@
                               Width="110"
                               VerticalAlignment="Center"
                               Margin="0,0,12,0">
-                        <ComboBoxItem Content="全部" />
+                        <ComboBoxItem Content="{Binding [Btn_All], Source={StaticResource LocalizationService}}" />
                         <ComboBoxItem Content="INFO" />
                         <ComboBoxItem Content="WARN" />
                         <ComboBoxItem Content="ERROR" />
@@ -120,7 +121,7 @@
                         </Button.Style>
                     </Button>
                     <Button Command="{Binding ClearCommand}"
-                            Content="清除"
+                            Content="{Binding [Btn_Clear], Source={StaticResource LocalizationService}}"
                             IsEnabled="{Binding IsDeviceConnected}"
                             Padding="16,9"
                             FontSize="12"
@@ -136,21 +137,21 @@
                         </Button.Style>
                     </Button>
                     <Button Command="{Binding ExportCommand}"
-                            Content="导出"
+                            Content="{Binding [Btn_Export], Source={StaticResource LocalizationService}}"
                             IsEnabled="{Binding IsDeviceConnected}"
                             Padding="16,9"
                             Margin="8,0,0,0"
                             FontSize="12"
                             MinWidth="70"
                             Style="{StaticResource SecondaryButtonStyle}" />
-                    <CheckBox Content="断开自动导出"
+                    <CheckBox Content="{Binding [Btn_DisableAutoExport], Source={StaticResource LocalizationService}}"
                               IsChecked="{Binding AutoExportEnabled}"
                               VerticalAlignment="Center"
                               Margin="16,0,0,0"
                               FontSize="12"
                               Foreground="{StaticResource TextSecondaryBrush}" />
                     <Button Command="{Binding OpenExportFolderCommand}"
-                            Content="打开目录"
+                            Content="{Binding [Btn_OpenFolder], Source={StaticResource LocalizationService}}"
                             Padding="16,9"
                             Margin="8,0,0,0"
                             FontSize="12"
@@ -173,7 +174,7 @@
 
                 <!-- 标题 -->
                 <TextBlock Grid.Row="0"
-                           Text="日志记录"
+                           Text="{Binding [Label_LogRecords], Source={StaticResource LocalizationService}}"
                            Style="{StaticResource CardTitleStyle}"
                            Margin="0" />
 
@@ -265,12 +266,12 @@
                                                                   HorizontalAlignment="Center"
                                                                   Margin="0,0,0,12"
                                                                   Opacity="0.5" />
-                                                            <TextBlock Text="暂无错误日志"
+                                                            <TextBlock Text="{Binding [Msg_NoErrorLogs], Source={StaticResource LocalizationService}}"
                                                                        FontSize="14"
                                                                        Foreground="{StaticResource TextSecondaryBrush}"
                                                                        HorizontalAlignment="Center"
                                                                        Margin="0,0,0,6" />
-                                                            <TextBlock Text="设备运行正常，没有记录到错误"
+                                                            <TextBlock Text="{Binding [Msg_DeviceRunningNormal], Source={StaticResource LocalizationService}}"
                                                                        FontSize="12"
                                                                        Foreground="{StaticResource TextTertiaryBrush}"
                                                                        HorizontalAlignment="Center" />

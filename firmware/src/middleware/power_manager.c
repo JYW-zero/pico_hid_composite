@@ -7,6 +7,7 @@
 #include "middleware/power_manager.h"
 #include "middleware/fault.h"
 #include "middleware/watchdog.h"
+#include "hardware/watchdog.h"
 #include "board/pins.h"
 #include "pico/low_power.h"
 #include "pico/time.h"
@@ -31,6 +32,14 @@ static uint32_t s_last_activity_ms = 0;
 
 /* 累计休眠时间（毫秒） */
 static uint32_t s_total_sleep_ms = 0;
+
+/* 低功耗前保存的看门狗超时（毫秒），唤醒后恢复 */
+static uint32_t s_saved_watchdog_timeout_ms = 2000;
+
+/* 低功耗模式下的看门狗超时（毫秒）
+ * RP2350 看门狗最大约 16.7 秒，设为 15 秒留余量
+ * Sleep 模式下 CPU 停止但看门狗仍在走，必须延长超时避免误复位 */
+#define LOW_POWER_WATCHDOG_TIMEOUT_MS  15000U
 
 /* ==================== 内部函数 ==================== */
 
@@ -83,10 +92,22 @@ static void enter_sleep_mode(void)
     
     uint32_t enter_time = to_ms_since_boot(get_absolute_time());
     
+    /* 【关键修复】进入 Sleep 前延长看门狗超时
+     * Sleep 模式下 CPU 停止，watchdog_tick() 不再运行，
+     * 但硬件看门狗仍在计数，2 秒后会误触发复位。
+     * 将超时延长到 15 秒，确保正常 USB 恢复（通常 < 1 秒）不会误复位。
+     */
+    watchdog_enable(LOW_POWER_WATCHDOG_TIMEOUT_MS, true);
+    watchdog_update();
+    
     /* 进入 Sleep 模式，直到任何中断唤醒
      * keep_enabled 传 NULL，使用默认配置（保持必要的时钟）
      */
     low_power_sleep_until_irq(NULL);
+    
+    /* 唤醒后：恢复正常看门狗超时（2 秒） */
+    watchdog_enable(s_saved_watchdog_timeout_ms, true);
+    watchdog_update();
     
     /* 唤醒后 */
     uint32_t exit_time = to_ms_since_boot(get_absolute_time());
@@ -118,12 +139,23 @@ static void enter_dormant_mode(void)
     /* 配置 GPIO 唤醒源 */
     configure_dormant_wakeup_pins();
     
+    /* 【关键修复】进入 Dormant 前延长看门狗超时
+     * Dormant 模式下振荡器停止，看门狗可能也停止（取决于时钟源），
+     * 但为安全起见仍延长超时，避免唤醒过程中误复位。
+     */
+    watchdog_enable(LOW_POWER_WATCHDOG_TIMEOUT_MS, true);
+    watchdog_update();
+    
     /* 进入 Dormant 模式
      * 用 AON timer 设置一个很长的超时（1小时），主要靠 GPIO 唤醒
      * 使用 LPOSC 作为 dormant 时钟源（RP2350 默认）
      */
     absolute_time_t wakeup_time = make_timeout_time_ms(3600 * 1000);  /* 1小时超时 */
     low_power_dormant_until_aon_timer(wakeup_time, DORMANT_CLOCK_SOURCE_DEFAULT, NULL);
+    
+    /* 唤醒后：恢复正常看门狗超时（2 秒） */
+    watchdog_enable(s_saved_watchdog_timeout_ms, true);
+    watchdog_update();
     
     /* 唤醒后 */
     uint32_t exit_time = to_ms_since_boot(get_absolute_time());

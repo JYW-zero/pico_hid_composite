@@ -1,4 +1,4 @@
-﻿/*
+/*
  * tests/mock/mock_config.c
  * Mock版配置模块，用于单元测试
  * 用内存代替Flash，接口与真实config模块完全一致

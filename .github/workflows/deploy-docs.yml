@@ -1,0 +1,204 @@
+name: Deploy Documentation
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'README.md'
+      - 'THIRD_PARTY_LICENSES.md'
+      - '.github/workflows/deploy-docs.yml'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  # ============================================================
+  # 构建文档
+  # ============================================================
+  build:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+
+    # --------------------------------------------------------
+    # 1. 设置 Python
+    # --------------------------------------------------------
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    # --------------------------------------------------------
+    # 2. 安装 MkDocs 和插件
+    # --------------------------------------------------------
+    - name: Install MkDocs and plugins
+      run: |
+        pip install --upgrade pip
+        pip install \
+          mkdocs \
+          mkdocs-material \
+          mkdocs-video \
+          mkdocs-glightbox \
+          mkdocs-minify-plugin \
+          mkdocs-redirects \
+          pillow \
+          cairosvg
+
+    # --------------------------------------------------------
+    # 3. 准备文档目录结构
+    # --------------------------------------------------------
+    - name: Prepare documentation structure
+      run: |
+        # 创建必要的目录
+        mkdir -p docs/assets
+        mkdir -p docs/stylesheets
+        mkdir -p docs/javascripts
+
+        # 复制根目录的文档到 docs 目录（如果不存在）
+        if [ ! -f docs/index.md ]; then
+          if [ -f README.md ]; then
+            cp README.md docs/index.md
+            echo "Copied README.md to docs/index.md"
+          fi
+        fi
+
+        # 复制第三方库许可证
+        if [ -f THIRD_PARTY_LICENSES.md ]; then
+          cp THIRD_PARTY_LICENSES.md docs/THIRD_PARTY_LICENSES.md
+          echo "Copied THIRD_PARTY_LICENSES.md"
+        fi
+
+        # 复制开发日志
+        if [ -f docs/DEVLOG.md ]; then
+          echo "DEVLOG.md already exists"
+        fi
+
+        # 创建额外的 CSS
+        cat > docs/stylesheets/extra.css << 'EOF'
+        /* 自定义样式 */
+        .md-content {
+          max-width: 100%;
+        }
+
+        /* 代码块样式 */
+        .highlight {
+          border-radius: 8px;
+        }
+
+        /* 表格样式 */
+        .md-typeset table:not([class]) {
+          border-radius: 8px;
+          overflow: hidden;
+        }
+
+        /* 提示框样式 */
+        .admonition {
+          border-radius: 8px;
+        }
+
+        /* 导航栏样式 */
+        .md-tabs {
+          backdrop-filter: saturate(180%) blur(20px);
+        }
+
+        /* 搜索结果高亮 */
+        .md-search-result__article--document mark {
+          background-color: rgba(99, 102, 241, 0.3);
+        }
+        EOF
+
+        # 创建 MathJax 配置
+        cat > docs/javascripts/mathjax.js << 'EOF'
+        window.MathJax = {
+          tex: {
+            inlineMath: [["\\(", "\\)"]],
+            displayMath: [["\\[", "\\]"]],
+            processEscapes: true,
+            processEnvironments: true
+          },
+          options: {
+            ignoreHtmlClass: ".*|",
+            processHtmlClass: "arithmatex"
+          }
+        };
+        EOF
+
+        echo "Documentation structure prepared"
+
+    # --------------------------------------------------------
+    # 4. 构建 MkDocs 站点
+    # --------------------------------------------------------
+    - name: Build MkDocs site
+      run: |
+        mkdocs build --clean
+        echo "MkDocs site built successfully"
+
+    # --------------------------------------------------------
+    # 5. 验证构建结果
+    # --------------------------------------------------------
+    - name: Verify build output
+      run: |
+        if [ -f site/index.html ]; then
+          echo "✅ site/index.html exists"
+        else
+          echo "❌ site/index.html not found"
+          exit 1
+        fi
+
+        # 统计生成的页面
+        html_count=$(find site -name "*.html" | wc -l)
+        echo "Generated $html_count HTML pages"
+
+        # 检查站点大小
+        site_size=$(du -sh site | cut -f1)
+        echo "Site size: $site_size"
+
+    # --------------------------------------------------------
+    # 6. 上传构建产物
+    # --------------------------------------------------------
+    - name: Upload site artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: site
+
+  # ============================================================
+  # 部署到 GitHub Pages
+  # ============================================================
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
+
+    - name: Print deployment URL
+      run: |
+        echo "✅ Documentation deployed successfully!"
+        echo "URL: ${{ steps.deployment.outputs.page_url }}"

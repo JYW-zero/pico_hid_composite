@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:loc="clr-namespace:HidConfigTool.App.Localization"
              mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
     <UserControl.Resources>
@@ -16,20 +17,50 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
         <StackPanel>
             <!-- 页面标题 -->
-            <TextBlock Text="摇杆设置" Style="{StaticResource PageTitleStyle}" />
-            <TextBlock Text="配置摇杆死区、灵敏度和方向参数" Style="{StaticResource PageSubtitleStyle}" />
+            <TextBlock Text="{Binding [Title_JoystickSettings], Source={StaticResource LocalizationService}}" Style="{StaticResource PageTitleStyle}" />
+            <TextBlock Text="{Binding [Subtitle_JoystickSettings], Source={StaticResource LocalizationService}}" Style="{StaticResource PageSubtitleStyle}" />
 
             <!-- 死区设置卡片 -->
             <Border Style="{StaticResource CardStyle}">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                        <TextBlock Text="死区设置" Style="{StaticResource CardTitleStyle}" Margin="0" />
-                        <Button Command="{Binding SaveConfigCommand}"
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   Text="{Binding [Label_DeadzoneSettings], Source={StaticResource LocalizationService}}"
+                                   Style="{StaticResource CardTitleStyle}"
+                                   Margin="0"
+                                   VerticalAlignment="Center" />
+                        <!-- 校准中心点按钮 -->
+                        <Button Grid.Column="1"
+                                Command="{Binding CalibrateCommand}"
                                 IsEnabled="{Binding IsDeviceConnected}"
                                 Padding="12,5"
                                 FontSize="11"
-                                HorizontalAlignment="Right"
-                                Margin="0,0,0,0">
+                                HorizontalAlignment="Right">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                    <Setter Property="Content" Value="校准中心点" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsCalibrating}" Value="True">
+                                            <Setter Property="IsEnabled" Value="False" />
+                                            <Setter Property="Content" Value="校准中..." />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <!-- 保存到Flash按钮 -->
+                        <Button Grid.Column="3"
+                                Command="{Binding SaveConfigCommand}"
+                                IsEnabled="{Binding IsDeviceConnected}"
+                                Padding="12,5"
+                                FontSize="11"
+                                HorizontalAlignment="Right">
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
                                     <Setter Property="Content" Value="保存到Flash" />
@@ -42,7 +73,7 @@
                                 </Style>
                             </Button.Style>
                         </Button>
-                    </StackPanel>
+                    </Grid>
 
                     <Grid Margin="0,0,0,12">
                         <Grid.ColumnDefinitions>
@@ -50,7 +81,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0"
-                                   Text="死区大小"
+                                   Text="{Binding [Label_DeadzoneSize], Source={StaticResource LocalizationService}}"
                                    FontSize="13"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    VerticalAlignment="Center" />
@@ -70,7 +101,7 @@
                             Maximum="500"
                             TickFrequency="10" />
 
-                    <TextBlock Text="拖动滑块实时生效（不写Flash），满意后点击保存到Flash按钮持久化。"
+                    <TextBlock Text="{Binding [Hint_DeadzoneRealtime], Source={StaticResource LocalizationService}}"
                                Style="{StaticResource HintStyle}"
                                Margin="0,12,0,0" />
 
@@ -86,8 +117,8 @@
             <Border Style="{StaticResource CardStyle}">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
-                        <TextBlock Text="实时坐标" Style="{StaticResource CardTitleStyle}" Margin="0" />
-                        <TextBlock Text="（拨动摇杆查看实时位置）"
+                        <TextBlock Text="{Binding [Label_RealtimeCoords], Source={StaticResource LocalizationService}}" Style="{StaticResource CardTitleStyle}" Margin="0" />
+                        <TextBlock Text="{Binding [Hint_RealtimeCoords], Source={StaticResource LocalizationService}}"
                                    FontSize="11"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    VerticalAlignment="Center"
@@ -144,7 +175,7 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0"
-                                           Text="X 轴"
+                                           Text="{Binding [Label_XAxis], Source={StaticResource LocalizationService}}"
                                            FontSize="13"
                                            Foreground="{StaticResource TextSecondaryBrush}"
                                            VerticalAlignment="Center" />
@@ -168,7 +199,7 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0"
-                                           Text="Y 轴"
+                                           Text="{Binding [Label_YAxis], Source={StaticResource LocalizationService}}"
                                            FontSize="13"
                                            Foreground="{StaticResource TextSecondaryBrush}"
                                            VerticalAlignment="Center" />
@@ -192,7 +223,7 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0"
-                                           Text="按键"
+                                           Text="{Binding [Label_Button], Source={StaticResource LocalizationService}}"
                                            FontSize="13"
                                            Foreground="{StaticResource TextSecondaryBrush}"
                                            VerticalAlignment="Center" />
@@ -220,7 +251,7 @@
                                 </Border>
                             </Grid>
 
-                            <TextBlock Text="死区圆内的输入将被忽略"
+                            <TextBlock Text="{Binding [Hint_DeadzoneCircle], Source={StaticResource LocalizationService}}"
                                        FontSize="11"
                                        Foreground="{StaticResource TextSecondaryBrush}"
                                        Margin="0,16,0,0"
@@ -233,7 +264,7 @@
             <!-- 灵敏度设置卡片 -->
             <Border Style="{StaticResource CardStyle}">
                 <StackPanel>
-                    <TextBlock Text="灵敏度" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,16" />
+                    <TextBlock Text="{Binding [Label_Sensitivity], Source={StaticResource LocalizationService}}" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,16" />
 
                     <Grid Margin="0,0,0,12">
                         <Grid.ColumnDefinitions>
@@ -241,7 +272,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0"
-                                   Text="灵敏度倍率"
+                                   Text="{Binding [Label_SensitivityMultiplier], Source={StaticResource LocalizationService}}"
                                    FontSize="13"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    VerticalAlignment="Center" />
@@ -266,13 +297,13 @@
             <!-- 方向设置卡片 -->
             <Border Style="{StaticResource CardStyle}" Margin="0">
                 <StackPanel>
-                    <TextBlock Text="方向设置" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,16" />
+                    <TextBlock Text="{Binding [Label_DirectionSettings], Source={StaticResource LocalizationService}}" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,16" />
 
-                    <CheckBox Content="反转 X 轴"
+                    <CheckBox Content="{Binding [Check_InvertX], Source={StaticResource LocalizationService}}"
                               IsChecked="{Binding InvertX}"
                               Style="{StaticResource ToggleSwitchStyle}"
                               Margin="0,0,0,14" />
-                    <CheckBox Content="反转 Y 轴"
+                    <CheckBox Content="{Binding [Check_InvertY], Source={StaticResource LocalizationService}}"
                               IsChecked="{Binding InvertY}"
                               Style="{StaticResource ToggleSwitchStyle}" />
                 </StackPanel>

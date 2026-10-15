@@ -1,0 +1,174 @@
+# MkDocs 配置文件 - 指动 HID 复合设备文档
+
+site_name: 指动 HID 复合设备文档
+site_description: 基于 RP2350 的 USB HID 复合设备（键鼠套装）完整文档
+site_author: 指动科技
+site_url: https://jyw-zero.github.io/pico_hid_composite/
+
+# 仓库信息
+repo_name: JYW-zero/pico_hid_composite
+repo_url: https://github.com/JYW-zero/pico_hid_composite
+edit_uri: edit/main/docs/
+
+# 主题配置
+theme:
+  name: material
+  language: zh
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.indexes
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.share
+    - search.suggest
+    - content.code.copy
+    - content.code.annotate
+    - content.tooltips
+    - content.action.edit
+    - content.action.view
+    - toc.follow
+    - header.autohide
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: 切换到深色模式
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: 切换到浅色模式
+  font:
+    text: Roboto
+    code: Roboto Mono
+  favicon: assets/favicon.png
+  logo: assets/logo.png
+
+# 插件配置
+plugins:
+  - search:
+      lang:
+        - zh
+        - en
+  - mkdocs-video
+  - glightbox
+
+# Markdown 扩展
+markdown_extensions:
+  - admonition
+  - abbr
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+# 导航结构
+nav:
+  - 首页: index.md
+  - 快速开始:
+      - 快速开始指南: QUICKSTART.md
+      - 硬件接线图: wiring_diagram.md
+      - Windows 编译指南: SETUP.md
+      - macOS 编译指南: SETUP_MAC.md
+  - 用户手册:
+      - 用户手册 (中文): user_manual/用户手册_zh-CN.md
+      - User Manual (English): user_manual/User_Manual_en-US.md
+  - 功能模块:
+      - 功能列表: FEATURES.md
+      - 键盘模块: KEYBOARD_MODULE.md
+      - 按键映射与宏: KEYMAP_MACRO.md
+      - 摇杆增强: JOYSTICK_ENHANCEMENT.md
+      - 编码器多模式: ENCODER_MULTIMODE.md
+      - 光学传感器高级功能: OPTICAL_SENSOR_ADVANCED.md
+      - 恢复出厂设置: FACTORY_RESET.md
+      - 多语言支持: MULTI_LANGUAGE.md
+  - 协议文档:
+      - HID 配置协议: CONFIG_HID_PROTOCOL.md
+      - HID 通信协议: HID_PROTOCOL.md
+      - DFU 升级协议: DFU_UPGRADE.md
+      - 版本检查: VERSION_CHECK.md
+      - HID 通信健壮性: HID_ROBUSTNESS.md
+  - 可靠性:
+      - 看门狗与故障恢复: WATCHDOG_FAULT_RECOVERY.md
+  - 开发者文档:
+      - 代码审计: CODE_AUDIT.md
+      - 完整代码审计: CODE_AUDIT_FULL.md
+      - 编码规范: CODING-STANDARDS.md
+      - 开发路线图: ROADMAP.md
+      - 开发进度: PROGRESS.md
+  - CI/CD:
+      - CI/CD 流水线: CI-CD.md
+      - 代码覆盖率: COVERAGE.md
+  - 认证:
+      - 认证准备清单: certification/认证准备清单.md
+      - USB 合规审计: USB_COMPLIANCE.md
+  - 许可证:
+      - 第三方库许可证: THIRD_PARTY_LICENSES.md
+  - 开发日志:
+      - 开发日志: DEVLOG.md
+
+# 额外 CSS
+extra_css:
+  - stylesheets/extra.css
+
+# 额外 JavaScript
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+# 额外信息
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/JYW-zero/pico_hid_composite
+  generator: false
+  analytics:
+    provider: google
+    property: G-XXXXXXXXXX
+
+# 排除文件
+exclude_docs: |
+  /.*
+  /_*
+  /drafts/
+  /templates/

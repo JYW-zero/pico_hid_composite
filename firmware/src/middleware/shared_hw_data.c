@@ -50,6 +50,20 @@ static struct
     uint32_t encoder_scan_count;
     uint32_t joystick_read_count;
     uint32_t error_count;
+
+    /* 去抖阈值配置（Core0 设置，Core1 读取应用） */
+    uint8_t keypad_debounce_threshold;  /* 采样次数，默认2（10ms@5ms扫描） */
+    bool debounce_threshold_updated;     /* 阈值已更新标志，Core1 读取后清除 */
+
+    /* 摇杆校准（Core0 触发，Core1 执行） */
+    bool joystick_calib_trigger;         /* 校准触发标志，Core1 读取后清除 */
+    uint16_t joystick_calib_sample_count;/* 校准采样次数 */
+    uint8_t joystick_calib_state;        /* 校准状态：0=空闲,1=校准中,2=完成 */
+    /* 摇杆校准数据（Core1 写入，Core0 读取保存到配置；Core0 启动时写入，Core1 读取） */
+    uint16_t joystick_calib_center_x;    /* X 轴中心点（ADC 值） */
+    uint16_t joystick_calib_center_y;    /* Y 轴中心点（ADC 值） */
+    uint8_t joystick_calib_calibrated;   /* 是否已校准 */
+    bool joystick_calib_data_updated;     /* 校准数据已更新标志（Core1 设置，Core0 读取后清除） */
 } s_data;
 
 /* ==================== 初始化 ==================== */
@@ -82,6 +96,15 @@ void shared_hw_data_init(void)
     s_data.encoder_scan_count = 0;
     s_data.joystick_read_count = 0;
     s_data.error_count = 0;
+    s_data.keypad_debounce_threshold = 2;  /* 默认阈值2，5ms扫描 → 10ms去抖 */
+    s_data.debounce_threshold_updated = false;
+    s_data.joystick_calib_trigger = false;
+    s_data.joystick_calib_sample_count = 0;
+    s_data.joystick_calib_state = 0;
+    s_data.joystick_calib_center_x = 2048;
+    s_data.joystick_calib_center_y = 2048;
+    s_data.joystick_calib_calibrated = 0;
+    s_data.joystick_calib_data_updated = false;
 
     /* 编译器内存屏障：确保所有初始化数据写入完成后，再设置 s_initialized */
     asm volatile("" ::: "memory");
@@ -368,5 +391,135 @@ void shared_hw_inc_error(void)
     if (!s_initialized) return;
     uint32_t irq = spin_lock_blocking(s_misc_lock);
     s_data.error_count++;
+    spin_unlock(s_misc_lock, irq);
+}
+
+/* ==================== 去抖阈值配置 ==================== */
+
+void shared_hw_set_keypad_debounce_threshold(uint8_t threshold)
+{
+    if (!s_initialized) return;
+    if (threshold == 0) threshold = 1;  /* 最小阈值为1 */
+    uint32_t irq = spin_lock_blocking(s_misc_lock);
+    s_data.keypad_debounce_threshold = threshold;
+    s_data.debounce_threshold_updated = true;
+    spin_unlock(s_misc_lock, irq);
+}
+
+uint8_t shared_hw_get_keypad_debounce_threshold(void)
+{
+    if (!s_initialized) return 2;  /* 默认值 */
+    uint32_t irq = spin_lock_blocking(s_misc_lock);
+    uint8_t result = s_data.keypad_debounce_threshold;
+    spin_unlock(s_misc_lock, irq);
+    return result;
+}
+
+bool shared_hw_check_and_clear_debounce_updated(void)
+{
+    if (!s_initialized) return false;
+    uint32_t irq = spin_lock_blocking(s_misc_lock);
+    bool result = s_data.debounce_threshold_updated;
+    s_data.debounce_threshold_updated = false;
+    spin_unlock(s_misc_lock, irq);
+    return result;
+}
+
+/* ==================== 摇杆校准 ==================== */
+
+bool shared_hw_trigger_joystick_calibration(uint16_t sample_count)
+{
+    if (!s_initialized) return false;
+    if (sample_count == 0) sample_count = 50;
+    uint32_t irq = spin_lock_blocking(s_misc_lock);
+    /* 如果已经在校准中，返回 false */
+    if (s_data.joystick_calib_state == 1)
+    {
+        spin_unlock(s_misc_lock, irq);
+        return false;
+    }
+    s_data.joystick_calib_trigger = true;
+    s_data.joystick_calib_sample_count = sample_count;
+    s_data.joystick_calib_state = 0;
+    spin_unlock(s_misc_lock, irq);
+    return true;
+}
+
+bool shared_hw_check_and_clear_joystick_calib_trigger(uint16_t *sample_count)
+{
+    if (!s_initialized) return false;
+    uint32_t irq = spin_lock_blocking(s_misc_lock);
+    bool result = s_data.joystick_calib_trigger;
+    if (result && sample_count != NULL)
+    {
+        *sample_count = s_data.joystick_calib_sample_count;
+    }
+    s_data.joystick_calib_trigger = false;
+    spin_unlock(s_misc_lock, irq);
+    return result;
+}
+
+uint8_t shared_hw_get_joystick_calibration_state(void)
+{
+    if (!s_initialized) return 0;
+    uint32_t irq = spin_lock_blocking(s_misc_lock);
+    uint8_t result = s_data.joystick_calib_state;
+    spin_unlock(s_misc_lock, irq);
+    return result;
+}
+
+void shared_hw_set_joystick_calibration_state(uint8_t state)
+{
+    if (!s_initialized) return;
+    uint32_t irq = spin_lock_blocking(s_misc_lock);
+    s_data.joystick_calib_state = state;
+    spin_unlock(s_misc_lock, irq);
+}
+
+void shared_hw_get_joystick_calibration_data(uint16_t *out_center_x,
+                                                uint16_t *out_center_y,
+                                                uint8_t *out_calibrated)
+{
+    if (!s_initialized)
+    {
+        if (out_center_x) *out_center_x = 2048;
+        if (out_center_y) *out_center_y = 2048;
+        if (out_calibrated) *out_calibrated = 0;
+        return;
+    }
+    uint32_t irq = spin_lock_blocking(s_misc_lock);
+    if (out_center_x) *out_center_x = s_data.joystick_calib_center_x;
+    if (out_center_y) *out_center_y = s_data.joystick_calib_center_y;
+    if (out_calibrated) *out_calibrated = s_data.joystick_calib_calibrated;
+    spin_unlock(s_misc_lock, irq);
+}
+
+void shared_hw_set_joystick_calibration_data(uint16_t center_x,
+                                                uint16_t center_y,
+                                                uint8_t calibrated)
+{
+    if (!s_initialized) return;
+    uint32_t irq = spin_lock_blocking(s_misc_lock);
+    s_data.joystick_calib_center_x = center_x;
+    s_data.joystick_calib_center_y = center_y;
+    s_data.joystick_calib_calibrated = calibrated;
+    spin_unlock(s_misc_lock, irq);
+}
+
+bool shared_hw_check_and_clear_joystick_calib_updated(void)
+{
+    if (!s_initialized) return false;
+    uint32_t irq = spin_lock_blocking(s_misc_lock);
+    bool result = s_data.joystick_calib_data_updated;
+    s_data.joystick_calib_data_updated = false;
+    spin_unlock(s_misc_lock, irq);
+    return result;
+}
+
+void shared_hw_notify_joystick_calib_updated(void)
+{
+    if (!s_initialized) return;
+    uint32_t irq = spin_lock_blocking(s_misc_lock);
+    s_data.joystick_calib_data_updated = true;
     spin_unlock(s_misc_lock, irq);
 }

@@ -1,4 +1,4 @@
-namespace HidConfigTool.Core.Interfaces;
+﻿namespace HidConfigTool.Core.Interfaces;
 
 /// <summary>
 /// 键选择对话框服务抽象

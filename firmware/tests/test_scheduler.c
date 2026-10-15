@@ -1,4 +1,4 @@
-﻿/*
+/*
  * tests/test_scheduler.c
  * 调度器模块单元测试
  */

@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using HidConfigTool.ViewModels;
 using HidConfigTool.Desktop.Views.Pages;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,16 +7,16 @@ namespace HidConfigTool.Desktop.Views;
 
 public partial class MainWindow : Window
 {
-    private readonly DevicePage _devicePage;
-    private readonly KeyPage _keyPage;
-    private readonly MousePage _mousePage;
-    private readonly JoystickPage _joystickPage;
-    private readonly EncoderPage _encoderPage;
-    private readonly MacroPage _macroPage;
-    private readonly StatsPage _statsPage;
-    private readonly PerfPage _perfPage;
-    private readonly ErrorLogPage _errorLogPage;
-    private readonly SettingsPage _settingsPage;
+    private readonly DevicePage _devicePage = null!;
+    private readonly KeyPage _keyPage = null!;
+    private readonly MousePage _mousePage = null!;
+    private readonly JoystickPage _joystickPage = null!;
+    private readonly EncoderPage _encoderPage = null!;
+    private readonly MacroPage _macroPage = null!;
+    private readonly StatsPage _statsPage = null!;
+    private readonly PerfPage _perfPage = null!;
+    private readonly ErrorLogPage _errorLogPage = null!;
+    private readonly SettingsPage _settingsPage = null!;
 
     public MainWindow()
     {

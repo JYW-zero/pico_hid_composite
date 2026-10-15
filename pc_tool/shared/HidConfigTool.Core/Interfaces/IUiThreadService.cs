@@ -1,4 +1,4 @@
-namespace HidConfigTool.Core.Interfaces;
+﻿namespace HidConfigTool.Core.Interfaces;
 
 /// <summary>
 /// UI 线程调度服务抽象，用于在非 UI 线程更新绑定属性

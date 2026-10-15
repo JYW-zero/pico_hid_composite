@@ -1,4 +1,4 @@
-using System.Windows.Input;
+﻿using System.Windows.Input;
 using HidConfigTool.Core;
 using HidConfigTool.Core.Interfaces;
 using HidConfigTool.Core.Models;

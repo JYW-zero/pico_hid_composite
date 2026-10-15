@@ -4,28 +4,70 @@
              xmlns:models="using:HidConfigTool.Core.Models"
              x:Class="HidConfigTool.Desktop.Views.Pages.PerfPage"
              x:DataType="vm:PerfMonitorPageViewModel">
-  <DockPanel>
-    <StackPanel DockPanel.Dock="Top" Spacing="10">
+  <ScrollViewer>
+    <StackPanel Spacing="12" Margin="16">
+      <!-- 页面标题 -->
       <TextBlock Text="性能监控" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" />
+      
+      <!-- 系统状态 -->
       <StackPanel Orientation="Horizontal" Spacing="24">
         <TextBlock Text="{Binding CpuUsageText, StringFormat='CPU: {0}%'}" Foreground="{DynamicResource Accent}" />
         <TextBlock Text="{Binding LoopFreqText, StringFormat='主循环: {0} Hz'}" Foreground="{DynamicResource TextPrimary}" />
         <TextBlock Text="{Binding UptimeText, StringFormat='运行: {0}'}" Foreground="{DynamicResource TextPrimary}" />
       </StackPanel>
+      
+      <!-- 控制按钮 -->
       <StackPanel Orientation="Horizontal" Spacing="8">
         <Button Content="刷新" Command="{Binding RefreshCommand}" />
         <Button Content="重置" Command="{Binding ResetCommand}" />
+        <Button Content="{Binding IsPerfMonitorEnabled, StringFormat='监控: {0}'}" Command="{Binding TogglePerfMonitorCommand}" />
       </StackPanel>
+      
       <TextBlock Text="{Binding IsLoading, StringFormat='状态: {0}'}" Foreground="#888888" />
+      
+      <!-- 任务列表 -->
+      <DataGrid ItemsSource="{Binding TaskStats}" 
+                SelectedIndex="{Binding SelectedTaskIndex, Mode=TwoWay}"
+                AutoGenerateColumns="False" 
+                IsReadOnly="True"
+                Height="250">
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="任务" Binding="{Binding Name}" Width="*" />
+          <DataGridTextColumn Header="次数" Binding="{Binding ExecutionCount}" Width="80" />
+          <DataGridTextColumn Header="平均 us" Binding="{Binding AvgTimeUs}" Width="90" />
+          <DataGridTextColumn Header="最大 us" Binding="{Binding MaxTimeUs}" Width="90" />
+          <DataGridTextColumn Header="CPU%" Binding="{Binding CpuPercent}" Width="70" />
+          <DataGridTextColumn Header="超时次数" Binding="{Binding OverrunCount}" Width="80" />
+        </DataGrid.Columns>
+      </DataGrid>
+      
+      <!-- 阈值设置区域 -->
+      <Border Background="{DynamicResource CardBackground}" 
+              BorderBrush="{DynamicResource BorderBrush}" 
+              BorderThickness="1"
+              CornerRadius="8"
+              Padding="16">
+        <StackPanel Spacing="12">
+          <TextBlock Text="超时阈值设置" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" />
+          
+          <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto">
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="选中任务:" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource TextSecondary}" />
+            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedTaskIndex, StringFormat='任务 {0}'}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimary}" />
+            <TextBlock Grid.Row="0" Grid.Column="2" Text="(在上方任务列表中点击选择)" VerticalAlignment="Center" Margin="16,0,0,0" Foreground="{DynamicResource TextSecondary}" FontSize="11" />
+            
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="阈值(us):" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource TextSecondary}" />
+            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ThresholdInput, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <ComboBox Grid.Row="1" Grid.Column="2" ItemsSource="{Binding ThresholdPresets}" SelectedValue="{Binding ThresholdInput, Mode=TwoWay}" Width="120" VerticalAlignment="Center" />
+          </Grid>
+          
+          <TextBlock Text="范围: 0-25500 微秒 (0=禁用告警, 最大25.5ms)" Foreground="{DynamicResource TextSecondary}" FontSize="11" />
+          
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <Button Content="设置阈值" Command="{Binding SetThresholdCommand}" IsEnabled="{Binding IsDeviceConnected}" />
+            <Button Content="禁用告警" Command="{Binding DisableThresholdCommand}" IsEnabled="{Binding IsDeviceConnected}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
     </StackPanel>
-    <DataGrid ItemsSource="{Binding TaskStats}" AutoGenerateColumns="False" Margin="0,12,0,0" IsReadOnly="True">
-      <DataGrid.Columns>
-        <DataGridTextColumn Header="任务" Binding="{Binding Name}" Width="*" />
-        <DataGridTextColumn Header="次数" Binding="{Binding ExecutionCount}" Width="80" />
-        <DataGridTextColumn Header="平均 us" Binding="{Binding AvgTimeUs}" Width="90" />
-        <DataGridTextColumn Header="最大 us" Binding="{Binding MaxTimeUs}" Width="90" />
-        <DataGridTextColumn Header="CPU%" Binding="{Binding CpuPercent}" Width="70" />
-      </DataGrid.Columns>
-    </DataGrid>
-  </DockPanel>
+  </ScrollViewer>
 </UserControl>

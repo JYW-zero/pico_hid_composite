@@ -1,4 +1,4 @@
-﻿/*
+/*
  * tests/mock/hardware/gpio.h
  * Mock版GPIO头文件
  */

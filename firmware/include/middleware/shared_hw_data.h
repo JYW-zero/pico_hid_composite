@@ -86,6 +86,73 @@ void shared_hw_inc_encoder_scan(void);
 void shared_hw_inc_joystick_read(void);
 void shared_hw_inc_error(void);
 
+/* ==================== 去抖阈值配置（Core0 设置，Core1 读取） ==================== */
+
+/* 设置键盘去抖阈值（采样次数）
+ * Core0 调用，Core1 在下次扫描时应用
+ * 实际去抖时间 = 阈值 × 扫描周期(5ms)
+ * 例如：阈值=2 → 10ms，阈值=4 → 20ms
+ */
+void shared_hw_set_keypad_debounce_threshold(uint8_t threshold);
+
+/* 获取键盘去抖阈值（采样次数）
+ * Core1 调用，检查是否需要更新阈值
+ */
+uint8_t shared_hw_get_keypad_debounce_threshold(void);
+
+/* 检查去抖阈值是否已更新（Core1 调用，读取后自动清除标志）
+ * 返回 true 表示阈值已更新，需要重新设置去抖实例
+ */
+bool shared_hw_check_and_clear_debounce_updated(void);
+
+/* ==================== 摇杆校准（Core0 触发，Core1 执行） ==================== */
+
+/* 触发摇杆中心点校准（Core0 调用）
+ * sample_count: 采样次数（建议 50-100）
+ * 返回 true=触发成功，false=校准进行中
+ */
+bool shared_hw_trigger_joystick_calibration(uint16_t sample_count);
+
+/* 检查摇杆校准是否触发（Core1 调用，读取后自动清除标志）
+ * 返回 true=需要开始校准，sample_count 输出采样次数
+ */
+bool shared_hw_check_and_clear_joystick_calib_trigger(uint16_t *sample_count);
+
+/* 获取摇杆校准状态（Core0 调用，用于查询校准进度）
+ * 返回: 0=空闲, 1=校准中, 2=完成
+ */
+uint8_t shared_hw_get_joystick_calibration_state(void);
+
+/* 设置摇杆校准状态（Core1 调用）
+ * state: 0=空闲, 1=校准中, 2=完成
+ */
+void shared_hw_set_joystick_calibration_state(uint8_t state);
+
+/* 获取摇杆校准数据（Core0 调用，用于保存到配置）
+ * out_center_x, out_center_y: 输出中心点（ADC 值）
+ * out_calibrated: 输出是否已校准
+ */
+void shared_hw_get_joystick_calibration_data(uint16_t *out_center_x,
+                                                uint16_t *out_center_y,
+                                                uint8_t *out_calibrated);
+
+/* 设置摇杆校准数据（Core0 调用，启动时从配置加载）
+ * center_x, center_y: 中心点（ADC 值）
+ * calibrated: 是否已校准
+ */
+void shared_hw_set_joystick_calibration_data(uint16_t center_x,
+                                                uint16_t center_y,
+                                                uint8_t calibrated);
+
+/* 检查摇杆校准数据是否已更新（Core0 调用，读取后自动清除标志）
+ * 返回 true 表示校准数据已更新，需要保存到配置
+ */
+bool shared_hw_check_and_clear_joystick_calib_updated(void);
+
+/* 通知摇杆校准数据已更新（Core1 调用，校准完成后设置标志）
+ */
+void shared_hw_notify_joystick_calib_updated(void);
+
 #ifdef __cplusplus
 }
 #endif

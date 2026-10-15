@@ -1,4 +1,4 @@
-namespace HidConfigTool.Core.Interfaces;
+﻿namespace HidConfigTool.Core.Interfaces;
 
 /// <summary>
 /// 定时器服务抽象，用于替代平台特定的 DispatcherTimer

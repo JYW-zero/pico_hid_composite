@@ -11,6 +11,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+/* 单项测试详细信息文本缓冲大小（snprintf 边界保护统一引用） */
+#define FACTORY_TEST_DETAIL_SIZE 64U
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -43,7 +46,7 @@ typedef struct
 {
     factory_test_status_t result;   /* 测试结果 */
     uint32_t duration_ms;           /* 测试耗时（毫秒） */
-    char detail[64];                /* 详细信息 */
+    char detail[FACTORY_TEST_DETAIL_SIZE]; /* 详细信息 */
 } factory_test_item_result_t;
 
 /* 整体测试结果 */

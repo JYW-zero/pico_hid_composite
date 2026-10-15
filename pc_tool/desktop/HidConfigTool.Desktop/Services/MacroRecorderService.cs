@@ -1,4 +1,4 @@
-using HidConfigTool.Core.Interfaces;
+﻿using HidConfigTool.Core.Interfaces;
 using HidConfigTool.Core.Models;
 
 namespace HidConfigTool.Desktop.Services;
@@ -14,6 +14,14 @@ public class MacroRecorderService : IMacroRecorder
     public TimeSpan Duration => TimeSpan.Zero;
 
     public event EventHandler<MacroAction>? ActionRecorded;
+
+    /// <summary>
+    /// 触发 ActionRecorded 事件（派生类可重写以实现实际录制）
+    /// </summary>
+    protected virtual void OnActionRecorded(MacroAction action)
+    {
+        ActionRecorded?.Invoke(this, action);
+    }
 
     public bool StartRecording() => false;
     public List<MacroAction> StopRecording() => new List<MacroAction>();

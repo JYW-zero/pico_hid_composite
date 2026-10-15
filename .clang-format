@@ -1,0 +1,108 @@
+---
+# Clang-Format 配置文件
+# 用于 Pico HID Composite 固件 C 代码格式化
+# 与 .clang-tidy 配合使用，确保代码风格统一
+
+Language: Cpp
+BasedOnStyle: LLVM
+
+# 缩进
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 4
+
+# 行宽
+ColumnLimit: 120
+
+# 大括号风格（嵌入式 C 常用 Allman 风格或 K&R）
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterCaseLabel: false
+  AfterClass: true
+  AfterControlStatement: false
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterUnion: true
+  AfterExternBlock: false
+  BeforeCatch: true
+  BeforeElse: true
+  IndentBraces: false
+  SplitEmptyFunction: true
+  SplitEmptyRecord: true
+  SplitEmptyNamespace: true
+
+# 指针对齐（类型左边，变量名右边，如 uint8_t *data）
+PointerAlignment: Right
+DerivePointerAlignment: false
+
+# 空格
+SpaceBeforeParens: ControlStatements
+SpaceAfterCStyleCast: true
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+SpaceBeforeSquareBrackets: false
+SpaceInEmptyParentheses: false
+
+# 注释
+ReflowComments: true
+SpacesBeforeTrailingComments: 2
+
+# 头文件排序（关键：统一包含顺序）
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
+IncludeCategories:
+  # 1. 标准库头文件（<stdio.h>, <stdlib.h> 等）
+  - Regex: '^<(assert|ctype|errno|float|limits|locale|math|setjmp|signal|stdarg|stddef|stdint|stdio|stdlib|string|time|wchar|wctype)\.h>$'
+    Priority: 1
+  # 2. C++ 标准库（如有）
+  - Regex: '^<(algorithm|array|atomic|bitset|chrono|complex|deque|exception|forward_list|fstream|functional|initializer_list|iomanip|ios|iosfwd|iostream|istream|iterator|limits|list|locale|map|memory|mutex|new|numeric|ostream|queue|random|ratio|regex|set|sstream|stack|stdexcept|streambuf|string|system_error|thread|tuple|type_traits|typeindex|typeinfo|unordered_map|unordered_set|utility|valarray|vector)>$'
+    Priority: 2
+  # 3. Pico SDK / RP2350 硬件头文件
+  - Regex: '^<(pico|hardware|boards|rp2|RP2350)/'
+    Priority: 3
+  # 4. TinyUSB 头文件
+  - Regex: '^<(tusb|bsp|class|device|host|osal|common|toolchain)/'
+    Priority: 4
+  # 5. 项目公共头文件（middleware, protocol, board, app, driver）
+  - Regex: '^"(middleware|protocol|board|app|driver)/'
+    Priority: 5
+  # 6. 其他本地头文件
+  - Regex: '^".*"'
+    Priority: 6
+
+# 头文件包含块之间的空行
+IncludeBlocks: Regroup
+
+# 宏定义
+AlignConsecutiveMacros: AcrossEmptyLines
+AlignConsecutiveAssignments: AcrossEmptyLines
+AlignConsecutiveDeclarations: None
+
+# 枚举和结构体
+AlignConsecutiveBitFields: AcrossEmptyLines
+
+# 函数参数
+AlignConsecutiveFunctionArguments: None
+
+# 断行
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortLambdasOnASingleLine: Inline
+
+# 条件编译
+IndentPPDirectives: AfterHash
+
+# 宏
+MacroBlockBegin: ''
+MacroBlockEnd: ''
+
+# 注释中的 TODO/FIXME
+CommentPragmas: '^ TODO:|^ FIXME:|^ NOTE:|^ HACK:'
+
+# 禁止格式化的区域（通过 // clang-format off / on 控制）
+DisableFormat: false

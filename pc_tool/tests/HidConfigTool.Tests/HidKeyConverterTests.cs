@@ -1,5 +1,4 @@
-using HidConfigTool.Core;
-using System.Windows.Input;
+﻿using HidConfigTool.Core;
 
 namespace HidConfigTool.Tests;
 
@@ -72,34 +71,6 @@ public class HidKeyConverterTests
     {
         byte result = HidKeyConverter.VirtualKeyToHidUsage(0x00);
         Assert.Equal((byte)0, result);
-    }
-
-    [Theory]
-    [InlineData(Key.A, 0x04)]
-    [InlineData(Key.B, 0x05)]
-    [InlineData(Key.Z, 0x1D)]
-    [InlineData(Key.D1, 0x1E)]
-    [InlineData(Key.D0, 0x27)]
-    [InlineData(Key.Enter, 0x28)]
-    [InlineData(Key.Escape, 0x29)]
-    [InlineData(Key.Back, 0x2A)]
-    [InlineData(Key.Tab, 0x2B)]
-    [InlineData(Key.Space, 0x2C)]
-    [InlineData(Key.F1, 0x3A)]
-    [InlineData(Key.F12, 0x45)]
-    [InlineData(Key.LeftCtrl, 0xE0)]
-    [InlineData(Key.LeftShift, 0xE1)]
-    [InlineData(Key.LeftAlt, 0xE2)]
-    [InlineData(Key.LWin, 0xE3)]
-    [InlineData(Key.RightCtrl, 0xE4)]
-    [InlineData(Key.RightShift, 0xE5)]
-    [InlineData(Key.RightAlt, 0xE6)]
-    [InlineData(Key.RWin, 0xE7)]
-    public void KeyToHidUsage_KnownKeys_ReturnsCorrectHidUsage(Key key, byte expectedHidUsage)
-    {
-        int vkCode = KeyInterop.VirtualKeyFromKey(key);
-        byte result = HidKeyConverter.VirtualKeyToHidUsage(vkCode);
-        Assert.Equal(expectedHidUsage, result);
     }
 
     [Fact]

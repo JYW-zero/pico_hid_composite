@@ -1,4 +1,4 @@
-/*
+﻿/*
  * include/board/config.h
  * 设备配置存储模块
  * 使用Flash最后8KB存储用户配置（双备份：A区 + B区）
@@ -11,7 +11,9 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include "board/flash_layout.h"
+#include "version.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,11 +41,8 @@ extern "C" {
 #define CONFIG_FLASH_ADDR_A    flash_layout_config_a_addr()
 #define CONFIG_FLASH_ADDR_B    flash_layout_config_b_addr()
 
-/* 配置魔数：用于识别有效配置 */
-#define CONFIG_MAGIC          0x5A5A5A5AU
-
-/* 配置版本号：升级时用于兼容旧版本配置 */
-#define CONFIG_VERSION        0x0003U
+/* 配置魔数和版本号（统一从 version.h 引用，避免重复定义） */
+/* CONFIG_MAGIC 和 CONFIG_VERSION 已在 version.h 中定义 */
 
 /* 默认DPI值 */
 #define DEFAULT_DPI           1600U
@@ -95,8 +94,45 @@ typedef struct __attribute__((packed))
     uint8_t  encoder_scroll_speed;/* 编码器滚动速度（1-10） */
     uint16_t joystick_sensitivity;/* 摇杆灵敏度（定点数，1.0=1000） */
     uint8_t  reserved2[2];        /* 保留对齐 */
+    /* v4 新增字段 */
+    uint16_t length;              /* 配置结构总长度（字节），用于完整性校验 */
+    uint32_t write_count;         /* 总写入次数，用于磨损均衡统计 */
+    /* v5 新增字段：摇杆校准数据 */
+    uint16_t joystick_center_x;   /* 摇杆 X 轴中心点（ADC 值，0-4095，默认2048） */
+    uint16_t joystick_center_y;   /* 摇杆 Y 轴中心点（ADC 值，0-4095，默认2048） */
+    uint8_t  joystick_calibrated; /* 摇杆是否已校准：0=未校准(用默认),1=已校准 */
+    uint8_t  reserved3[1];        /* 保留对齐；reserved3[0] 复用于存储编码器模式 (encoder_mode_e)，0=KEYBOARD,1=ZOOM,2=VOLUME,3=BRIGHTNESS,4=CUSTOM */
+    /* v6 新增字段：光学传感器高级配置 */
+    uint16_t dpi_slot[4];         /* 4档 DPI 值（每档2字节，默认400/800/1600/3200） */
+    uint8_t  current_dpi_slot;    /* 当前 DPI 档位（0-3，默认2=1600） */
+    uint8_t  lod_level;           /* LOD 静默高度等级（0-3，默认1） */
+    uint8_t  angle_snapping;      /* 角度捕捉开关：0=关闭，1=开启 */
+    uint8_t  dpi_switch_key;      /* DPI 切换按键索引（0xFF=默认按键） */
+    uint8_t  reserved4[2];        /* 保留对齐 */
+    /* v7 新增字段：4层按键映射（Layer2/Layer3） */
+    uint8_t  layer2_keymap[64];   /* 第3层按键映射（扩展层1） */
+    uint8_t  layer3_keymap[64];   /* 第4层按键映射（扩展层2） */
+    /* v8 新增字段：性能监控阈值持久化 */
+    uint16_t perf_thresholds[8];   /* 8个核心任务超时阈值（单位100us，0=禁用告警） */
+    uint8_t  reserved5[2];         /* 保留对齐 */
     uint32_t crc32;              /* CRC32校验值（计算前面所有字段） */
 } device_config_t;
+
+/* ---- 持久化 ABI 红线（功能角色分离，见 docs/FEATURE_ROLE_SPLIT_PLAN.md）----
+ * device_config_t 同时是 Flash 落盘格式与 HID 分块传输载荷，release/dev 双
+ * Profile 编译同一份定义，必须二进制一致：字段只增不删，新字段只能追加在
+ * crc32 之前并提升 CONFIG_VERSION + 提供迁移。下列断言锁定总大小与关键偏移
+ * （数值为首次实测）；任何 ABI 改动都必须显式更新这些断言并验证旧配置可读。 */
+_Static_assert(sizeof(device_config_t) == 1510U,
+               "device_config_t ABI size must stay 1510 (append-only before crc32)");
+_Static_assert(sizeof(device_config_t) == CONFIG_TOTAL_SIZE,
+               "device_config_t size must match CONFIG_TOTAL_SIZE");
+_Static_assert(offsetof(device_config_t, magic) == 0U, "magic must be at offset 0");
+_Static_assert(offsetof(device_config_t, version) == 4U, "version offset drift");
+_Static_assert(offsetof(device_config_t, perf_thresholds) == 1488U,
+               "perf_thresholds offset drift (v8 field)");
+_Static_assert(offsetof(device_config_t, crc32) == 1506U,
+               "crc32 must remain the last field at offset 1506 (1510-4)");
 
 /* ==================== 对外接口 ==================== */
 
@@ -113,8 +149,19 @@ int config_save(const device_config_t* new_config);
 /* 恢复默认配置并保存 */
 void config_reset_default(void);
 
+/* 强制加载默认配置（不保存到Flash，仅内存中生效）
+ * 与 config_reset_default 的区别：本函数不写入Flash
+ */
+void config_load_default(void);
+
 /* 获取默认配置 */
 const device_config_t* config_get_default(void);
+
+/* 获取总写入次数（用于磨损均衡监控） */
+uint32_t config_get_write_count(void);
+
+/* 获取最后一次保存的结果状态（0=成功，其他=失败） */
+int config_get_last_save_status(void);
 
 /* ==================== 写入回调（弱函数） ==================== */
 /* 写入 Flash 前后的回调，用于双核同步等

@@ -1,4 +1,4 @@
-<Solution>
+﻿<Solution>
   <Project Path="shared/HidConfigTool.Core/HidConfigTool.Core.csproj" />
   <Project Path="shared/HidConfigTool.Hid/HidConfigTool.Hid.csproj" />
   <Project Path="shared/HidConfigTool.ViewModels/HidConfigTool.ViewModels.csproj" />

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * tests/test_encoder.c
  * 编码器模块单元测试
  */

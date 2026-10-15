@@ -13,6 +13,8 @@ public sealed class HidSharpDriver : IHidDriver
     private HidStream? _stream;
     private HidDevice? _device;
     private int _featureLength = 65;
+    private int _inputLength = 65;
+    private int _outputLength = 65;
 
     public ushort VendorId { get; private set; }
     public ushort ProductId { get; private set; }
@@ -22,7 +24,18 @@ public sealed class HidSharpDriver : IHidDriver
     {
         var result = new List<HidDeviceInfo>();
 
-        foreach (var device in DeviceList.Local.GetHidDevices(vendorID: vendorId, productID: productId))
+        // 如果 productId 为 0，搜索所有 HID 设备并按 VID 过滤
+        IEnumerable<HidDevice> devices;
+        if (productId == 0)
+        {
+            devices = DeviceList.Local.GetHidDevices().Where(d => d.VendorID == vendorId);
+        }
+        else
+        {
+            devices = DeviceList.Local.GetHidDevices(vendorID: vendorId, productID: productId);
+        }
+
+        foreach (var device in devices)
         {
             try
             {
@@ -78,6 +91,24 @@ public sealed class HidSharpDriver : IHidDriver
                 catch
                 {
                     _featureLength = 65;
+                }
+
+                try
+                {
+                    _inputLength = Math.Max(device.GetMaxInputReportLength(), 65);
+                }
+                catch
+                {
+                    _inputLength = 65;
+                }
+
+                try
+                {
+                    _outputLength = Math.Max(device.GetMaxOutputReportLength(), 65);
+                }
+                catch
+                {
+                    _outputLength = 65;
                 }
 
                 return true;
@@ -201,6 +232,90 @@ public sealed class HidSharpDriver : IHidDriver
             catch
             {
                 return null;
+            }
+        }, cancellationToken);
+    }
+
+    public Task<byte[]?> ReadInputReportAsync(CancellationToken cancellationToken = default)
+    {
+        if (_stream == null)
+            return Task.FromResult<byte[]?>(null);
+
+        return Task.Run(() =>
+        {
+            try
+            {
+                byte[] buffer = new byte[_inputLength];
+                int oldTimeout = _stream.ReadTimeout;
+
+                try
+                {
+                    // 设置较短超时，便于检查取消令牌
+                    _stream.ReadTimeout = 100;
+
+                    while (!cancellationToken.IsCancellationRequested)
+                    {
+                        try
+                        {
+                            int bytesRead = _stream.Read(buffer, 0, buffer.Length);
+                            if (bytesRead > 0)
+                            {
+                                // 返回完整缓冲区（包含 Report ID）
+                                byte[] result = new byte[bytesRead];
+                                Array.Copy(buffer, 0, result, 0, bytesRead);
+                                return (byte[]?)result;
+                            }
+                        }
+                        catch (TimeoutException)
+                        {
+                            // 超时，继续循环检查取消令牌
+                        }
+                    }
+
+                    // 被取消
+                    return null;
+                }
+                finally
+                {
+                    _stream.ReadTimeout = oldTimeout;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                return null;
+            }
+        }, cancellationToken);
+    }
+
+    public Task<bool> SendOutputReportAsync(byte reportId, byte[] data)
+    {
+        return SendOutputReportAsync(reportId, data, CancellationToken.None);
+    }
+
+    public Task<bool> SendOutputReportAsync(byte reportId, byte[] data, CancellationToken cancellationToken)
+    {
+        if (_stream == null)
+            return Task.FromResult(false);
+
+        return Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                // Output Report 缓冲区（第一个字节为 Report ID）
+                byte[] buffer = new byte[_outputLength];
+                buffer[0] = reportId;
+                Array.Copy(data, 0, buffer, 1, Math.Min(data.Length, buffer.Length - 1));
+                _stream.Write(buffer, 0, buffer.Length);
+                return true;
+            }
+            catch
+            {
+                return false;
             }
         }, cancellationToken);
     }

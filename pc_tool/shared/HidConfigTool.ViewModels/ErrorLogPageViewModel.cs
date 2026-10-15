@@ -10,12 +10,10 @@ namespace HidConfigTool.ViewModels;
 /// <summary>
 /// 错误日志页面视图模型
 /// </summary>
-public partial class ErrorLogPageViewModel : ObservableObject, IDisposable
+public partial class ErrorLogPageViewModel : PageViewModelBase
 {
-    private readonly IDeviceService _deviceService;
     private readonly IDialogService _dialogService;
     private readonly IFileDialogService _fileDialogService;
-    private bool _disposed;
 
     // 所有日志的完整列表（用于筛选）
     private List<ErrorLogEntry> _allLogs = new();
@@ -45,12 +43,6 @@ public partial class ErrorLogPageViewModel : ObservableObject, IDisposable
     private bool _isLoading;
 
     /// <summary>
-    /// 是否有设备连接
-    /// </summary>
-    [ObservableProperty]
-    private bool _isDeviceConnected;
-
-    /// <summary>
     /// 选中的日志
     /// </summary>
     [ObservableProperty]
@@ -72,28 +64,22 @@ public partial class ErrorLogPageViewModel : ObservableObject, IDisposable
     /// 构造函数
     /// </summary>
     public ErrorLogPageViewModel(IDeviceService deviceService, IDialogService dialogService, IFileDialogService fileDialogService)
+        : base(deviceService)
     {
-        _deviceService = deviceService;
         _dialogService = dialogService;
         _fileDialogService = fileDialogService;
-        _deviceService.DeviceConnectionChanged += OnDeviceConnectionChanged;
-
-        IsDeviceConnected = _deviceService.IsConnected;
-        AutoExportEnabled = _deviceService.AutoExportErrorLog;
+        AutoExportEnabled = DeviceService.AutoExportErrorLog;
     }
 
     /// <summary>
-    /// 设备连接状态变化
+    /// 设备已断开（重写基类虚方法）
     /// </summary>
-    private void OnDeviceConnectionChanged(object? sender, bool isConnected)
+    protected override Task OnDeviceDisconnectedAsync()
     {
-        IsDeviceConnected = isConnected;
-        if (!isConnected)
-        {
-            Logs.Clear();
-            TotalLogCount = 0;
-            TotalFaultCount = 0;
-        }
+        Logs.Clear();
+        TotalLogCount = 0;
+        TotalFaultCount = 0;
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -109,7 +95,7 @@ public partial class ErrorLogPageViewModel : ObservableObject, IDisposable
         try
         {
             // 获取所有日志
-            var logs = await _deviceService.GetAllErrorLogsAsync();
+            var logs = await DeviceService.GetAllErrorLogsAsync();
             if (logs != null)
             {
                 _allLogs = logs.ToList();
@@ -117,7 +103,7 @@ public partial class ErrorLogPageViewModel : ObservableObject, IDisposable
             }
 
             // 获取日志信息
-            var info = await _deviceService.GetErrorLogInfoAsync();
+            var info = await DeviceService.GetErrorLogInfoAsync();
             if (info != null)
             {
                 TotalLogCount = info.LogCount;
@@ -172,7 +158,7 @@ public partial class ErrorLogPageViewModel : ObservableObject, IDisposable
     /// </summary>
     partial void OnAutoExportEnabledChanged(bool value)
     {
-        _deviceService.AutoExportErrorLog = value;
+        DeviceService.AutoExportErrorLog = value;
     }
 
     /// <summary>
@@ -191,7 +177,7 @@ public partial class ErrorLogPageViewModel : ObservableObject, IDisposable
         IsLoading = true;
         try
         {
-            bool success = await _deviceService.ClearErrorLogsAsync();
+            bool success = await DeviceService.ClearErrorLogsAsync();
             if (success)
             {
                 _allLogs.Clear();
@@ -297,13 +283,4 @@ public partial class ErrorLogPageViewModel : ObservableObject, IDisposable
         }
     }
 
-    /// <summary>
-    /// 释放资源，取消事件订阅，防止内存泄漏
-    /// </summary>
-    public void Dispose()
-    {
-        if (_disposed) return;
-        _disposed = true;
-        _deviceService.DeviceConnectionChanged -= OnDeviceConnectionChanged;
-    }
 }

@@ -6,9 +6,8 @@ namespace HidConfigTool.ViewModels;
 /// <summary>
 /// 编码器设置页面视图模型
 /// </summary>
-public partial class EncoderPageViewModel : ObservableObject
+public partial class EncoderPageViewModel : PageViewModelBase
 {
-    private readonly IDeviceService _deviceService;
     private bool _isInitialized;
     private bool _isSaving;
     private CancellationTokenSource? _saveDebounceCts;
@@ -22,17 +21,15 @@ public partial class EncoderPageViewModel : ObservableObject
     [ObservableProperty]
     private int _scrollSpeed = 3;
 
-    [ObservableProperty]
-    private string _statusMessage = "就绪";
-
     public EncoderPageViewModel(IDeviceService deviceService)
+        : base(deviceService)
     {
-        _deviceService = deviceService;
+        StatusMessage = "就绪";
 
         // 从当前配置加载
-        if (_deviceService.IsConnected && _deviceService.CurrentConfig != null)
+        if (DeviceService.IsConnected && DeviceService.CurrentConfig != null)
         {
-            var cfg = _deviceService.CurrentConfig;
+            var cfg = DeviceService.CurrentConfig;
             // 防御性修复：v3新字段可能为0（旧配置），重置为默认值
             if (cfg.EncoderStepsPerTick == 0)
                 cfg.EncoderStepsPerTick = 1;
@@ -90,7 +87,7 @@ public partial class EncoderPageViewModel : ObservableObject
     /// </summary>
     private async Task SaveConfigAsync()
     {
-        if (!_deviceService.IsConnected || _isSaving)
+        if (!DeviceService.IsConnected || _isSaving)
             return;
 
         try
@@ -98,7 +95,7 @@ public partial class EncoderPageViewModel : ObservableObject
             _isSaving = true;
 
             // 直接从ViewModel属性更新CurrentConfig所有字段
-            var cfg = _deviceService.CurrentConfig;
+            var cfg = DeviceService.CurrentConfig;
             if (cfg != null)
             {
                 cfg.EncoderReverse = ReverseDirection;
@@ -106,7 +103,7 @@ public partial class EncoderPageViewModel : ObservableObject
                 cfg.EncoderScrollSpeed = Math.Clamp(ScrollSpeed, 1, 10);
             }
 
-            bool result = await _deviceService.SetEncoderReverseAsync(ReverseDirection);
+            bool result = await DeviceService.SetEncoderReverseAsync(ReverseDirection);
             if (result)
             {
                 StatusMessage = $"配置已保存: 反转={ReverseDirection}, 步长={StepsPerTick}, 速度={ScrollSpeed}";

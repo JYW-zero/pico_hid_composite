@@ -1,4 +1,4 @@
-namespace HidConfigTool.Core.Models;
+﻿namespace HidConfigTool.Core.Models;
 
 /// <summary>
 /// 按键定义
