@@ -100,7 +100,9 @@ cmake-variants.json
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
+# 忽略 CMake 自动生成的 Makefile（build 目录），但保留手写的测试 Makefile
 Makefile
+!firmware/tests/Makefile
 *.ninja
 .ninja_*
 compile_commands.json
