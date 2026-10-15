@@ -3,7 +3,8 @@
 # ========================================
 
 CC = gcc
-CFLAGS = -I../include -Iunity/src -Imock -Wall -Wextra -std=c11
+UNITY_DEFS = -DUNITY_INT_WIDTH=32 -DUNITY_POINTER_WIDTH=32 -DUNITY_SUPPORT_64
+CFLAGS = -I../include -Iunity/src -Imock $(UNITY_DEFS) -Wno-error -std=c11
 # 覆盖率编译选项
 COVERAGE_CFLAGS = --coverage -O0 -g
 LDFLAGS =
@@ -19,9 +20,17 @@ SRCS = unity/src/unity.c \
        ../src/middleware/debounce.c \
        ../src/middleware/fault.c \
        ../src/middleware/scheduler.c \
+       ../src/middleware/crc32.c \
        ../src/app/keymap.c \
        ../src/app/macro.c \
        ../src/device/encoder.c \
+       ../src/protocol/config_validator.c \
+       ../src/protocol/config_block_receiver.c \
+       ../src/protocol/config_hid_helpers.c \
+       ../src/protocol/config_lock.c \
+       ../src/protocol/command_confirm.c \
+       ../src/protocol/capability.c \
+       ../src/protocol/command_gate.c \
        test_debounce.c \
        test_keymap.c \
        test_encoder.c \
@@ -30,6 +39,13 @@ SRCS = unity/src/unity.c \
        test_crc.c \
        test_macro.c \
        test_fault.c \
+       test_config_validator.c \
+       test_config_block_receiver.c \
+       test_config_hid_helpers.c \
+       test_config_lock.c \
+       test_command_confirm.c \
+       test_capability.c \
+       test_command_gate.c \
        test_runner.c
 OUTPUT = run_tests
 
