@@ -328,9 +328,9 @@ class USBChecker:
 
     def _parse_string_descriptors(self, content: str):
         """解析字符串描述符"""
-        # 提取 string_desc_arr 数组
+        # 提取 string_desc_arr 数组（兼容多语言版本 string_desc_arr_en / string_desc_arr_zh）
         arr_match = re.search(
-            r"char\s+const\s*\*\s*string_desc_arr\s*\[\s*\]\s*=\s*\{(.*?)\};",
+            r"char\s+const\s*\*\s*string_desc_arr(?:_[a-zA-Z]+)?\s*\[\s*\]\s*=\s*\{(.*?)\};",
             content,
             re.DOTALL,
         )

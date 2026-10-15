@@ -10,6 +10,12 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
+
+# Windows CI / 终端默认 cp1252/gbk，中文 print 会 UnicodeEncodeError
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # factorytool/
 DEFAULT_CONFIG = os.path.join(_ROOT, "configs", "model_pico2.json")
