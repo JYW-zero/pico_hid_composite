@@ -21,7 +21,7 @@ jobs:
   # 固件构建 + Unity 测试 + cppcheck 静态分析
   # ============================================================
   firmware:
-    name: Firmware (Build + Test + Analysis)
+    name: 固件 (RP2350)
     runs-on: ubuntu-latest
 
     steps:
@@ -364,7 +364,7 @@ jobs:
   # 上位机构建 + 单元测试 + 集成测试 + Roslyn Analyzers
   # ============================================================
   pc-tool:
-    name: PC Tool (Build + Test + Analysis)
+    name: PC 工具 (Windows/.NET 10)
     runs-on: windows-latest
 
     steps:
