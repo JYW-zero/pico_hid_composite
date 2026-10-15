@@ -4,7 +4,7 @@
 
 CC = gcc
 UNITY_DEFS = -DUNITY_INT_WIDTH=32 -DUNITY_LONG_WIDTH=32 -DUNITY_POINTER_WIDTH=32
-CFLAGS = -I../include -Iunity/src -Imock $(UNITY_DEFS) -Wno-error -std=c11
+CFLAGS = -I../include -Iunity/src -Imock $(UNITY_DEFS) -Wno-error -std=gnu11
 # 覆盖率编译选项
 COVERAGE_CFLAGS = --coverage -O0 -g
 LDFLAGS =
