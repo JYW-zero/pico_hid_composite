@@ -253,7 +253,7 @@ jobs:
           firmware/tests/coverage/
 
     - name: Upload coverage report (Codecov)
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v7
       with:
         files: firmware/tests/coverage/coverage.xml
         flags: firmware
@@ -543,7 +543,7 @@ jobs:
     # 9.5 上传覆盖率报告（Codecov）
     # --------------------------------------------------------
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v7
       with:
         files: pc_tool/tests/HidConfigTool.Tests/TestResults/**/coverage.cobertura.xml,pc_tool/tests/HidConfigTool.IntegrationTests/TestResults/**/coverage.cobertura.xml
         flags: pc-tool
